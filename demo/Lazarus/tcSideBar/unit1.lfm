@@ -1,0 +1,202 @@
+object Form1: TForm1
+  Left = 360
+  Height = 569
+  Top = 250
+  Width = 962
+  Caption = 'Form1'
+  ClientHeight = 569
+  ClientWidth = 962
+  LCLVersion = '5.0.1.0'
+  OnCreate = FormCreate
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 24
+    Top = 545
+    Width = 962
+    Panels = <>
+  end
+  object CSideBar1: TCSideBar
+    Left = 0
+    Height = 545
+    Top = 0
+    Width = 404
+    ActivePage = CSideBarPage1
+    Images = ImageList1
+    object CSideBarPage1: TCSideBarPage
+      Left = 40
+      Height = 513
+      Top = 32
+      Width = 356
+      Caption = 'File Explorer'
+      ImageIndex = 0
+      PanelWidth = 356
+      Color = clBtnFace
+      object CListView1: TCListView
+        Left = 0
+        Height = 234
+        Top = 279
+        Width = 356
+        Align = alBottom
+        AutoSizeColumns = False
+        BorderStyle = bsNone
+        Color = clDefault
+        Columns = <        
+          item
+            Caption = '名前'
+            ColumnID = cidFileName
+          end        
+          item
+            Alignment = taRightJustify
+            Caption = 'サイズ'
+            ColumnID = cidSize
+          end        
+          item
+            Caption = '型'
+            ColumnID = cidType
+          end        
+          item
+            Caption = '更新日時'
+            Width = 140
+          end>
+        MultiSelect = True
+        TabOrder = 0
+        ObjectTypes = [otFolders, otNonFolders]
+        ShellTreeView = CTreeView1
+        OnDblClick = CListView1DblClick
+      end
+      object Splitter1: TSplitter
+        Cursor = crVSplit
+        Left = 0
+        Height = 5
+        Top = 274
+        Width = 356
+        Align = alBottom
+        ResizeAnchor = akBottom
+        ResizeStyle = rsLine
+      end
+      object CTreeView1: TCTreeView
+        Left = 0
+        Height = 274
+        Top = 0
+        Width = 356
+        Align = alClient
+        BorderStyle = bsNone
+        FileSortType = fstCustom
+        ReadOnly = False
+        RightClickSelect = True
+        ShowLines = False
+        TabOrder = 2
+        Options = [tvoAutoItemHeight, tvoHideSelection, tvoKeepCollapsedNodes, tvoRightClickSelect, tvoShowButtons, tvoShowRoot, tvoToolTips, tvoThemedDraw]
+        ShellListView = CListView1
+      end
+    end
+    object CSideBarPage2: TCSideBarPage
+      Left = 40
+      Height = 513
+      Top = 32
+      Width = 361
+      Caption = 'CSideBarPage2'
+      ImageIndex = 1
+      PanelWidth = 361
+      Color = clBtnFace
+      object CTabBrowser1: TCTabBrowser
+        Left = 67
+        Height = 200
+        Top = 112
+        Width = 200
+        Options = [nboShowCloseButtons]
+        TabOrder = 0
+        SavePath = 'C:\app\laz\test\cx_component_sample\tcSideBar'
+      end
+      object Panel1: TPanel
+        Left = 0
+        Height = 23
+        Top = 0
+        Width = 361
+        Align = alTop
+        BevelOuter = bvNone
+        Caption = 'Panel1'
+        ClientHeight = 23
+        ClientWidth = 361
+        ParentBackground = False
+        TabOrder = 1
+        object Edit1: TEdit
+          Left = 0
+          Height = 23
+          Top = 0
+          Width = 338
+          Align = alClient
+          BorderStyle = bsNone
+          TabOrder = 0
+          Text = 'Edit1'
+          OnKeyDown = Edit1KeyDown
+        end
+        object SpeedButton1: TSpeedButton
+          Left = 338
+          Height = 23
+          Top = 0
+          Width = 23
+          Align = alRight
+          Images = ImageList1
+          ImageIndex = 4
+          OnClick = SpeedButton1Click
+        end
+      end
+    end
+  end
+  object cm1: TCMonacoEditor
+    Left = 429
+    Height = 300
+    Top = 126
+    Width = 500
+    Theme = ctLight
+    DefaultLanguage = 'pascal'
+    QuotePrefix = '> '
+    SelectionColorStyle = scPurple
+    TabOrder = 2
+    TabStop = True
+    OnChange = cm1Change
+  end
+  object ImageList1: TImageList
+    Left = 492
+    Top = 33
+    Bitmap = {
+      4C7A0600000010000000100000004D0400000000000078DAED988DD1AC2A0C86
+      2985122C21255802255802255802255802255882256C079CBC81F821AB2EEEB9
+      F7CE9D33C7998CBBCA93849F24A031FFD945459E7344D1C79888EFFA9FEFFE83
+      8DCC799F880577833BEBF129A5375E6DB0B41C559C4ACB4B1BBC830EFE1DF98E
+      6B7FDE48C37B5FDA2A178B9ED6EEAD7DD1926EB92B1EFFD1F7DDEE0D7BC19BC3
+      78DDB0787FB116C4872BBE70FE76B19CD8EFE10E3E14FE21572D25FA8AFB3F5C
+      D65AEEB6E7F54F29049F82A384DFDCA78FFD01176348F332F1E0F11878932C0B
+      3923BFC9D3D5BC0BFB7ABD52DC620AB06D33D38A25F3A603ECC2369779125FCF
+      B89D675FC8FEE8407F35E6609F0289BF9EED70A314F81E6D16D541F0C19AA8B6
+      D775117E980769BF0E43DA4C66A007FA1CE5B1505E7D80BFB02BF69765F75F7D
+      C098A16FF334A5C03A552FE571F033F779DBB2FFE83FFC573F27FEFF7A2D1205
+      DBE6D2340D29A24F26FBA37C084EE62BF0DC296FBD4DEB3A231309ABE23016E0
+      ED917F719F21C13BF639FBFD7A4DBB6D15F80DFBBC9884C7BA425F63196F15F8
+      80F557F321B0DDE23F655E2EC7B66A16029DE8C3380E3C7E038FAB91DFCE39D1
+      51C7A7AC01B247BE5A2FF0D55B2BB9719E577EEDDED62074046EB395390A658E
+      82A984DF0FC32A72A643528731D197F1A985769F2DB7D912849BA79B5AEB1BA9
+      BDE5F7C86D36FE6B35DB102FD3F0340F0A47EC1B9998ACF4B18B3F702A9D3CB3
+      F6C0D53C72B92F75AD9692E385E7A9BFE4A709F1B91D0497FFA92DBCB4ECEFF0
+      B7FE8FE3F891BFF31F7C08E16BFF95AF75F4FB1F0EBCEAF8ECBF4FD63A19BB9A
+      55B9F6FF9EABA5E2B91490C4A2E821EA12F4EB676D921FC7999FFB6E41CAFAA7
+      6B3FFA15CB1EF04ACA1EFCF4D23A7A77CDF38C718ADFF2EA47AD03B997E78C1F
+      63FFEC656C61E7ECD2B9C31C97B9A76DC3BA0A875A835A59C75E7BE1592EFF14
+      33B71DEA5CAE75A8A1EBA91FCAC3DF9AC77FD9CBB0A07E2CBC27A8634FF70AEF
+      7CF88A47FD459D6E79D45AACD33677B43CC69FC73BCE73AEB36DAD6DF3D719AF
+      7914ED3137BA0E57AEB5CE1C75DCF0FBFAC13B8CFB469B48ADA397171DCBBB8E
+      1EFE30CF713BE8D033DA198F752BFB9346C661DC75F0A1767FFEA4B65AAEF91E
+      F9ED73CD474091712E9A7266361D7BFF9A25CC1FF7CF31EB02F6942119EACB57
+      54F273CA674CDEC7B97CA60E1D7B09F6D35773807CECCA59187C55B32F79F51D
+      A2B6BBF93C6ED2160C6C87C2621CAEF25E7B76B4D85FE4F6BCFF2CFA3ACEA29A
+      8BC4CFA24358E18963EAFAFCE59C8D7A62C67E5EEA1474B07DF8A1EFAE74701B
+      8F77B94D8E61C40BD6E9C0E702E5D94E3AB7EF22DAAA8E9A87EFCA621C90B33F
+      E9287E4A0EEC61AFFC78C29EE978CAB63ABE616B1D5FB16038920CBE85E5EF61
+      CFE21FF1C32387351F10478865E4939EF8AFE257E64FBFC55C7C737A8BFF2AF7
+      4AFC63ED2BDF13FF72E2CD527F47EAE2316E88F7C2D4FDC798988EF8B7B05118
+      897FC470E7B7288D7FF1B3F82C821CF630FE4507E61E76FFC6FF1F1BFFBF0057
+      95180D
+    }
+  end
+end

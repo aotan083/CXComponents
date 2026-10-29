@@ -1,0 +1,144 @@
+object Form1: TForm1
+  Left = 773
+  Height = 480
+  Top = 440
+  Width = 583
+  Caption = 'AppCenter'
+  ClientHeight = 480
+  ClientWidth = 583
+  LCLVersion = '5.0.1.0'
+  OnCreate = FormCreate
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 24
+    Top = 456
+    Width = 583
+    Panels = <>
+  end
+  object CTitleBar1: TCTitleBar
+    Left = 0
+    Height = 30
+    Top = 0
+    Width = 583
+    object Panel1: TPanel
+      Left = 337
+      Height = 30
+      Top = 0
+      Width = 246
+      Align = alRight
+      BevelOuter = bvNone
+      Caption = 'Panel1'
+      ClientHeight = 30
+      ClientWidth = 246
+      ParentBackground = False
+      TabOrder = 1
+      object Edit1: TEdit
+        Left = 0
+        Height = 30
+        Top = 0
+        Width = 223
+        Align = alClient
+        Font.CharSet = SHIFTJIS_CHARSET
+        Font.Height = -16
+        Font.Name = 'ＭＳ 明朝'
+        Font.Pitch = fpFixed
+        Font.Quality = fqDraft
+        ParentFont = False
+        TabOrder = 0
+        Text = 'Edit1'
+      end
+      object SpeedButton1: TSpeedButton
+        Left = 223
+        Height = 30
+        Top = 0
+        Width = 23
+        Align = alRight
+        OnClick = SpeedButton1Click
+      end
+    end
+  end
+  object CPageControl1: TCPageControl
+    Left = 39
+    Height = 302
+    Top = 114
+    Width = 483
+    ActivePage = CTabSheet2
+    TabIndex = 1
+    Images = ImageList1
+    TitleBar = CTitleBar1
+    TabOrder = 2
+    TabStop = True
+    object CTabSheet1: TCTabSheet
+      Caption = 'CTabSheet1'
+      ImageIndex = 0
+      ClientHeight = 302
+      ClientWidth = 483
+      inline CSynEdit1: TCSynEdit
+        Left = 30
+        Height = 222
+        Top = 42
+        Width = 338
+        Font.Height = -16
+        Font.Name = 'BIZ UDGothic'
+        Font.Quality = fqCleartypeNatural
+        TabOrder = 0
+        Lines.Strings = (
+          'CSynEdit1'
+        )
+        FileName = 'C:\app\laz\lazarus50RC1\無題.txt'
+        CaretY = 1
+        CaretX = 1
+        inline SynLeftGutterPartList1: TSynGutterPartList
+          object SynGutterMarks1: TSynGutterMarks
+          end
+          object SynGutterLineNumber1: TSynGutterLineNumber
+          end
+          object SynGutterChanges1: TSynGutterChanges
+          end
+          object SynGutterSeparator1: TSynGutterSeparator
+          end
+          object SynGutterCodeFolding1: TSynGutterCodeFolding
+          end
+        end
+      end
+    end
+    object CTabSheet2: TCTabSheet
+      Caption = 'CTabSheet2'
+      ImageIndex = 1
+      ClientHeight = 302
+      ClientWidth = 483
+      object CTabBrowser1: TCTabBrowser
+        Left = 60
+        Height = 200
+        Top = 84
+        Width = 200
+        Options = [nboShowCloseButtons]
+        TabOrder = 0
+        SavePath = 'C:\app\laz\components5x\cxdsgn'
+      end
+    end
+  end
+  object ImageList1: TImageList
+    Left = 546
+    Top = 48
+    Bitmap = {
+      4C7A020000001000000010000000F20100000000000078DAB5950D91AD300C85
+      2B251290100948A804244442254402122A010948C0415E4EA06CD9FBC7BE9DED
+      CC99CB857EC949096D4A6F071FFAE970862B2535BF969F729CC43855A3B4DEE5
+      2F5CD34DDE59BA703DCFCC26220FC2FDC613F14B7E9A265BD7F5220CC438BC09
+      11FD867FEB7F1CC78FFC3BFFE055F5BFFD37BE8F71DFBF5EF816E3B37F31A21C
+      6BD7B34DAFFDBFE77A757CA2845E608B38DE177784BABE7A93651C8BDF97DBF2
+      9A6BFA83E135B0D75645D8EB14D38CFE0FCF1FBF4370B5AA957932C3F721C9C8
+      C539C5354B7C33FC8ADDB6CDEA5A4D919B76E6BB88D3430CB0B3E79CCB145E9F
+      7127EF5E98BE62A05E371D3D81FCAC1C7EC5F3F82453FFF58D2CD462303C50AA
+      2DF7B2CCC10F6588F9CB30D89A760671102FF3BE168D6F1EE0177923FF3C9FFE
+      9B07AC196A2BE8498FD9E2F2BE0E520AF687DD3FEA87FFE673F2FFDB066FE273
+      D0D78355D494763F8D57CDF1BED4DF5DE349C896A5385B836DCA580BF074E537
+      AF1952C9EE79F7BD6DD399BB09BE91DF9B2978F4156AADC77A37C103FAAFE755
+      3DEFE19F773E46F65C3D0B21266A18C7C1D76FF0754D719D738E18FDB9103DC0
+      74E5BB7E8157DF240C7D52CAE28FF3430F2286FA9CF578477ABC234D9DFCF930
+      2CA16731F0DF6F5439D6A7179F9EC9E7F8B91467DB79063D3BB7E59B7AB7FE1C
+      FB17D57FB7C12351
+    }
+  end
+end

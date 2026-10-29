@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="6">
+    <Name Value="cx"/>
+    <Author Value="aotan083"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <OtherUnitFiles Value="../source"/>
+        <UnitOutputDirectory Value="lib/cx/$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+    </CompilerOptions>
+    <Description Value="CX runtime package: all CX components (TCTreeView, TCListView, TCSynEdit, TCCheckListBox, TCGroupBox, TCCheckGroupBox, TCSideBar, TCPageControl, TCTitleBar, TCTabBrowser, TCMonacoEditor, TCMFindDialog, editor actions, TCBookmark)"/>
+    <License Value="MIT License. Copyright (c) 2026 aotan083"/>
+    <Version Major="1"/>
+    <Files>
+      <Item>
+        <Filename Value="../source/CTreeView.pas"/>
+        <UnitName Value="CTreeView"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CListView.pas"/>
+        <UnitName Value="CListView"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CShellNotify.pas"/>
+        <UnitName Value="CShellNotify"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CShellMenu.pas"/>
+        <UnitName Value="CShellMenu"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CShellDragDrop.pas"/>
+        <UnitName Value="CShellDragDrop"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CShellOleDrop.pas"/>
+        <UnitName Value="CShellOleDrop"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CShellOleDrag.pas"/>
+        <UnitName Value="CShellOleDrag"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/cSynedit.pas"/>
+        <UnitName Value="csynedit"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CCheckListBox.pas"/>
+        <UnitName Value="CCheckListBox"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCGroupBox.pas"/>
+        <UnitName Value="uCGroupBox"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCCheckGroupBox.pas"/>
+        <UnitName Value="uCCheckGroupBox"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCSideBar.pas"/>
+        <UnitName Value="uCSideBar"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCTitleBar.pas"/>
+        <UnitName Value="uCTitleBar"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCPageControl.pas"/>
+        <UnitName Value="uCPageControl"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCXRuntime.pas"/>
+        <UnitName Value="uCXRuntime"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCTabBrowser.pas"/>
+        <UnitName Value="uCTabBrowser"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCmmonacoview.pas"/>
+        <UnitName Value="ucmmonacoview"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCmdpreview.pas"/>
+        <UnitName Value="ucmdpreview"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CMonacoTabs.pas"/>
+        <UnitName Value="CMonacoTabs"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CMonacoPreview.pas"/>
+        <UnitName Value="CMonacoPreview"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CMonacoFindDlg.pas"/>
+        <UnitName Value="CMonacoFindDlg"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCmonacos.pas"/>
+        <UnitName Value="uCmonacos"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/CMonacoActions.pas"/>
+        <UnitName Value="CMonacoActions"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCbookmark.pas"/>
+        <UnitName Value="uCbookmark"/>
+      </Item>
+    </Files>
+    <RequiredPkgs>
+      <Item>
+        <PackageName Value="SynEdit"/>
+      </Item>
+      <Item>
+        <PackageName Value="atflatcontrols_package"/>
+      </Item>
+      <Item>
+        <PackageName Value="WebView4Delphi"/>
+      </Item>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+      <UseFileFilters Value="True"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

@@ -1,0 +1,27 @@
+object Form1: TForm1
+  Left = 373
+  Height = 512
+  Top = 250
+  Width = 651
+  Caption = 'Form1'
+  ClientHeight = 512
+  ClientWidth = 651
+  LCLVersion = '5.0.1.0'
+  OnCreate = FormCreate
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 24
+    Top = 488
+    Width = 651
+    Panels = <>
+  end
+  object CTabBrowser1: TCTabBrowser
+    Left = 42
+    Height = 200
+    Top = 54
+    Width = 200
+    Options = [nboShowCloseButtons]
+    TabOrder = 1
+    SavePath = 'C:\app\laz\lazarus50RC1'
+  end
+end

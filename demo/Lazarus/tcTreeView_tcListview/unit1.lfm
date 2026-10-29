@@ -1,0 +1,68 @@
+object Form1: TForm1
+  Left = 395
+  Height = 450
+  Top = 250
+  Width = 847
+  Caption = 'Form1'
+  ClientHeight = 450
+  ClientWidth = 847
+  LCLVersion = '5.0.1.0'
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 24
+    Top = 426
+    Width = 847
+    Panels = <>
+  end
+  object CTreeView1: TCTreeView
+    Left = 0
+    Height = 426
+    Top = 0
+    Width = 373
+    Align = alLeft
+    FileSortType = fstCustom
+    ReadOnly = False
+    RightClickSelect = True
+    ShowLines = False
+    TabOrder = 1
+    Options = [tvoAutoItemHeight, tvoHideSelection, tvoKeepCollapsedNodes, tvoRightClickSelect, tvoShowButtons, tvoShowRoot, tvoToolTips, tvoThemedDraw]
+    ShellListView = CListView1
+  end
+  object Splitter1: TSplitter
+    Left = 373
+    Height = 426
+    Top = 0
+    Width = 5
+  end
+  object CListView1: TCListView
+    Left = 378
+    Height = 426
+    Top = 0
+    Width = 469
+    Align = alClient
+    AutoSizeColumns = False
+    Color = clDefault
+    Columns = <    
+      item
+        Caption = '名前'
+        ColumnID = cidFileName
+      end    
+      item
+        Alignment = taRightJustify
+        Caption = 'サイズ'
+        ColumnID = cidSize
+      end    
+      item
+        Caption = '種類'
+        ColumnID = cidType
+      end    
+      item
+        Caption = '更新日時'
+        Width = 140
+      end>
+    MultiSelect = True
+    TabOrder = 3
+    ObjectTypes = [otFolders, otNonFolders]
+    ShellTreeView = CTreeView1
+  end
+end

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 aotan083 / SPDX-License-Identifier: MIT -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>TCMonacoEditor</title>
+<style>
+  html, body, #c { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  body { background: #fff; }
+  @media (prefers-color-scheme: dark) { body { background: #1e1e1e; } }
+</style>
+</head>
+<body>
+<div id="c"></div>
+<script src="vs/loader.js"></script>
+<script>
+(function () {
+  'use strict';
+  var SEP = '\u0001';
+  var wv = window.chrome && window.chrome.webview;
+  var base = location.href.replace(/[?#].*$/, '').replace(/[^\/]*$/, '');
+  var lang = new URLSearchParams(location.search).get('lang');
+
+  function post() {
+    if (wv) wv.postMessage(Array.prototype.slice.call(arguments).join(SEP));
+  }
+  window.addEventListener('error', function (e) { post('error', e.message); });
+
+  self.MonacoEnvironment = {
+    getWorkerUrl: function () {
+      var code = "self.MonacoEnvironment={baseUrl:'" + base + "'};" +
+                 "importScripts('" + base + "vs/base/worker/workerMain.js');";
+      return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(code);
+    }
+  };
+
+  require.config({ paths: { vs: base + 'vs' } });
+  if (lang === 'ja') require.config({ 'vs/nls': { availableLanguages: { '*': 'ja' } } });
+
+  require(['vs/editor/editor.main'], function () {
+    var KM = monaco.KeyMod, KC = monaco.KeyCode;
+    var ed, themeMode = 'auto', fontSize = 14;
+    var colors = { hitL: '#FFEE58', hitD: '#7D6608', curL: '#EAF2FF', curD: '#2C313C', selL: '#ADD6FF', selD: '#264F78' };   // 【2.13】selL・selD：選択範囲
+    var programmatic = 0, changeTimer = null;
+    var overwrite = false, inOW = false, composing = false;
+    var tabSize = 4;
+    var lastCanUndo = null;         // 【段階6】最後に通知した「Undo できるか」
+    var lastCanRedo = null;         // 【2.17】最後に通知した「Redo できるか」
+    var docs = {}, cur = null;      // 文書(id -> {id, lang, model, view, saveAlt, lastMod}) と アクティブ文書
+    var osDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+    // ---------- テーマ ----------
+    function applyTheme() {
+      var dark = themeMode === 'vs-dark' || (themeMode === 'auto' && osDark.matches);
+      monaco.editor.defineTheme('cm-light', { base: 'vs', inherit: true, rules: [], colors: {
+        'editor.selectionBackground': colors.selL,          // 【2.13】
+        'editor.inactiveSelectionBackground': colors.hitL,
+        'editor.lineHighlightBackground': colors.curL,
+        'editor.lineHighlightBorder': '#00000000' } });
+      monaco.editor.defineTheme('cm-dark', { base: 'vs-dark', inherit: true, rules: [], colors: {
+        'editor.selectionBackground': colors.selD,          // 【2.13】
+        'editor.inactiveSelectionBackground': colors.hitD,
+        'editor.lineHighlightBackground': colors.curD,
+        'editor.lineHighlightBorder': '#00000000' } });
+      monaco.editor.setTheme(dark ? 'cm-dark' : 'cm-light');
+      document.body.style.background = dark ? '#1e1e1e' : '#fff';
+    }
+    osDark.addEventListener('change', function () {
+      applyTheme();
+      post('oschange', osDark.matches ? 1 : 0);   // タブ・スプリッター・背景の色を、Pascal 側で塗り直す
+    });
+
+    ed = monaco.editor.create(document.getElementById('c'), {
+      model: null,
+      automaticLayout: true,
+      minimap: { enabled: false },
+      lineNumbers: 'off',
+      wordWrap: 'off',
+      fontSize: fontSize,
+      fontFamily: "Consolas, 'BIZ UDGothic', 'MS Gothic', monospace",
+      renderLineHighlight: 'all',
+      scrollBeyondLastLine: false,
+      mouseWheelZoom: false,
+      quickSuggestions: false,
+      suggestOnTriggerCharacters: false,
+      wordBasedSuggestions: 'off',
+      parameterHints: { enabled: false },
+      occurrencesHighlight: 'off',
+      autoClosingBrackets: 'never',
+      autoClosingQuotes: 'never',
+      autoSurround: 'never',
+      stickyScroll: { enabled: false },
+      unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false, nonBasicASCII: false },
+      cursorStyle: 'line',
+      contextmenu: false,          // 右クリックメニューは Lazarus 側の TPopupMenu を使う
+      detectIndentation: false,
+      tabSize: 4
+    });
+    applyTheme();
+
+    function model() { return ed.getModel(); }
+
+    // ---------- 文書管理 ----------
+    function makeModel(text, lg) {
+      var m = monaco.editor.createModel(text, lg);
+      if (text.indexOf('\n') < 0) m.setEOL(monaco.editor.EndOfLineSequence.CRLF);
+      return m;
+    }
+    function newDoc(id, lg, text) {
+      var m = makeModel(text, lg);
+      docs[id] = { id: id, lang: lg, model: m, view: null, saveAlt: m.getAlternativeVersionId(), lastMod: false };
+    }
+    function flushChange() {
+      if (changeTimer) {
+        clearTimeout(changeTimer); changeTimer = null;
+        if (cur) post('change', cur.id, cur.model.getValue());
+      }
+    }
+    function activate(id) {
+      var d = docs[id];
+      if (!d || d === cur) return;
+      flushChange();
+      if (cur) cur.view = ed.saveViewState();
+      cur = d;
+      ed.setModel(d.model);
+      if (d.view) ed.restoreViewState(d.view);
+      sendCursor();
+      sendCanUndo(true);
+      setTimeout(function () { sendScroll(true); }, 0);
+    }
+    function resetDoc(id, text) {          // 内容を差し替え（Undo履歴もクリア）
+      var d = docs[id];
+      if (!d) return;
+      var old = d.model;
+      d.model = makeModel(text, d.lang);
+      d.saveAlt = d.model.getAlternativeVersionId();
+      d.lastMod = false;
+      d.view = null;
+      if (cur === d) {
+        if (changeTimer) { clearTimeout(changeTimer); changeTimer = null; }
+        ed.setModel(d.model);
+        ed.setPosition({ lineNumber: 1, column: 1 });
+        sendCursor();
+        sendCanUndo(true);
+        setTimeout(function () { sendScroll(true); }, 0);
+      }
+      old.dispose();
+    }
+    function closeDoc(id) {
+      var d = docs[id];
+      if (!d) return;
+      if (d === cur) {
+        if (changeTimer) { clearTimeout(changeTimer); changeTimer = null; }
+        ed.setModel(null);
+        cur = null;
+        sendCanUndo(true);
+      }
+      d.model.dispose();
+      delete docs[id];
+    }
+
+    // ---------- 変更・Modified ----------
+    function updateModified(d) {
+      if (!d) return;
+      var m = d.model.getAlternativeVersionId() !== d.saveAlt;
+      if (m !== d.lastMod) { d.lastMod = m; post('modified', d.id, m ? 1 : 0); }
+    }
+    ed.onDidChangeModelContent(function (e) {
+      if (!programmatic && cur) {
+        if (changeTimer) clearTimeout(changeTimer);
+        var d = cur;
+        changeTimer = setTimeout(function () {
+          changeTimer = null;
+          post('change', d.id, d.model.getValue());
+        }, 80);
+      }
+      updateModified(cur);
+      sendCanUndo(false);
+      sendLine();                                   // 【2.13】カーソルが動かない書き換えでも送る
+      handleOverwrite(e);
+    });
+
+    // ---------- カーソル ----------
+    // 【段階6】行, 桁, 選択の開始位置（先頭から0始まり、UTF-16、改行は文書の改行コードの文字数）, 選択の長さ, 選択中の文字列
+    // 【2.13】カーソル行の文字列。モデル・行番号・本文の版のどれかが前と違うときだけ送る（設計書 4.10）
+    var lineModel = null, lineNo = -1, lineVer = -1;
+    function sendLine() {
+      var p = ed.getPosition(), m = model();
+      if (!p || !m) return;
+      var v = m.getVersionId();
+      if (m === lineModel && p.lineNumber === lineNo && v === lineVer) return;
+      lineModel = m; lineNo = p.lineNumber; lineVer = v;
+      post('cursorline', m.getLineContent(p.lineNumber));
+    }
+    function sendCursor() {
+      sendLine();                                   // 【2.13】cursor より先に届ける
+      var p = ed.getPosition(), m = model();
+      if (!p || !m) return;
+      var s = ed.getSelection(), t = '', st, len = 0;
+      if (s && !s.isEmpty()) {
+        t = m.getValueInRange(s);
+        len = m.getValueLengthInRange(s);
+        st = m.getOffsetAt(s.getStartPosition());
+      } else {
+        st = m.getOffsetAt(p);
+      }
+      post('cursor', p.lineNumber, p.column, st, len, t);
+    }
+    // 【段階6】Undo できるかを、変わったときだけ通知する（force=true なら必ず通知）
+    // 【2.17】Redo できるかも一緒に調べ、どちらかが変わったら 'canundo', Undo(0/1), Redo(0/1) を送る
+    function sendCanUndo(force) {
+      var m = model();
+      var v = !!(m && typeof m.canUndo === 'function' && m.canUndo());
+      var r = !!(m && typeof m.canRedo === 'function' && m.canRedo());
+      if (!force && v === lastCanUndo && r === lastCanRedo) return;
+      lastCanUndo = v;
+      lastCanRedo = r;
+      post('canundo', v ? 1 : 0, r ? 1 : 0);
+    }
+    ed.onDidChangeCursorSelection(sendCursor);
+
+    // ---------- 表示位置（プレビューの同期スクロール用） ----------
+    var lastTop = -1, scrollQueued = false, suppressUntil = 0;
+    function calcTopLine() {
+      if (!model()) return 1;
+      var r = ed.getVisibleRanges();
+      if (!r.length) return 1;
+      var ln = r[0].startLineNumber;
+      var top = ed.getTopForLineNumber(ln), bottom = ed.getBottomForLineNumber(ln);
+      var f = bottom > top ? (ed.getScrollTop() - top) / (bottom - top) : 0;
+      f = Math.max(0, Math.min(1, f));
+      return ln + f;
+    }
+    function sendScroll(force) {
+      if (!force && Date.now() < suppressUntil) return;      // プレビュー側の操作で動いた間は通知しない（往復の防止）
+      var v = calcTopLine();
+      if (!force && Math.abs(v - lastTop) < 0.004) return;
+      lastTop = v;
+      post('topline', v.toFixed(3));
+    }
+    function scrollToLine(L) {            // プレビューの操作に合わせて、表示位置を移す
+      if (!model() || !(L >= 1)) return;
+      var ln = Math.max(1, Math.min(Math.floor(L), model().getLineCount()));
+      var top = ed.getTopForLineNumber(ln), bottom = ed.getBottomForLineNumber(ln);
+      suppressUntil = Date.now() + 300;
+      ed.setScrollTop(top + (L - ln) * (bottom - top), monaco.editor.ScrollType.Immediate);
+    }
+    ed.onDidScrollChange(function (e) {
+      if (!e.scrollTopChanged || scrollQueued) return;
+      scrollQueued = true;
+      requestAnimationFrame(function () { scrollQueued = false; sendScroll(false); });
+    });
+
+    // ---------- 挿入／上書き ----------
+    function setOW(v) {
+      overwrite = v;
+      ed.updateOptions({ cursorStyle: overwrite ? 'block' : 'line' });
+      post('mode', overwrite ? 1 : 0);
+    }
+    function deleteAfter(line, col, n) {
+      var max = model().getLineMaxColumn(line);
+      n = Math.min(n, max - col);
+      if (n > 0) ed.executeEdits('ow', [{ range: new monaco.Range(line, col, line, col + n), text: '' }]);
+    }
+    function handleOverwrite(e) {
+      if (!overwrite || programmatic || composing || inOW) return;
+      if (e.isUndoing || e.isRedoing || e.changes.length !== 1) return;
+      var c = e.changes[0];
+      if (c.rangeLength !== 0 || c.text.length === 0 || /[\r\n]/.test(c.text)) return;
+      inOW = true;
+      setTimeout(function () {
+        if (model()) deleteAfter(c.range.startLineNumber, c.range.startColumn + c.text.length, c.text.length);
+        inOW = false;
+      }, 0);
+    }
+    var dom = document.getElementById('c');   // モデル未設定の間 ed.getDomNode() は null になるため
+    dom.addEventListener('compositionstart', function () { composing = true; }, true);
+    dom.addEventListener('compositionend', function (e) {
+      composing = false;
+      if (!overwrite || !e.data) return;
+      var n = e.data.length;
+      setTimeout(function () {
+        var p = ed.getPosition();
+        if (p && model()) deleteAfter(p.lineNumber, p.column, n);
+      }, 0);
+    }, true);
+
+    // ---------- フォントサイズ（Ctrl+ホイール） ----------
+    function setFont(n) {
+      n = Math.max(6, Math.min(72, n));
+      if (n === fontSize) return;
+      fontSize = n;
+      ed.updateOptions({ fontSize: n });
+      post('fontsize', n);
+    }
+    document.getElementById('c').addEventListener('wheel', function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault(); e.stopPropagation();
+      setFont(fontSize + (e.deltaY < 0 ? 1 : -1));
+    }, { capture: true, passive: false });
+
+    // ---------- 検索・置換 ----------
+    function wsep(ww) { return ww ? ed.getOption(monaco.editor.EditorOption.wordSeparators) : null; }
+
+    function doFind(q, cs, ww, loop, fwd) {
+      if (!q || !model()) { post('finddone', 0); return; }
+      var sel = ed.getSelection(), m;
+      if (fwd) {
+        var s1 = sel.getEndPosition();
+        m = model().findNextMatch(q, s1, false, cs, wsep(ww), false);
+        if (m && !loop && m.range.getStartPosition().isBefore(s1)) m = null;
+      } else {
+        var s2 = sel.getStartPosition();
+        m = model().findPreviousMatch(q, s2, false, cs, wsep(ww), false);
+        if (m && !loop && s2.isBefore(m.range.getEndPosition())) m = null;
+      }
+      if (m) {
+        ed.setSelection(m.range);
+        ed.revealRangeInCenterIfOutsideViewport(m.range);
+      }
+      post('finddone', m ? 1 : 0);
+    }
+
+    function doReplace(q, r, cs, ww, loop) {
+      if (!model()) { post('finddone', 0); return; }
+      var sel = ed.getSelection();
+      if (q && !sel.isEmpty()) {
+        var t = model().getValueInRange(sel);
+        var eq = cs ? t === q : t.toLowerCase() === q.toLowerCase();
+        if (eq) {
+          ed.pushUndoStop();
+          ed.executeEdits('cm', [{ range: sel, text: r, forceMoveMarkers: true }]);
+          ed.pushUndoStop();
+        }
+      }
+      doFind(q, cs, ww, loop, true);
+    }
+
+    function doReplaceAll(q, r, cs, ww) {
+      if (!q || !model()) { post('replacealldone', 0); return; }
+      var ms = model().findMatches(q, false, false, cs, wsep(ww), false);
+      if (ms.length) {
+        ed.pushUndoStop();
+        ed.executeEdits('cm', ms.map(function (m) { return { range: m.range, text: r }; }));
+        ed.pushUndoStop();
+      }
+      post('replacealldone', ms.length);
+    }
+
+    // ---------- 選択範囲の置換・変換 ----------
+    function replaceSel(text) {
+      var m = model();
+      if (!m) return;
+      var sel = ed.getSelection();
+      ed.pushUndoStop();
+      ed.executeEdits('cm', [{ range: sel, text: text, forceMoveMarkers: true }]);
+      ed.pushUndoStop();
+      var ls = text.split(/\r\n|\r|\n/);
+      var el = sel.startLineNumber + ls.length - 1;
+      var ec = ls.length === 1 ? sel.startColumn + ls[0].length : ls[ls.length - 1].length + 1;
+      ed.setSelection(new monaco.Selection(sel.startLineNumber, sel.startColumn, el, ec));
+    }
+    // 【段階6】SelText := S。選択範囲を置き換える（未選択なら挿入、'' なら削除）。置き換えたあとは選択を解除し、後ろにカーソル。Undo 1回分
+    function setSelText(text) {
+      var m = model();
+      if (!m) return;
+      var sel = ed.getSelection();
+      if (sel.isEmpty() && text === '') return;
+      ed.pushUndoStop();
+      ed.executeEdits('cm', [{ range: sel, text: text, forceMoveMarkers: true }]);
+      ed.pushUndoStop();
+      var ls = text.split(/\r\n|\r|\n/);
+      var el = sel.startLineNumber + ls.length - 1;
+      var ec = ls.length === 1 ? sel.startColumn + ls[0].length : ls[ls.length - 1].length + 1;
+      ed.setPosition({ lineNumber: el, column: ec });
+      ed.revealPositionInCenterIfOutsideViewport({ lineNumber: el, column: ec });
+    }
+    // 【段階6】カーソル位置から末尾（toEnd=true）／先頭までを削除する。選択は無視する。Undo 1回分
+    function deleteTo(toEnd) {
+      var m = model();
+      if (!m) return;
+      var p = ed.getPosition();
+      var r = toEnd
+        ? new monaco.Range(p.lineNumber, p.column, m.getLineCount(), m.getLineMaxColumn(m.getLineCount()))
+        : new monaco.Range(1, 1, p.lineNumber, p.column);
+      if (r.isEmpty()) return;
+      ed.pushUndoStop();
+      ed.executeEdits('cm', [{ range: r, text: '' }]);
+      ed.pushUndoStop();
+      ed.setPosition(r.getStartPosition());
+      ed.revealPositionInCenterIfOutsideViewport(r.getStartPosition());
+    }
+    function cw(ch) {                 // 表示幅（全角=2）
+      var c = ch.charCodeAt(0);
+      return ((c >= 0x1100 && c <= 0x115F) || (c >= 0x2E80 && c <= 0xA4CF) || (c >= 0xAC00 && c <= 0xD7A3) ||
+              (c >= 0xF900 && c <= 0xFAFF) || (c >= 0xFE30 && c <= 0xFE6F) || (c >= 0xFF00 && c <= 0xFF60) ||
+              (c >= 0xFFE0 && c <= 0xFFE6)) ? 2 : 1;
+    }
+    function visCol(s) {
+      var col = 0;
+      for (var i = 0; i < s.length; i++) {
+        if (s[i] === '\t') col += tabSize - (col % tabSize); else col += cw(s[i]);
+      }
+      return col;
+    }
+    function detabLine(line, startCol) {
+      var out = '', col = startCol;
+      for (var i = 0; i < line.length; i++) {
+        var ch = line[i];
+        if (ch === '\t') { var n = tabSize - (col % tabSize); out += new Array(n + 1).join(' '); col += n; }
+        else { out += ch; col += cw(ch); }
+      }
+      return out;
+    }
+    function entabLine(line, startCol) {
+      var out = '', col = startCol, i = 0;
+      while (i < line.length) {
+        var ch = line[i];
+        if (ch === ' ') {
+          var j = i;
+          while (j < line.length && line[j] === ' ') j++;
+          var end = col + (j - i), c = col;
+          while (true) {
+            var next = c + (tabSize - (c % tabSize));
+            if (next > end) break;
+            out += (end - col >= 2) ? '\t' : ' ';   // 2個以上連続した空白のみタブ化
+            c = next;
+          }
+          out += new Array(end - c + 1).join(' ');
+          col = end; i = j;
+        } else { out += ch; col += cw(ch); i++; }
+      }
+      return out;
+    }
+    function xform(kind) {
+      var m = model();
+      if (!m) return;
+      if (kind === 'indent')  { ed.focus(); ed.trigger('cm', 'editor.action.indentLines', null); return; }
+      if (kind === 'outdent') { ed.focus(); ed.trigger('cm', 'editor.action.outdentLines', null); return; }
+      var sel = ed.getSelection();
+      if (sel.isEmpty()) return;
+      var start = visCol(m.getLineContent(sel.startLineNumber).substring(0, sel.startColumn - 1));
+      var lines = m.getValueInRange(sel).split(/\r\n|\r|\n/);
+      var res = lines.map(function (l, i) {
+        var sc = i === 0 ? start : 0;
+        return kind === 'detab' ? detabLine(l, sc) : entabLine(l, sc);
+      });
+      replaceSel(res.join(m.getEOL()));
+    }
+    document.getElementById('c').addEventListener('contextmenu', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      post('contextmenu');
+    }, true);
+
+    // ---------- 全選択 ----------
+    function selectAll() {
+      if (!model()) return;
+      var apply = function () {
+        var m = model();
+        if (m) ed.setSelection(m.getFullModelRange());
+      };
+      ed.focus();
+      apply();
+      setTimeout(apply, 50);     // メニュー終了直後のフォーカス移動で選択が戻される場合に備えて再適用
+      setTimeout(apply, 200);
+    }
+
+    // ---------- ファイルのドラッグ&ドロップ ----------
+    function hasFiles(e) {
+      var t = e.dataTransfer && e.dataTransfer.types;
+      if (!t) return false;
+      for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+      return false;
+    }
+    function allowDrop(e) {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    document.addEventListener('dragenter', allowDrop, true);
+    document.addEventListener('dragover', allowDrop, true);
+    document.addEventListener('drop', function (e) {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();      // 既定動作（ファイルを開いて画面遷移）を止める
+      var fs = Array.prototype.slice.call(e.dataTransfer.files);
+      if (fs.length && wv && wv.postMessageWithAdditionalObjects) wv.postMessageWithAdditionalObjects('dropfiles', fs);
+    }, true);
+
+    // ---------- ショートカット ----------
+    function doSave() {
+      if (!cur) return;
+      if (changeTimer) { clearTimeout(changeTimer); changeTimer = null; }
+      post('save', cur.id, cur.model.getValue());
+    }
+    function toggleLineNumbers() {
+      var on = ed.getOption(monaco.editor.EditorOption.lineNumbers).renderType === 0;
+      ed.updateOptions({ lineNumbers: on ? 'on' : 'off' });
+      post('linenumbers', on ? 1 : 0);
+    }
+    ed.addCommand(KM.CtrlCmd | KC.KeyS, doSave);
+    ed.addCommand(KM.CtrlCmd | KC.KeyF, function () {
+      var s = ed.getSelection(), t = '';
+      if (model() && s && !s.isEmpty() && s.startLineNumber === s.endLineNumber) t = model().getValueInRange(s);
+      post('findreq', t);
+    });
+    ed.addCommand(KC.F5, function () { post('findnext'); });
+    ed.addCommand(KM.Shift | KC.F5, function () { post('findprev'); });
+    // 【2.16】カーソル行（選択した行）を複製して下へ。Shift+F10 と、Pascal の DuplicateLine（dupline）で同じ処理を使う
+    function dupLine() {
+      if (!model()) return;
+      ed.focus();
+      ed.trigger('cm', 'editor.action.copyLinesDownAction', null);
+    }
+    ed.addCommand(KM.Shift | KC.F10, dupLine);
+    ed.addCommand(KC.F11, toggleLineNumbers);
+    ed.addCommand(KC.F12, function () { post('togglemax'); });
+    ed.addCommand(KC.Insert, function () { setOW(!overwrite); });
+    ed.addCommand(KM.CtrlCmd | KC.KeyA, selectAll);
+    ed.addCommand(KM.CtrlCmd | KC.KeyH, function () { });   // 内蔵の置換ウィジェットを無効化
+    ed.addCommand(KM.CtrlCmd | KM.Shift | KC.KeyV, function () { post('togglepreview'); });   // プレビューの表示切り替え
+
+    // ---------- フォーカスの通知（標準アクションの対象を決めるため） ----------
+    ed.onDidFocusEditorText(function () { post('gotfocus'); });
+
+    // ---------- Pascal からのコマンド ----------
+    function onMessage(e) {
+      var s = String(e.data), i = s.indexOf(SEP);
+      var cmd = i < 0 ? s : s.substring(0, i);
+      var raw = i < 0 ? '' : s.substring(i + 1);
+      var a = raw.split(SEP);
+      switch (cmd) {
+        case 'doc.new':      newDoc(a[0], a[1], raw.substring(a[0].length + a[1].length + 2)); break;
+        case 'doc.activate': activate(a[0]); break;
+        case 'doc.close':    closeDoc(a[0]); break;
+        case 'doc.reset':    resetDoc(a[0], raw.substring(a[0].length + 1)); break;
+        case 'doc.lang': {
+          var d = docs[a[0]];
+          if (d) { d.lang = a[1]; monaco.editor.setModelLanguage(d.model, a[1]); }
+          break;
+        }
+        case 'doc.settextifdiff': {       // 【2.10】本文が違うときだけ置き換え、変更ありにする（同じなら何もしない）
+          var dt = docs[a[0]], tx = raw.substring(a[0].length + 1);
+          if (dt && dt.model.getValue() !== tx) {
+            resetDoc(a[0], tx);
+            dt.saveAlt = -1; dt.lastMod = true;
+            post('textsync', dt.id, tx);
+          }
+          break;
+        }
+        case 'doc.dirty': {               // 【段階3】変更ありにする（Undo で戻しても、保存するまで変更ありのまま）
+          var dd = docs[a[0]];
+          if (dd) { dd.saveAlt = -1; dd.lastMod = true; }
+          break;
+        }
+        case 'marksaved': {
+          var dm = docs[a[0]];
+          if (dm) { dm.saveAlt = dm.model.getAlternativeVersionId(); updateModified(dm); }
+          break;
+        }
+        case 'opt':
+          switch (a[0]) {
+            case 'wordwrap':    ed.updateOptions({ wordWrap: a[1] === '1' ? 'on' : 'off' }); break;
+            case 'linenumbers': ed.updateOptions({ lineNumbers: a[1] === '1' ? 'on' : 'off' }); break;
+            case 'fontsize':    fontSize = parseInt(a[1], 10) || 14; ed.updateOptions({ fontSize: fontSize }); break;
+            case 'theme':       themeMode = a[1]; applyTheme(); break;
+            case 'readonly':    ed.updateOptions({ readOnly: a[1] === '1' }); break;
+            case 'tabsize':     tabSize = parseInt(a[1], 10) || 4; ed.updateOptions({ tabSize: tabSize }); break;
+            case 'folding':       ed.updateOptions({ folding: a[1] === '1' }); break;
+            case 'matchbrackets': ed.updateOptions({ matchBrackets: a[1] === '1' ? 'always' : 'never' }); break;
+            case 'occurrences':   ed.updateOptions({ occurrencesHighlight: a[1] === '1' ? 'singleFile' : 'off' }); break;
+            case 'minimap':       ed.updateOptions({ minimap: { enabled: a[1] === '1' } }); break;
+            case 'colors':
+              colors = { hitL: a[1], hitD: a[2], curL: a[3], curD: a[4],
+                         selL: a[5] || colors.selL, selD: a[6] || colors.selD };   // 【2.13】
+              applyTheme();
+              break;
+          }
+          break;
+        case 'undo':      ed.focus(); ed.trigger('cm', 'undo', null); break;
+        case 'redo':      ed.focus(); ed.trigger('cm', 'redo', null); break;
+        case 'selectall': selectAll(); break;
+        case 'delsel':
+          if (model()) ed.executeEdits('cm', ed.getSelections().map(function (r) { return { range: r, text: '' }; }));
+          break;
+        case 'paste':
+          if (!model()) break;
+          ed.pushUndoStop();
+          ed.executeEdits('cm', ed.getSelections().map(function (r) { return { range: r, text: raw, forceMoveMarkers: true }; }));
+          ed.pushUndoStop();
+          break;
+        case 'replacesel': replaceSel(raw); break;
+        case 'seltext':    setSelText(raw); break;          // 【段階6】
+        case 'delto':      deleteTo(a[0] === 'end'); break; // 【段階6】
+        case 'dupline':    dupLine(); break;                // 【2.16】
+        case 'xform':      xform(a[0]); break;
+        case 'scrollto':  scrollToLine(parseFloat(a[0])); break;
+        case 'focus':     ed.focus(); break;
+        case 'toggleow':  setOW(!overwrite); break;
+        case 'setcursor': {
+          if (!model()) break;
+          var p = { lineNumber: +a[0], column: +a[1] };
+          ed.setPosition(p); ed.revealPositionInCenterIfOutsideViewport(p); ed.focus();
+          break;
+        }
+        case 'setsel': {
+          if (!model()) break;
+          var r = new monaco.Selection(+a[0], +a[1], +a[2], +a[3]);
+          ed.setSelection(r); ed.revealRangeInCenterIfOutsideViewport(r); ed.focus();
+          break;
+        }
+        case 'find':       doFind(a[0], a[1] === '1', a[2] === '1', a[3] === '1', a[4] === '1'); break;
+        case 'replace':    doReplace(a[0], a[1], a[2] === '1', a[3] === '1', a[4] === '1'); break;
+        case 'replaceall': doReplaceAll(a[0], a[1], a[2] === '1', a[3] === '1'); break;
+      }
+    }
+    if (wv) wv.addEventListener('message', onMessage);
+
+    post('ready');
+  });
+})();
+</script>
+</body>
+</html>

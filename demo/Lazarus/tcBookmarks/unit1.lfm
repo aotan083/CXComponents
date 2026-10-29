@@ -1,0 +1,75 @@
+object Form1: TForm1
+  Left = 273
+  Height = 571
+  Top = 250
+  Width = 917
+  Caption = 'Form1'
+  ClientHeight = 571
+  ClientWidth = 917
+  LCLVersion = '5.0.1.0'
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 24
+    Top = 547
+    Width = 917
+    Panels = <>
+  end
+  object CBookmark1: TCBookmark
+    Left = 0
+    Height = 547
+    Top = 0
+    Width = 403
+    TargetBrowser = CTabBrowser1
+    TargetEditor = CMonacoEditor1
+    Align = alLeft
+    TabOrder = 1
+  end
+  object Splitter1: TSplitter
+    Left = 403
+    Height = 547
+    Top = 0
+    Width = 8
+  end
+  object Panel1: TPanel
+    Left = 411
+    Height = 547
+    Top = 0
+    Width = 506
+    Align = alClient
+    Caption = 'Panel1'
+    ClientHeight = 547
+    ClientWidth = 506
+    TabOrder = 3
+    object CMonacoEditor1: TCMonacoEditor
+      Left = 1
+      Height = 246
+      Top = 300
+      Width = 504
+      Theme = ctLight
+      DefaultLanguage = 'pascal'
+      QuotePrefix = '> '
+      Align = alBottom
+      TabOrder = 0
+      TabStop = True
+    end
+    object Splitter2: TSplitter
+      Cursor = crVSplit
+      Left = 1
+      Height = 5
+      Top = 295
+      Width = 504
+      Align = alBottom
+      ResizeAnchor = akBottom
+    end
+    object CTabBrowser1: TCTabBrowser
+      Left = 1
+      Height = 294
+      Top = 1
+      Width = 504
+      Align = alClient
+      Options = [nboShowCloseButtons]
+      TabOrder = 2
+      SavePath = 'C:\app\laz\lazarus50RC1'
+    end
+  end
+end

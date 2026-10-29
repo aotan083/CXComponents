@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 aotan083 / SPDX-License-Identifier: MIT -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>無題</title>
+<link id="cssL" rel="stylesheet" href="lib/github-markdown-light.css">
+<link id="cssD" rel="stylesheet" href="lib/github-markdown-dark.css" disabled>
+<link id="hlL" rel="stylesheet" href="lib/github.min.css">
+<link id="hlD" rel="stylesheet" href="lib/github-dark.min.css" disabled>
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { background: #fff; }
+  @media (prefers-color-scheme: dark) { body { background: #0d1117; } }
+  .markdown-body {
+    box-sizing: border-box; min-width: 200px; max-width: var(--maxw, none); margin: 0 auto; padding: 24px var(--pad, 26px) 120px;
+    font-size: var(--fs, 16px);
+    font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+  }
+  .markdown-body pre code.hljs { background: transparent; padding: 0; }
+  .markdown-body img { max-width: 100%; }
+  .markdown-body .cm-blocked-img { color: #888; font-style: italic; }
+  .markdown-body table { display: block; overflow-x: auto; }
+  /* 【段階5】Mermaid の図 */
+  .markdown-body .cm-mermaid { margin: 0 0 16px; text-align: center; }
+  /* 図の表示枠（拡大・移動用）。最初は幅に合わせる */
+  .cm-mm-view { position: relative; overflow: hidden; width: 100%; }
+  .cm-mm-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .cm-mm-stage svg { display: block; max-width: none !important; }
+  .cm-mm-stage svg * { filter: none !important; }   /* 箱の影は付けない（VS Code と同じ見た目） */
+  .cm-mm-view.cm-mm-panning { cursor: grab; }
+  .cm-mm-view.cm-mm-panning.cm-mm-drag { cursor: grabbing; }
+  .cm-mm-tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; padding: 3px;
+    border-radius: 6px; background: var(--mmtb-bg, rgba(40,40,40,.9)); border: 1px solid var(--mmtb-bd, #555);
+    opacity: 0; transition: opacity .15s; z-index: 2; }
+  .cm-mm-view:hover .cm-mm-tools { opacity: 1; }
+  .cm-mm-tools button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent;
+    color: var(--mmtb-fg, #ddd); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .cm-mm-tools button:hover { background: var(--mmtb-hv, rgba(255,255,255,.12)); }
+  .cm-mm-tools button.on { color: var(--mmtb-on, #3794ff); background: var(--mmtb-hv, rgba(255,255,255,.12)); }
+  .cm-mm-tools svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .markdown-body .cm-mermaid-src { display: none; }
+  .markdown-body .cm-mermaid-note { color: #888; font-style: italic; font-size: 85%; }
+  .markdown-body .cm-mermaid-err { text-align: left; color: #d32f2f; white-space: pre-wrap; font-size: 85%;
+    border: 1px solid #d32f2f; border-radius: 4px; padding: 8px 12px; }
+  /* 【段階5】コードの表示（Markdown 以外のタブ）。1 行＝1 要素。行番号はコピーされない */
+  #content.cm-codeview { padding-top: 12px; }
+  .cm-codeview .cl { display: flex; align-items: flex-start; }
+  .cm-codeview .ln { flex: none; box-sizing: border-box; padding-right: 1.2em; text-align: right; opacity: .5;
+    user-select: none; -webkit-user-select: none; }
+  .cm-codeview .ln::before { content: attr(data-n); }   /* 行番号は文字としては持たない（コピーされない） */
+  .cm-codeview .lc { flex: 1 1 auto; min-width: 0; min-height: 1.45em; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cm-codeview .ln, .cm-codeview .lc {
+    font-family: Consolas, "BIZ UDゴシック", "BIZ UDGothic", "MS Gothic", monospace;
+    font-size: calc(var(--fs, 16px) * 0.875); line-height: 1.45; tab-size: 4; }
+  /* 印刷（PDF 保存）は、画面がダークでも白背景・黒文字にする */
+  .cm-mm-print { display: none; }        /* 【2.8】印刷用の図は、画面には出さない */
+  @media print {
+    html, body, .markdown-body { background: #fff !important; color: #000 !important; }
+    .markdown-body a { color: #0645ad !important; }
+    .markdown-body pre, .markdown-body code, .hljs { background: #f6f8fa !important; color: #000 !important; }
+    #content:not(.cm-codeview) .hljs * { color: #000 !important; }
+    .markdown-body th, .markdown-body td { border-color: #999 !important; }
+    .markdown-body pre, .markdown-body table, .markdown-body img, .markdown-body .cm-mermaid { break-inside: avoid; }
+    /* 図は、画面での拡大・移動に関係なく、紙の幅に合わせる */
+    .cm-mm-view { height: auto !important; overflow: visible !important; }
+    .cm-mm-stage { position: static !important; transform: none !important; }
+    .cm-mm-stage svg { width: 100% !important; height: auto !important; }
+    .cm-mm-tools { display: none !important; }
+    /* 【2.8】印刷用の図があれば、画面用の図の代わりに印刷する */
+    .cm-mermaid:has(> .cm-mm-print) > .cm-mm-view { display: none !important; }
+    .cm-mm-print { display: block !important; }
+    .cm-mm-print svg { width: 100% !important; max-width: 100% !important; height: auto !important; }
+    #content.cm-codeview { padding-bottom: 0; }
+    .cm-codeview .cl { break-inside: avoid; }
+    .cm-codeview .ln { opacity: 1; color: #888 !important; }
+  }
+</style>
+</head>
+<body>
+<article id="content" class="markdown-body"></article>
+<script src="lib/marked.umd.js"></script>
+<script src="lib/purify.min.js"></script>
+<script src="lib/highlight.min.js"></script>
+<script src="lib/languages/delphi.min.js"></script>
+<script src="lib/languages/dos.min.js"></script>
+<script src="lib/languages/powershell.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var SEP = '\u0001';
+  var wv = window.chrome && window.chrome.webview;
+  function post() { if (wv) wv.postMessage(Array.prototype.slice.call(arguments).join(SEP)); }
+  window.addEventListener('error', function (e) { post('error', e.message); });
+
+  var content = document.getElementById('content');
+  var state = {
+    theme: 'auto', fontSize: 16, breaks: false, remote: false, base: '', line: 1,
+    maxw: 0, pad: 26,    // 本文の最大幅（0=幅いっぱい）と、左右の余白（px）
+    scheme: 'editor',    // 'editor' = エディタ(Monaco)と同じ配色 / 'github' = GitHub 風
+    c: { bgL: '#fffffe', fgL: '#000000', lkL: '#006ab1', bgD: '#1e1e1e', fgD: '#d4d4d4', lkD: '#3794ff' }
+  };
+  var marks = [];        // 行番号と要素の対応 [{ls, le, el}]（同期スクロール用）
+  var slugs = {};
+
+  var osDark = window.matchMedia('(prefers-color-scheme: dark)');
+  // ---------- テーマ・配色 ----------
+  var colorStyle = document.createElement('style');
+  document.head.appendChild(colorStyle);
+  var printStyle = document.createElement('style');
+  document.head.appendChild(printStyle);
+  var printing = false;                 // 印刷中（印刷用の図を用意してから、印刷ダイアログが閉じるまで）
+  var mmLock = Promise.resolve();       // 【2.8】図を描く処理を順番に行う（Mermaid の設定は全体で 1 つのため、画面用と印刷用が混ざらないように）
+  function withMermaidLock(fn) {
+    var p = mmLock.then(fn, fn);
+    mmLock = p.then(function () { }, function () { });
+    return p;
+  }
+  function isDark() { return state.theme === 'vs-dark' || (state.theme === 'auto' && osDark.matches); }
+  function hex2rgb(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+    return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)];
+  }
+  function mix(a, b, t) {               // a から b へ t の割合だけ近づけた色
+    var A = hex2rgb(a), B = hex2rgb(b);
+    return '#' + A.map(function (v, i) { return ('0' + Math.round(v + (B[i] - v) * t).toString(16)).slice(-2); }).join('');
+  }
+  // コードブロックの色分け（highlight.js）を、エディタ（Monaco の vs / vs-dark）の色に近づける
+  function buildCodeCss(s, fg, dark) {
+    var c = dark
+      ? { kw: '#569cd6', str: '#ce9178', num: '#b5cea8', cmt: '#6a9955', tag: '#569cd6', attr: '#9cdcfe', re: '#d16969', sel: '#d7ba7d' }
+      : { kw: '#0000ff', str: '#a31515', num: '#098658', cmt: '#008000', tag: '#800000', attr: '#0451a5', re: '#811f3f', sel: '#800000' };
+    var h = s + ' .hljs';
+    function rule(list, css) {
+      return list.map(function (k) { return h + '-' + k; }).join(',') + '{' + css + '}';
+    }
+    return [
+      h + '{color:' + fg + '}',
+      rule(['keyword', 'literal', 'built_in', 'selector-tag', 'section'], 'color:' + c.kw),
+      rule(['string', 'char', 'symbol'], 'color:' + c.str),
+      rule(['number'], 'color:' + c.num),
+      rule(['comment', 'quote', 'doctag', 'meta'], 'color:' + c.cmt + ';font-style:normal'),
+      rule(['name', 'tag'], 'color:' + c.tag),
+      rule(['attr', 'attribute'], 'color:' + c.attr),
+      rule(['regexp'], 'color:' + c.re),
+      rule(['selector-class', 'selector-id', 'selector-attr', 'selector-pseudo'], 'color:' + c.sel),
+      // 型名・関数名・変数などは、エディタと同じく通常の文字色
+      rule(['type', 'title', 'params', 'variable', 'template-variable', 'property', 'operator',
+            'punctuation', 'subst', 'bullet', 'link', 'class', 'function'], 'color:' + fg),
+      rule(['emphasis'], 'font-style:italic'),
+      rule(['strong'], 'font-weight:bold')
+    ].join('\n');
+  }
+  function buildColorCss(bg, fg, lk, dark) {
+    var muted = mix(fg, bg, 0.4), border = mix(bg, fg, 0.22), codeBg = mix(bg, fg, 0.07), altBg = mix(bg, fg, 0.04);
+    var s = '#content.markdown-body.cm-ec';
+    return [
+      s + '{color:' + fg + ';background-color:' + bg + '}',
+      s + ' a{color:' + lk + '}',
+      s + ' h1,' + s + ' h2{border-bottom-color:' + border + '}',
+      s + ' h6{color:' + muted + '}',
+      s + ' hr{background-color:' + border + ';border-bottom-color:' + border + '}',
+      s + ' blockquote{color:' + muted + ';border-left-color:' + border + '}',
+      s + ' code,' + s + ' tt,' + s + ' pre{background-color:' + codeBg + '}',
+      s + ' pre code,' + s + ' pre tt{background-color:transparent}',
+      s + ' table th,' + s + ' table td{border-color:' + border + '}',
+      s + ' table tr{background-color:' + bg + ';border-top-color:' + border + '}',
+      s + ' table tr:nth-child(2n){background-color:' + altBg + '}',
+      s + ' kbd{background-color:' + codeBg + ';border-color:' + border + ';color:' + fg + '}',
+      s + ' img{background-color:transparent}',
+      buildCodeCss(s, fg, dark)
+    ].join('\n');
+  }
+  function applyTheme() {
+    var dark = state.theme === 'vs-dark' || (state.theme === 'auto' && osDark.matches);
+    document.getElementById('cssL').disabled = dark;
+    document.getElementById('cssD').disabled = !dark;
+    document.getElementById('hlL').disabled = dark;
+    document.getElementById('hlD').disabled = !dark;
+    var ec = state.scheme === 'editor';
+    content.classList.toggle('cm-ec', ec);
+    if (ec) {
+      var bg = dark ? state.c.bgD : state.c.bgL, fg = dark ? state.c.fgD : state.c.fgL, lk = dark ? state.c.lkD : state.c.lkL;
+      colorStyle.textContent = buildColorCss(bg, fg, lk, dark);
+      document.body.style.background = bg;
+    } else {
+      colorStyle.textContent = '';
+      document.body.style.background = dark ? '#0d1117' : '#ffffff';
+    }
+    // コードの表示を印刷するときの色分け（白背景用の、エディタのライトの色）
+    printStyle.textContent = '@media print{' +
+      buildCodeCss('#content.cm-codeview', '#000000', false).replace(/\}/g, ' !important}').replace(/;/g, ' !important;') + '}';
+    if (!printing) renderMermaidAll();     // 図の色もテーマに合わせて描き直す
+  }
+  osDark.addEventListener('change', applyTheme);
+  applyTheme();
+
+  function applyFont() {
+    document.documentElement.style.setProperty('--fs', state.fontSize + 'px');
+  }
+  applyFont();
+  function applyLayout() {
+    document.documentElement.style.setProperty('--maxw', state.maxw > 0 ? state.maxw + 'px' : 'none');
+    document.documentElement.style.setProperty('--pad', state.pad + 'px');
+  }
+  applyLayout();
+
+  // ---------- 文字列・パス ----------
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function decodeEntities(s) {
+    var t = document.createElement('textarea');
+    t.innerHTML = s;
+    return t.value;
+  }
+  function slugify(text) {
+    var s = text.trim().toLowerCase().replace(/[^\p{L}\p{N}\p{M}\p{Pc}\s-]/gu, '').replace(/\s/g, '-');
+    var base = s, n = 0;
+    while (slugs[s]) { n++; s = base + '-' + n; }
+    slugs[s] = true;
+    return s;
+  }
+  function normPath(p) {
+    var parts = p.replace(/\\/g, '/').split('/'), out = [];
+    parts.forEach(function (seg) {
+      if (seg === '.' || seg === '') { if (out.length === 0) out.push(seg); return; }
+      if (seg === '..') { if (out.length > 1) out.pop(); return; }
+      out.push(seg);
+    });
+    return out.join('/');
+  }
+  function safeDecode(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
+  function resolveLocal(rel) {          // 相対パス → 絶対パス（'C:/dir/file'）。解決できなければ ''
+    var r = safeDecode(rel).replace(/\\/g, '/');
+    if (/^[a-zA-Z]:\//.test(r)) return normPath(r);
+    if (/^file:\/\/\/[a-zA-Z]:\//i.test(r)) return normPath(r.substring(8));
+    if (!state.base) return '';
+    if (r.charAt(0) === '/') return normPath(state.base.substring(0, 2) + r);
+    return normPath(state.base + '/' + r);
+  }
+  function driveUrl(abs) {              // 'C:/dir/file' → ドライブに割り当てた仮想ホストの URL
+    var m = /^([a-zA-Z]):\/(.*)$/.exec(abs);
+    if (!m) return '';
+    return 'https://cmdrive-' + m[1].toLowerCase() + '.example/' + m[2].split('/').map(encodeURIComponent).join('/');
+  }
+
+  // ---------- 行番号の付与（同期スクロール用） ----------
+  function nl(s) { var c = 0, i = -1; while ((i = s.indexOf('\n', i + 1)) >= 0) c++; return c; }
+  function trimNl(s) { return s.replace(/\n+$/, ''); }
+  function annotate(toks, line) {
+    var cur = line;
+    toks.forEach(function (t) {
+      var raw = t.raw || '';
+      t._ls = cur;
+      t._le = cur + nl(trimNl(raw));
+      if (t.type === 'list') {
+        var ic = cur;
+        t.items.forEach(function (it) {
+          var r2 = it.raw || '';
+          it._ls = ic;
+          it._le = ic + nl(trimNl(r2));
+          annotate(it.tokens || [], ic);
+          ic += nl(r2);
+        });
+      } else if (t.type === 'blockquote') {
+        annotate(t.tokens || [], cur);
+      } else if (t.type === 'code' && /^\s*(`{3,}|~{3,})/.test(raw)) {
+        var lines = trimNl(raw).split('\n');
+        t._ls = cur + 1;
+        t._le = (lines.length > 1 && /^\s*(`{3,}|~{3,})\s*$/.test(lines[lines.length - 1])) ? cur + lines.length - 2 : cur + lines.length - 1;
+        if (t._le < t._ls) t._le = t._ls;
+      }
+      cur += nl(raw);
+    });
+  }
+
+  // ---------- Markdown → HTML ----------
+  var Base = marked.Renderer.prototype;
+  var renderer = new marked.Renderer();
+  function attr(ls, le) { return ' data-ls="' + ls + '" data-le="' + le + '"'; }
+  function inject(html, tok) {
+    if (tok._ls == null) return html;
+    return html.replace(/^(\s*<[a-zA-Z][a-zA-Z0-9]*)/, '$1' + attr(tok._ls, tok._le));
+  }
+  ['paragraph', 'blockquote', 'list', 'listitem', 'hr'].forEach(function (name) {
+    renderer[name] = function (tok) { return inject(Base[name].call(this, tok), tok); };
+  });
+  renderer.html = function (tok) {
+    var h = Base.html.call(this, tok);
+    return tok.block ? inject(h, tok) : h;
+  };
+  renderer.heading = function (tok) {
+    var h = Base.heading.call(this, tok);
+    var id = slugify(decodeEntities(h.replace(/<[^>]*>/g, '')));
+    return h.replace(/^<h([1-6])/, '<h$1 id="' + esc(id) + '"' + attr(tok._ls, tok._le));
+  };
+  renderer.code = function (tok) {
+    var lang = ((tok.lang || '').match(/^\S*/) || [''])[0];
+    var code = String(tok.text || '').replace(/\n$/, '');
+    if (lang.toLowerCase() === 'mermaid') {   // 【段階5】Mermaid の図（描くのは render のあと）
+      return '<div class="cm-mermaid"' + attr(tok._ls, tok._le) + '><pre class="cm-mermaid-src">' + esc(code) + '</pre></div>\n';
+    }
+    var inner = '', cls = 'hljs';
+    if (lang && window.hljs && hljs.getLanguage(lang)) {
+      try { inner = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value; }
+      catch (e) { inner = esc(code); }
+      cls += ' language-' + lang.replace(/[^\w-]/g, '');
+    } else {
+      inner = esc(code);
+    }
+    return '<pre' + attr(tok._ls, tok._le) + '><code class="' + cls + '">' + inner + '</code></pre>\n';
+  };
+  renderer.image = function (tok) {          // ローカルの画像は、ドライブに割り当てた仮想ホストの URL に変える
+    var href = tok.href || '', url = href;
+    if (!/^(https?:|data:|\/\/)/i.test(href)) {
+      var abs = resolveLocal(href);
+      url = abs ? driveUrl(abs) : '';
+    }
+    return '<img src="' + esc(url) + '" alt="' + esc(tok.text || '') + '"' +
+           (tok.title ? ' title="' + esc(tok.title) + '"' : '') + '>';
+  };
+  renderer.link = function (tok) {           // C:\... のようなローカルの絶対パスのリンク
+    var href = tok.href || '';
+    if (/^([a-zA-Z]:[\\/]|file:\/\/\/)/.test(href)) {
+      return '<a href="#" data-local="' + esc(resolveLocal(href)) + '">' + this.parser.parseInline(tok.tokens) + '</a>';
+    }
+    return Base.link.call(this, tok);
+  };
+  renderer.table = function (tok) {
+    var self = this, ls = tok._ls;
+    var cells = '', head, body = '';
+    tok.header.forEach(function (c) { cells += self.tablecell(c); });
+    head = '<tr' + attr(ls, ls) + '>' + cells + '</tr>\n';
+    tok.rows.forEach(function (row, i) {
+      cells = '';
+      row.forEach(function (c) { cells += self.tablecell(c); });
+      body += '<tr' + attr(ls + 2 + i, ls + 2 + i) + '>' + cells + '</tr>\n';
+    });
+    if (body) body = '<tbody>' + body + '</tbody>';
+    return '<table' + attr(tok._ls, tok._le) + '>\n<thead>\n' + head + '</thead>\n' + body + '</table>\n';
+  };
+
+  function stripFrontMatter(md) {       // 先頭の YAML は表示しない（行番号がずれないよう改行は残す）
+    return md.replace(/^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, function (m) { return m.replace(/[^\n]/g, ''); });
+  }
+
+  function postProcess() {
+    // 外部の画像は、許可しない限り表示しない（ローカルの画像は renderer.image で変換済み）
+    Array.prototype.slice.call(content.querySelectorAll('img')).forEach(function (img) {
+      var src = img.getAttribute('src') || '';
+      if (/^https:\/\/cmdrive-[a-z]\.example\//i.test(src)) return;     // ローカルの画像
+      if (/^(https?:)?\/\//i.test(src)) {
+        if (!state.remote) {
+          var sp = document.createElement('span');
+          sp.className = 'cm-blocked-img';
+          sp.textContent = '[外部画像は表示しません' + (img.alt ? ': ' + img.alt : '') + ']';
+          img.parentNode.replaceChild(sp, img);
+        }
+        return;
+      }
+    });
+  }
+
+  function buildMarks() {
+    marks = [];
+    Array.prototype.forEach.call(content.querySelectorAll('[data-ls]'), function (el) {
+      marks.push({ ls: +el.getAttribute('data-ls'), le: +el.getAttribute('data-le'), el: el });
+    });
+    marks.sort(function (a, b) { return a.ls - b.ls; });    // 同じ行なら DOM の順（親が先）を保つ
+  }
+
+  function render(base, md) {
+    content.classList.remove('cm-codeview');
+    state.base = String(base || '').replace(/\\/g, '/');
+    slugs = {};
+    md = stripFrontMatter(md);
+    var opts = { gfm: true, breaks: state.breaks, renderer: renderer };
+    var tokens = marked.lexer(md, opts);
+    annotate(tokens, 1);
+    var html = marked.parser(tokens, opts);
+    content.innerHTML = DOMPurify.sanitize(html);
+    postProcess();
+    buildMarks();
+    applyLine(state.line);
+    renderMermaidAll();
+  }
+
+  // ---------- 【段階5】Mermaid の図 ----------
+  // mermaid.js は大きい（約 3.5MB）ので、図のある文書を表示したときに初めて読み込む
+  var mmLoad = null, mmSeq = 0, mmCache = {}, mmGen = 0;
+  function loadMermaid() {
+    if (window.mermaid) return Promise.resolve(window.mermaid);
+    if (!mmLoad) {
+      mmLoad = new Promise(function (ok, ng) {
+        var sc = document.createElement('script');
+        sc.src = 'lib/mermaid.min.js';
+        sc.onload = function () { window.mermaid ? ok(window.mermaid) : ng(new Error('mermaid.js を読み込めません')); };
+        sc.onerror = function () { mmLoad = null; ng(new Error('lib/mermaid.min.js が見つかりません')); };
+        document.head.appendChild(sc);
+      });
+    }
+    return mmLoad;
+  }
+  // 図の中の外部画像（img: "https://..."）の指定を外す。外したら changed = true
+  function stripRemoteImg(src) {
+    var re = /(@\{[^}]*?)\bimg\s*:\s*(["'])(https?:\/\/[^"']*)\2\s*,?/gi;
+    var out = src.replace(re, '$1');
+    return { src: out, changed: out !== src };
+  }
+  // 図の配色：線・枠はエディタの配色の青系（プレビューのリンク色）、背景・文字はプレビューと同じ（VS Code に近い）
+  function mermaidConfig(forPrint) {   // 【2.8】forPrint = true なら印刷用（白背景用の色）
+    var dark = !forPrint && isDark();
+    var bg = forPrint ? '#ffffff' : (dark ? state.c.bgD : state.c.bgL);
+    var fg = forPrint ? '#000000' : (dark ? state.c.fgD : state.c.fgL);
+    var ac = forPrint ? state.c.lkL : (dark ? state.c.lkD : state.c.lkL);
+    var line = mix(ac, bg, 0.15), fill = mix(bg, fg, dark ? 0.05 : 0.03), alt = mix(bg, fg, dark ? 0.10 : 0.06);
+    return {
+      startOnLoad: false, securityLevel: 'strict', theme: 'base',
+      fontFamily: '"Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif',
+      themeVariables: {
+        darkMode: dark, background: bg, fontFamily: '"Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif',
+        primaryColor: fill, primaryTextColor: fg, primaryBorderColor: line,
+        secondaryColor: alt, secondaryTextColor: fg, secondaryBorderColor: line,
+        tertiaryColor: mix(bg, fg, 0.02), tertiaryTextColor: fg, tertiaryBorderColor: line,
+        mainBkg: fill, nodeBorder: line, nodeTextColor: fg, textColor: fg, titleColor: fg,
+        lineColor: line, defaultLinkColor: line, edgeLabelBackground: bg,
+        clusterBkg: mix(bg, fg, 0.03), clusterBorder: line,
+        actorBkg: fill, actorBorder: line, actorTextColor: fg, actorLineColor: line,
+        signalColor: fg, signalTextColor: fg, labelBoxBkgColor: fill, labelBoxBorderColor: line,
+        labelTextColor: fg, loopTextColor: fg, activationBkgColor: alt, activationBorderColor: line,
+        noteBkgColor: mix(bg, ac, 0.12), noteTextColor: fg, noteBorderColor: line,
+        sequenceNumberColor: bg
+      }
+    };
+  }
+  function applyToolbarColors() {
+    var dark = isDark(), bg = dark ? state.c.bgD : state.c.bgL, fg = dark ? state.c.fgD : state.c.fgL;
+    var st = document.documentElement.style;
+    st.setProperty('--mmtb-bg', mix(bg, fg, 0.08));
+    st.setProperty('--mmtb-bd', mix(bg, fg, 0.25));
+    st.setProperty('--mmtb-fg', fg);
+    st.setProperty('--mmtb-hv', mix(bg, fg, 0.18));
+    st.setProperty('--mmtb-on', dark ? state.c.lkD : state.c.lkL);
+  }
+
+  // ---------- 図の拡大・移動（VS Code と同じ 4 つのボタン） ----------
+  var mmView = {};                      // 図の中身ごとの拡大・移動の状態（中身が変わらない図は、描き直しても保つ）
+  var ICON = {
+    pan: '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg>',
+    out: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M15.5 15.5L21 21"/></svg>',
+    inn: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M15.5 15.5L21 21"/></svg>',
+    fit: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="8" y="8" width="8" height="8"/></svg>'
+  };
+  function setupViewer(box, svgHtml, src) {
+    var view = document.createElement('div'); view.className = 'cm-mm-view';
+    var stage = document.createElement('div'); stage.className = 'cm-mm-stage';
+    stage.innerHTML = svgHtml;
+    view.appendChild(stage);
+    var svg = stage.querySelector('svg');
+    if (!svg) { box.appendChild(view); return; }
+    var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+    var natW = vb.length === 4 && vb[2] > 0 ? vb[2] : (svg.getBoundingClientRect().width || 400);
+    var natH = vb.length === 4 && vb[3] > 0 ? vb[3] : (svg.getBoundingClientRect().height || 300);
+    svg.setAttribute('width', natW); svg.setAttribute('height', natH);
+    svg.style.width = natW + 'px'; svg.style.height = natH + 'px';
+    var key = src;
+    var st = mmView[key] || (mmView[key] = { fitted: true, s: 1, x: 0, y: 0, h: 0 });
+    function apply() { stage.style.transform = 'translate(' + st.x + 'px,' + st.y + 'px) scale(' + st.s + ')'; }
+    function fit() {
+      var w = view.clientWidth || box.clientWidth || natW;
+      st.s = w / natW; st.x = 0; st.y = 0; st.h = Math.round(natH * st.s); st.fitted = true;
+      view.style.height = st.h + 'px';
+      apply();
+    }
+    function zoom(f) {
+      var cx = view.clientWidth / 2, cy = view.clientHeight / 2;
+      var ns = Math.max(0.1, Math.min(20, st.s * f));
+      st.x = cx - (cx - st.x) * ns / st.s; st.y = cy - (cy - st.y) * ns / st.s; st.s = ns; st.fitted = false;
+      apply();
+    }
+    var tools = document.createElement('div'); tools.className = 'cm-mm-tools';
+    function btn(icon, title, fn) {
+      var b = document.createElement('button'); b.type = 'button'; b.title = title; b.innerHTML = icon;
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fn(b); });
+      tools.appendChild(b); return b;
+    }
+    var panBtn = btn(ICON.pan, '移動', function (b) { b.classList.toggle('on'); view.classList.toggle('cm-mm-panning', b.classList.contains('on')); });
+    btn(ICON.out, '縮小', function () { zoom(0.8); });
+    btn(ICON.inn, '拡大', function () { zoom(1.25); });
+    btn(ICON.fit, '枠に合わせる', function () { fit(); });
+    view.appendChild(tools);
+    var drag = null;
+    view.addEventListener('mousedown', function (e) {
+      if (!panBtn.classList.contains('on') || e.button !== 0 || tools.contains(e.target)) return;
+      drag = { mx: e.clientX, my: e.clientY, x: st.x, y: st.y };
+      view.classList.add('cm-mm-drag'); e.preventDefault();
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (!drag) return;
+      st.x = drag.x + e.clientX - drag.mx; st.y = drag.y + e.clientY - drag.my; st.fitted = false; apply();
+    });
+    window.addEventListener('mouseup', function () { if (drag) { drag = null; view.classList.remove('cm-mm-drag'); } });
+    box.appendChild(view);
+    view._cmFit = function () { if (st.fitted) fit(); };
+    if (st.fitted) fit(); else { view.style.height = st.h + 'px'; apply(); }
+  }
+  function refitMermaid() {
+    Array.prototype.forEach.call(content.querySelectorAll('.cm-mm-view'), function (v) { if (v._cmFit) v._cmFit(); });
+  }
+
+  function renderMermaidAll() {         // 図をすべて描く（画面用）。終わったら Promise が解決する
+    var gen = ++mmGen;
+    return withMermaidLock(function () { return renderMermaidScreen(gen); });
+  }
+  function renderMermaidScreen(gen) {
+    if (gen !== mmGen) return Promise.resolve();             // 順番を待つ間に、次の描き直しが始まった
+    var boxes = Array.prototype.slice.call(content.querySelectorAll('.cm-mermaid'));
+    if (!boxes.length) return Promise.resolve();
+    var cfg = mermaidConfig(false), theme = JSON.stringify(cfg.themeVariables);
+    applyToolbarColors();
+    return loadMermaid().then(function (mm) {
+      mm.initialize(cfg);
+      var chain = Promise.resolve();
+      boxes.forEach(function (box) {
+        chain = chain.then(function () {
+          if (gen !== mmGen || !box.isConnected) return;      // 途中で描き直しが始まった
+          var srcEl = box.querySelector('.cm-mermaid-src');
+          var src = srcEl ? srcEl.textContent : '';
+          var key = theme + '\u0002' + (state.remote ? '1' : '0') + '\u0002' + src;
+          function clear() {
+            Array.prototype.slice.call(box.childNodes).forEach(function (n) { if (n !== srcEl) box.removeChild(n); });
+          }
+          function put(svgHtml, noteHtml) {
+            clear();
+            setupViewer(box, svgHtml, src);
+            if (noteHtml) box.insertAdjacentHTML('beforeend', noteHtml);
+          }
+          function note(text) { return '<div class="cm-mermaid-note">' + esc(text) + '</div>'; }
+          function cleanup() {
+            Array.prototype.slice.call(document.querySelectorAll('body > [id^="dcmm"]')).forEach(function (n) { n.remove(); });
+          }
+          function fail(err) {
+            var msg = (err && (err.message || err.str)) || String(err);
+            cleanup();
+            if (gen === mmGen && box.isConnected) {
+              clear();
+              box.insertAdjacentHTML('beforeend', '<div class="cm-mermaid-err">' + esc('Mermaid の図を描けません:\n' + msg) + '</div>');
+            }
+          }
+          function done(svgHtml, noteHtml) {
+            mmCache[key] = [svgHtml, noteHtml || ''];
+            if (gen === mmGen && box.isConnected) put(svgHtml, noteHtml);
+          }
+          if (mmCache[key] != null) { put(mmCache[key][0], mmCache[key][1]); return; }
+          var st = stripRemoteImg(src);
+          if (!state.remote) {
+            // 外部画像を許可していない：画像の指定を外して、アイコンなしで描く
+            return mm.render('cmm' + (++mmSeq), st.src).then(function (r) {
+              done(r.svg, st.changed ? note('[外部画像は表示しません]') : '');
+            }, fail);
+          }
+          return mm.render('cmm' + (++mmSeq), src).then(function (r) { done(r.svg); }, function (err) {
+            if (!st.changed) { fail(err); return; }
+            // 画像を取れなかった（ネットにつながっていないなど）：画像の指定を外して描き直す
+            cleanup();
+            return mm.render('cmm' + (++mmSeq), st.src).then(function (r) {
+              if (gen === mmGen && box.isConnected) put(r.svg, note('[画像を取得できませんでした]'));   // 覚えない（つながったら次は画像付きで描く）
+            }, fail);
+          });
+        });
+      });
+      return chain.then(function () { if (gen === mmGen) relayout(); });
+    }, function (err) {
+      boxes.forEach(function (box) {
+        if (!box.querySelector('.cm-mermaid-err'))
+          box.insertAdjacentHTML('beforeend', '<div class="cm-mermaid-err">' + esc(err.message) + '</div>');
+      });
+    });
+  }
+
+  // ---------- 【段階5】コードの表示（Markdown 以外のタブ） ----------
+  var LANGMAP = { pascal: 'delphi', bat: 'dos', shell: 'bash', vb: 'vbnet', html: 'xml', razor: 'xml',
+                  csharp: 'csharp', fsharp: 'fsharp', objectivec: 'objectivec', restructuredtext: '' };
+  var CODE_HL_LIMIT = 500000;           // これより大きい文書は、色分けしない（時間がかかりすぎるため）
+  function hlName(lang) {
+    var l = String(lang || '').toLowerCase();
+    if (!l || l === 'plaintext') return '';
+    if (Object.prototype.hasOwnProperty.call(LANGMAP, l)) l = LANGMAP[l];
+    return (l && window.hljs && hljs.getLanguage(l)) ? l : '';
+  }
+  function splitHtmlLines(html) {       // 色分けした HTML を行ごとに分ける（行をまたぐ <span> は、行ごとに閉じて開き直す）
+    var out = [], open = [], cur = '', re = /(<span[^>]*>)|(<\/span>)|(\n)|([^<\n]+|<)/g, m;
+    while ((m = re.exec(html))) {
+      if (m[1]) { open.push(m[1]); cur += m[1]; }
+      else if (m[2]) { open.pop(); cur += m[2]; }
+      else if (m[3]) { cur += open.map(function () { return '</span>'; }).join(''); out.push(cur); cur = open.join(''); }
+      else cur += m[4];
+    }
+    out.push(cur);
+    return out;
+  }
+  function renderCode(lang, text) {
+    text = String(text).replace(/\r\n?/g, '\n');
+    var hl = text.length <= CODE_HL_LIMIT ? hlName(lang) : '';
+    var lines;
+    if (hl) {
+      try { lines = splitHtmlLines(hljs.highlight(text, { language: hl, ignoreIllegals: true }).value); }
+      catch (e) { lines = null; }
+    }
+    if (!lines) lines = text.split('\n').map(esc);
+    var w = String(lines.length).length + 0.5, parts = [];
+    for (var i = 0; i < lines.length; i++) {
+      var n = i + 1;
+      parts.push('<div class="cl" data-ls="' + n + '" data-le="' + n + '"><span class="ln" style="width:' + (w + 1.2) +
+                 'em" data-n="' + n + '"></span><span class="lc">' + lines[i] + '</span></div>');
+    }
+    content.classList.add('cm-codeview');
+    content.innerHTML = parts.join('');
+    mmGen++;
+    buildMarks();
+    applyLine(state.line);
+  }
+
+  // ---------- 【段階5】印刷の準備（【2.8】画面の図は描き直さない） ----------
+  function removePrintCopies() {
+    Array.prototype.slice.call(content.querySelectorAll('.cm-mm-print')).forEach(function (n) { n.remove(); });
+  }
+  // 印刷用（白背景用の色）の図を、画面には出さない要素（.cm-mm-print）に描く。印刷のときだけ CSS で画面用と入れ替わる
+  function renderPrintCopies() {
+    return withMermaidLock(function () {
+      removePrintCopies();
+      var boxes = Array.prototype.slice.call(content.querySelectorAll('.cm-mermaid'));
+      if (!boxes.length) return;
+      var cfg = mermaidConfig(true), theme = JSON.stringify(cfg.themeVariables);
+      return loadMermaid().then(function (mm) {
+        mm.initialize(cfg);
+        var chain = Promise.resolve();
+        boxes.forEach(function (box) {
+          chain = chain.then(function () {
+            if (!box.isConnected || box.querySelector('.cm-mermaid-err')) return;   // エラーの図は、画面の表示をそのまま印刷する
+            var srcEl = box.querySelector('.cm-mermaid-src');
+            var src = srcEl ? srcEl.textContent : '';
+            var key = theme + '\u0002' + (state.remote ? '1' : '0') + '\u0002' + src;
+            function put(svgHtml) {
+              if (!box.isConnected) return;
+              var d = document.createElement('div');
+              d.className = 'cm-mm-print';
+              d.innerHTML = svgHtml;
+              box.appendChild(d);
+            }
+            function cleanup() {
+              Array.prototype.slice.call(document.querySelectorAll('body > [id^="dcmm"]')).forEach(function (n) { n.remove(); });
+            }
+            if (mmCache[key] != null) { put(mmCache[key][0]); return; }
+            var st = stripRemoteImg(src);
+            var first = state.remote ? src : st.src;
+            return mm.render('cmm' + (++mmSeq), first).then(function (r) {
+              mmCache[key] = [r.svg, ''];
+              put(r.svg);
+            }, function () {
+              cleanup();
+              if (!state.remote || !st.changed) return;          // 描けなければ、画面用の図を印刷する
+              return mm.render('cmm' + (++mmSeq), st.src).then(function (r) { put(r.svg); }, cleanup);
+            });
+          });
+        });
+        return chain;
+      }, function () { });
+    });
+  }
+  function preparePrint() {             // 印刷用の図を用意してから、Pascal に「印刷してよい」と知らせる
+    printing = true;
+    renderPrintCopies().then(function () { post('printready'); }, function () { post('printready'); });
+  }
+  function endPrint() {
+    if (!printing) return false;
+    printing = false;
+    removePrintCopies();
+    return true;
+  }
+  window.addEventListener('afterprint', function () {
+    if (endPrint()) post('afterprint');
+  });
+
+  // ---------- 同期スクロール ----------
+  function docTop(el) { return el.getBoundingClientRect().top + window.pageYOffset; }
+  function lineToY(T) {
+    if (!marks.length) return 0;
+    var lo = 0, hi = marks.length - 1, idx = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (marks[mid].ls <= T) { idx = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    if (idx < 0) {                                       // 最初の要素より前
+      var f = marks[0], span = f.ls - 1, y1 = docTop(f.el);
+      return span > 0 ? Math.max(0, (T - 1) / span) * y1 : y1;
+    }
+    var m = marks[idx], top = docTop(m.el), h = m.el.offsetHeight;
+    if (T < m.le + 1) return top + (T - m.ls) / (m.le + 1 - m.ls) * h;   // 要素の内側
+    var bottom = top + h, next = marks[idx + 1];                          // 要素の後ろ（空行など）
+    if (!next) return bottom;
+    var gap = next.ls - (m.le + 1);
+    if (gap <= 0) return bottom;
+    return bottom + (T - (m.le + 1)) / gap * Math.max(0, docTop(next.el) - bottom);
+  }
+  var progUntil = 0;                    // この時刻まで、スクロールは自動（プログラム）によるものとみなす
+  function applyLine(T) {
+    state.line = T;
+    progUntil = Date.now() + 250;
+    window.scrollTo(0, Math.max(0, lineToY(T)));
+  }
+  function yToLine(y) {                 // lineToY の逆。スクロール位置 → 元の行番号（小数）
+    if (!marks.length) return 1;
+    var lo = 0, hi = marks.length - 1, idx = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (docTop(marks[mid].el) <= y) { idx = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    if (idx < 0) {
+      var f = marks[0], y1 = docTop(f.el);
+      return y1 > 0 ? 1 + Math.max(0, y / y1) * (f.ls - 1) : f.ls;
+    }
+    var m = marks[idx], top = docTop(m.el), hgt = m.el.offsetHeight;
+    if (y < top + hgt) return hgt > 0 ? m.ls + (y - top) / hgt * (m.le + 1 - m.ls) : m.ls;
+    var next = marks[idx + 1], bottom = top + hgt;
+    if (!next) return m.le + 1;
+    var span = docTop(next.el) - bottom;
+    return span > 0 ? (m.le + 1) + (y - bottom) / span * (next.ls - (m.le + 1)) : next.ls;
+  }
+  var lastPosted = -1, scrollQueued = false;
+  window.addEventListener('scroll', function () {       // ユーザーがプレビューをスクロールしたら、エディタへ通知
+    if (Date.now() < progUntil || scrollQueued) return;
+    scrollQueued = true;
+    requestAnimationFrame(function () {
+      scrollQueued = false;
+      if (Date.now() < progUntil) return;
+      var T = yToLine(window.pageYOffset);
+      state.line = T;
+      if (Math.abs(T - lastPosted) < 0.004) return;
+      lastPosted = T;
+      post('scrollline', T.toFixed(3));
+    });
+  }, { passive: true });
+  var relayoutQueued = false;
+  function relayout() {
+    if (relayoutQueued) return;
+    relayoutQueued = true;
+    requestAnimationFrame(function () { relayoutQueued = false; applyLine(state.line); });
+  }
+  content.addEventListener('load', relayout, true);      // 画像の読み込みで高さが変わったら合わせ直す
+  window.addEventListener('resize', function () { refitMermaid(); relayout(); });
+
+  // ---------- リンク ----------
+  function handleLink(href) {
+    if (href.charAt(0) === '#') {
+      var el = document.getElementById(safeDecode(href.substring(1)));
+      if (el) el.scrollIntoView();
+      return;
+    }
+    if (/^(https?:|mailto:)/i.test(href)) { post('openurl', href); return; }
+    var path = href.split('#')[0].split('?')[0];
+    if (/\.(md|markdown)$/i.test(safeDecode(path))) {
+      var abs = resolveLocal(path);
+      if (abs) post('openmd', abs);
+    }
+  }
+  content.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a') : null;
+    if (!a) return;
+    e.preventDefault();
+    var local = a.getAttribute('data-local');
+    if (local) { if (/\.(md|markdown)$/i.test(local)) post('openmd', local); return; }
+    handleLink(a.getAttribute('href') || '');
+  });
+  content.addEventListener('auxclick', function (e) { e.preventDefault(); });
+  ['dragover', 'drop'].forEach(function (n) {
+    document.addEventListener(n, function (e) { e.preventDefault(); }, true);
+  });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); post('contextmenu'); }, true);
+
+  // ---------- Ctrl+ホイールで文字サイズ ----------
+  document.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    var n = Math.max(8, Math.min(48, state.fontSize + (e.deltaY < 0 ? 1 : -1)));
+    if (n === state.fontSize) return;
+    state.fontSize = n;
+    applyFont();
+    post('fontsize', n);
+    relayout();
+  }, { passive: false });
+
+  // ---------- Pascal からのコマンド ----------
+  function onMessage(e) {
+    var s = String(e.data), i = s.indexOf(SEP);
+    var cmd = i < 0 ? s : s.substring(0, i);
+    var raw = i < 0 ? '' : s.substring(i + 1);
+    var a = raw.split(SEP);
+    switch (cmd) {
+      case 'render': {
+        var j = raw.indexOf(SEP);
+        try { render(raw.substring(0, j), raw.substring(j + 1)); }
+        catch (err) { post('error', 'render: ' + err.message); }
+        break;
+      }
+      case 'clear': content.innerHTML = ''; content.classList.remove('cm-codeview'); marks = []; mmGen++; break;
+      case 'code': {                    // 【段階5】Markdown 以外：言語 SEP 本文
+        var k = raw.indexOf(SEP);
+        try { renderCode(raw.substring(0, k), raw.substring(k + 1)); }
+        catch (err) { post('error', 'code: ' + err.message); }
+        break;
+      }
+      case 'title': document.title = a[0] || '無題'; break;   // 【段階5】印刷で PDF の名前になる
+      case 'prepareprint': preparePrint(); break;
+      case 'printdone': endPrint(); break;
+      case 'line': applyLine(parseFloat(a[0]) || 1); break;
+      case 'opt':
+        switch (a[0]) {
+          case 'theme':    state.theme = a[1]; applyTheme(); break;
+          case 'fontsize': state.fontSize = parseInt(a[1], 10) || 16; applyFont(); relayout(); break;
+          case 'layout':   state.maxw = parseInt(a[1], 10) || 0; state.pad = parseInt(a[2], 10); if (isNaN(state.pad)) state.pad = 26; applyLayout(); relayout(); break;
+          case 'breaks':   state.breaks = a[1] === '1'; break;
+          case 'remote':   state.remote = a[1] === '1'; break;
+          case 'colors':
+            state.scheme = a[1];
+            state.c = { bgL: a[2], fgL: a[3], lkL: a[4], bgD: a[5], fgD: a[6], lkD: a[7] };
+            applyTheme();
+            break;
+        }
+        break;
+      case 'copy': post('copytext', String(window.getSelection())); break;
+      case 'selectall': {
+        var r = document.createRange();
+        r.selectNodeContents(content);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+        break;
+      }
+    }
+  }
+  if (wv) wv.addEventListener('message', onMessage);
+  window.__cm = { render: render, renderCode: renderCode, renderMermaidAll: renderMermaidAll, preparePrint: preparePrint, applyLine: applyLine, lineToY: lineToY, yToLine: yToLine, state: state, applyTheme: applyTheme };   // テスト用
+  post('ready');
+})();
+</script>
+</body>
+</html>

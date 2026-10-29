@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="5">
+    <Name Value="cxdsgn"/>
+    <Type Value="DesignTime"/>
+    <Author Value="aotan083"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <IncludeFiles Value="../source/res"/>
+        <OtherUnitFiles Value="../source/design"/>
+        <UnitOutputDirectory Value="lib/cxdsgn/$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+    </CompilerOptions>
+    <Description Value="CX design-time package: palette registration, icons, component editors and editor actions for the CX components"/>
+    <License Value="MIT License. Copyright (c) 2026 aotan083"/>
+    <Version Major="1"/>
+    <Files>
+      <Item>
+        <Filename Value="../source/design/uCXReg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="uCXReg"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/design/uCSideBarReg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="uCSideBarReg"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/design/uCPageControl_reg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="uCPageControl_reg"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/design/uCbookmark_reg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="uCbookmark_reg"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cbookmark_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/ccheckgroupbox_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cchecklistbox_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cgroupbox_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cpagecontrol_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/csidebar_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cx_icons.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+    </Files>
+    <RequiredPkgs>
+      <Item>
+        <PackageName Value="IDEIntf"/>
+      </Item>
+      <Item>
+        <PackageName Value="cx"/>
+      </Item>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+      <UseFileFilters Value="True"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>
