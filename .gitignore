@@ -1,7 +1,6 @@
 # Lazarus / FPC の作業ファイル
 packages/lib/
 **/lib/
-*.exe
 *.ppu
 *.o
 *.or
@@ -10,13 +9,10 @@ packages/lib/
 backup/
 *.lps
 *.res
-TabBrowserData/
 !packages/*.res
 
 # 公開しないもの
-runtime/WebView2Loader.dll
+WebView2Loader.dll
 runtime/chat/
-runtime/WebView2Data/
 docs/test_docs/
-demo/Lazarus/tcBookmarks/bookmark/
 THIRD_PARTY/
