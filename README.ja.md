@@ -40,7 +40,6 @@ Lazarus（Free Pascal）用の部品集です。フォームに置くだけで�
 | `docs` | 部品ごとの取扱説明書（`*_Usage.md`）と設計書（`*_Design.md`） |
 | `runtime` | WebView2 の部品が実行時に使うファイル（`monaco`・`preview`） |
 | `demo` | 部品ごとのサンプル |
-| `THIRD_PARTY` | 使っている外部ライブラリ |
 
 ## インストール
 

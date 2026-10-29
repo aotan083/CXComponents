@@ -40,7 +40,6 @@ All components appear on the [CX] palette page. The manuals and design documents
 | `docs` | Manual (`*_Usage.md`) and design document (`*_Design.md`) for each component |
 | `runtime` | Files used at run time by the WebView2 components (`monaco`, `preview`) |
 | `demo` | Sample programs |
-| `THIRD_PARTY` | Third-party libraries used |
 
 ## Installation
 
