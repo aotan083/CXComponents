@@ -20,7 +20,11 @@
     Pages[n] にあるものは、すべて Ed にも同じ名前である。タブは常に 1 枚以上ある。
   ・【2.15】Theme・ColorScheme はオブジェクトインスペクタで選択、色は TColor（色ダイアログ）で指定する。
     中の部品（TCMMonacoView・TCMMarkdownPreview）は今までどおり文字列で受けるので、
-    この部品の中で 'auto'・'vs'・'vs-dark'、'editor'・'github'、'#RRGGBB' に変換して渡す。 }
+    この部品の中で 'auto'・'vs'・'vs-dark'、'editor'・'github'、'#RRGGBB' に変換して渡す。
+  ・【2.20】TabTearOff = True なら、タブをウィンドウの外へ落とすと、同じ EXE をもう 1 つ起動してそのタブを開く
+    （タブの分離。設計書 4.11）。受け渡しは一時ファイルと環境変数 CM_TEAROFF。
+  ・【2.21】TabTearOff の既定は True。同じ EXE の別のウィンドウのエディタへ落とすと、そのエディタに新しいタブで開く
+    （タブの結合。設計書 4.11.6）。受け渡しは一時ファイルと WM_COPYDATA。 }
 unit uCmonacos;
 
 {$mode objfpc}{$H+}
@@ -73,6 +77,9 @@ type
   TCMColorScheme = (csEditor, csGitHub);
   { 【2.13】選択範囲の色の組 }
   TCMSelectionColorStyle = (scStandard, scBlue, scAmber, scPurple, scCustom);
+  { 【2.20】タブがウィンドウの外へ落とされた。Index はそのタブの番号、X・Y は落とした画面の位置。
+    TearOff は、来たときは TabTearOff の値（何も入っていない無題が 1 枚だけなら False）。False にすると部品は分離も結合もしない }
+  TCMTabDragOutEvent = procedure(Sender: TObject; Index, X, Y: Integer; var TearOff: Boolean) of object;
 
   TCMFormHook = class;
   TCMonacoEditor = class;
@@ -194,6 +201,13 @@ type
     FSysIconExts: TStringList;       { 拡張子 → FSysImages の番号 }
     FOnGetTabImageIndex: TCMTabImageEvent;
     FOnError: TCMErrorEvent;
+    { 【2.20】タブの分離 }
+    FTabTearOff: Boolean;
+    FOnTabDragOut: TCMTabDragOutEvent;
+    FTearOffPending: Boolean;      { 分離で起動され、このエディタが受け取った（準備ができたらタブを作る） }
+    FTearOffHead: TStringList;     { 受け取った一時ファイルの見出し（名前=値） }
+    FTearOffBody: string;          { 受け取った一時ファイルの本文 }
+    FMergeQueue: TStringList;      { 【2.21】結合で受け取った一時ファイル（AsyncMerge でタブを作る） }
 
     { 中の部品からの通知（Sender を Self に差し替えて、利用者のイベントへ渡す） }
     procedure MonacoReady(Sender: TObject);
@@ -227,6 +241,18 @@ type
     function SystemIconIndex(const AFileName: string): Integer;
     procedure BinderGetImageIndex(Sender: TObject; Index: Integer; const AFileName: string;
       var ImageIndex: Integer);
+    { 【2.20】タブの分離（設計書 4.11.2・4.11.3） }
+    procedure BinderTabDragOut(Sender: TObject; Index, X, Y: Integer);
+    function TearOffName: string;
+    function SendTearOff(AIndex, X, Y: Integer): Boolean;
+    function TryClaimTearOff: Boolean;
+    procedure MoveFormToTearOff;
+    procedure ApplyTearOff;
+    { 【2.21】タブの結合（設計書 4.11.6） }
+    function MakeTearOffFile(AIndex, X, Y: Integer; out AFile: string): Boolean;
+    function TryMerge(AIndex, X, Y: Integer): Boolean;
+    procedure AsyncMerge(Data: PtrInt);
+    procedure AsyncBringFront(Data: PtrInt);
     procedure SetTabIcons(AValue: Boolean);
     procedure SetTabImages(AValue: TImageList);
     procedure PreviewError(Sender: TObject; const AMessage: string);
@@ -461,6 +487,10 @@ type
     { 全体 }
     property MultiDocument: Boolean read FMultiDocument write SetMultiDocument default True;
     property ConfirmOnFormClose: Boolean read FConfirmOnFormClose write FConfirmOnFormClose default True;
+    { 【2.20】True：タブをウィンドウの外へ落とすと、同じ EXE をもう 1 つ起動して、そのタブを開く。
+      【2.21】既定は True。同じ EXE の別のウィンドウのエディタへ落とすと、そこに新しいタブで開く（結合）。
+      False なら、分離も結合もしない（ほかのウィンドウから落とされたタブも受けない） }
+    property TabTearOff: Boolean read FTabTearOff write FTabTearOff default True;
     property OpenDialog: TOpenDialog read FOpenDialog write SetOpenDialog;
     property SaveDialog: TSaveDialog read FSaveDialog write SetSaveDialog;
     property FindDialog: TCMFindDialog read FFindDialog write SetFindDialog;
@@ -547,6 +577,7 @@ type
     property OnReplaceAllDone: TCMReplaceAllDoneEvent read FOnReplaceAllDone write FOnReplaceAllDone;
     property OnPopup: TNotifyEvent read FOnPopup write FOnPopup;
     property OnGetTabImageIndex: TCMTabImageEvent read FOnGetTabImageIndex write FOnGetTabImageIndex;   { TabImages を設定したときだけ }
+    property OnTabDragOut: TCMTabDragOutEvent read FOnTabDragOut write FOnTabDragOut;   { 【2.20】タブがウィンドウの外へ落とされた }
     property OnError: TCMErrorEvent read FOnError write FOnError;
     property OnKeyDown;
   end;
@@ -589,7 +620,7 @@ function CMColorToHex(AColor, ADefault: TColor): string;
 
 implementation
 
-uses LazUTF8;
+uses LazUTF8, StrUtils;
 
 const
   { 【2.13】選択範囲の色の組（暗い配色・明るい配色）。【2.15】TColor（$00BBGGRR）にした。scCustom は使わない }
@@ -718,6 +749,12 @@ end;
 
 var
   GShownErrors: TStringList = nil;    { 既定のエラー表示で、表示済みのメッセージ（同じものは1回だけ） }
+  { 【2.21】タブの結合（設計書 4.11.6） }
+  GEditors: TFPList = nil;            { 実行時のエディタの一覧（結合で、受けるエディタを探す） }
+  GReceiverWnd: HWND = 0;             { 受け口（プロセスに 1 つ） }
+  GReceiverClassOk: Boolean = False;
+
+procedure EnsureReceiver; forward;    { 【2.21】受け口を作る（本体は「タブの結合」の所） }
 
 { ---------- フォームごとの連結 ---------- }
 
@@ -855,6 +892,9 @@ begin
   FLineSkipEmpty := True;
   FLineQuoteChar := '"';
   FLineWords := TStringList.Create;
+  FTearOffHead := TStringList.Create;     { 【2.20】 }
+  FMergeQueue := TStringList.Create;      { 【2.21】 }
+  FTabTearOff := True;                    { 【2.21】既定は分離・結合する }
 
   { 【2.15】テーマ・配色の組・色の既定値。中の部品の既定値と同じ色なので、中の部品へは送らない }
   FTheme := ctAuto;
@@ -939,6 +979,7 @@ begin
   FTabBinder := TCMTabBinder.Create(Self);
   FTabBinder.ConfirmClose := False;                 { 未保存の確認は、この部品が行う }
   FTabBinder.OnGetImageIndex := @BinderGetImageIndex;
+  FTabBinder.OnDragOut := @BinderTabDragOut;        { 【2.20】タブの分離 }
   FTabBinder.Attach(FMonaco, FTabs);
   FPreviewBinder := TCMPreviewBinder.Create(Self);
   FPreviewBinder.Attach(FMonaco, FPreview);
@@ -958,6 +999,9 @@ begin
   if FHook <> nil then FHook.RemoveEditor(Self);
   FErrQueue.Free;
   FreeAndNil(FLineWords);                 { 【2.13】 }
+  FreeAndNil(FTearOffHead);               { 【2.20】 }
+  if GEditors <> nil then GEditors.Remove(Self);   { 【2.21】結合の受け口から外す }
+  FreeAndNil(FMergeQueue);                { 【2.21】 }
   if FPages <> nil then
     for I := 0 to FPages.Count - 1 do TCMPage(FPages[I]).Free;
   FreeAndNil(FPages);
@@ -969,6 +1013,9 @@ procedure TCMonacoEditor.Loaded;
 begin
   inherited Loaded;
   ApplyThemeColors;
+  { 【2.20】.lfm から作ったエディタ：分離で起動されたなら、ここで受け取り、フォームを落とした位置に出す
+    （フォームが表示される前なので、最初からその位置に出る）。タブは準備ができてから作る（MonacoReady） }
+  if TryClaimTearOff then MoveFormToTearOff;
 end;
 
 procedure TCMonacoEditor.CreateWnd;
@@ -987,6 +1034,9 @@ begin
   FTabs.Visible := FMultiDocument;
   RegisterWithForm;
   UpdatePreview;
+  { 【2.21】結合の受け口に加える（実行時だけ。受け口はプロセスに 1 つ。初めてのときに作る） }
+  if (GEditors <> nil) and (GEditors.IndexOf(Self) < 0) then GEditors.Add(Self);
+  EnsureReceiver;
 end;
 
 procedure TCMonacoEditor.Paint;
@@ -1794,6 +1844,570 @@ begin
   Result := (I >= 0) and FOwner.PageClose(I, Force);
 end;
 
+{ ---------- 【2.20】タブの分離（設計書 4.11） ---------- }
+
+const
+  TearOffMark = 'CMTEAROFF1';     { 一時ファイルの 1 行目（目印） }
+  TearOffEnv = 'CM_TEAROFF';      { 一時ファイルの場所を渡す環境変数 }
+  CM_CREATE_UNICODE_ENVIRONMENT = $00000400;
+
+var
+  GTearOffRead: Boolean = False;     { 環境変数を読んだ（1 回だけ読む） }
+  GTearOffFile: string = '';         { 分離で起動されたときの一時ファイル。普通の起動なら '' }
+  GTearOffClaimed: Boolean = False;  { どれかのエディタが受け取った（1 回だけ受ける） }
+
+{ 分離で起動されたときの一時ファイルの場所。普通の起動なら ''。
+  最初に呼ばれたときに 1 回だけ環境変数 CM_TEAROFF を読み、すぐに消す
+  （この EXE がさらに別の EXE を起動しても引き継がないように） }
+function TearOffFile: string;
+var
+  Buf: array[0..32767] of WideChar;
+  N: DWORD;
+begin
+  if not GTearOffRead then
+  begin
+    GTearOffRead := True;
+    N := Windows.GetEnvironmentVariableW(PWideChar(UnicodeString(TearOffEnv)), @Buf[0], Length(Buf));
+    if (N > 0) and (N < Length(Buf)) then
+    begin
+      GTearOffFile := UTF8Encode(UnicodeString(PWideChar(@Buf[0])));
+      Windows.SetEnvironmentVariableW(PWideChar(UnicodeString(TearOffEnv)), nil);
+    end;
+  end;
+  Result := GTearOffFile;
+end;
+
+{ 一時ファイルを書く（UTF-8）。1 行目が目印、空の行までが見出し（名前=値）、その後ろの全部が本文 }
+procedure WriteTearOffFile(const AFile: string; AHead: TStrings; const ABody: string);
+var
+  S: string;
+  I: Integer;
+  FS: TFileStream;
+begin
+  S := TearOffMark + #13#10;
+  for I := 0 to AHead.Count - 1 do S := S + AHead[I] + #13#10;
+  S := S + #13#10 + ABody;
+  FS := TFileStream.Create(AFile, fmCreate);
+  try
+    if S <> '' then FS.WriteBuffer(S[1], Length(S));
+  finally
+    FS.Free;
+  end;
+end;
+
+{ 一時ファイルを読む。形が違う（1 行目が目印でない・空の行がない）・読めないときは False }
+function ReadTearOffFile(const AFile: string; AHead: TStrings; out ABody: string): Boolean;
+var
+  FS: TFileStream;
+  S: string;
+  P, Q: Integer;
+begin
+  Result := False;
+  ABody := '';
+  AHead.Clear;
+  try
+    FS := TFileStream.Create(AFile, fmOpenRead or fmShareDenyNone);
+    try
+      SetLength(S, FS.Size);
+      if S <> '' then FS.ReadBuffer(S[1], Length(S));
+    finally
+      FS.Free;
+    end;
+  except
+    Exit;
+  end;
+  { 1 行目（目印） }
+  P := Pos(#13#10, S);
+  if (P = 0) or (Copy(S, 1, P - 1) <> TearOffMark) then Exit;
+  Inc(P, 2);
+  { 空の行までが見出し }
+  while True do
+  begin
+    Q := PosEx(#13#10, S, P);
+    if Q = 0 then Exit;                     { 空の行がない }
+    if Q = P then Break;                    { 空の行 }
+    AHead.Add(Copy(S, P, Q - P));
+    P := Q + 2;
+  end;
+  ABody := Copy(S, P + 2, MaxInt);
+  Result := True;
+end;
+
+{ 受け取るエディタを見分ける名前（フォームの Name.エディタの Name） }
+function TCMonacoEditor.TearOffName: string;
+begin
+  if Owner <> nil then Result := Owner.Name + '.' + Name else Result := Name;
+end;
+
+{ タブがウィンドウの外へ落とされた（binder がドラッグの処理のあとで呼ぶ）。
+  TearOff の初めの値を決めて OnTabDragOut を呼び、True のままなら分離する }
+procedure TCMonacoEditor.BinderTabDragOut(Sender: TObject; Index, X, Y: Integer);
+var
+  TearOff: Boolean;
+  Id: Integer;
+begin
+  if (Index < 0) or (Index >= FMonaco.DocumentCount) then Exit;
+  Id := FMonaco.DocumentId(Index);       { イベントの中でタブが並べ替え・閉じられても、同じタブを指すように }
+  TearOff := FTabTearOff;
+  { 何も入っていない無題が 1 枚だけなら、分離しても意味がないので、初めの値は False }
+  if (FMonaco.DocumentCount = 1) and (FMonaco.DocumentFileName[Index] = '') and
+     (FMonaco.DocumentText[Index] = '') then
+    TearOff := False;
+  if Assigned(FOnTabDragOut) then FOnTabDragOut(Self, Index, X, Y, TearOff);
+  if not TearOff then Exit;
+  Index := FMonaco.IndexOfId(Id);
+  if Index < 0 then Exit;                { イベントの中で閉じられた }
+  SendTearOff(Index, X, Y);
+end;
+
+{ ---------- 【2.21】タブの結合（設計書 4.11.6） ---------- }
+
+const
+  CM_HWND_MESSAGE = HWND(-3);                       { メッセージ専用のウィンドウの親 }
+  CM_GA_ROOT = 2;                                   { GetAncestor：一番外（トップレベル）のウィンドウ }
+  CM_PROCESS_QUERY_LIMITED_INFORMATION = $1000;
+  CM_SMTO_ABORTIFHUNG = $0002;
+  CM_MERGE_MAGIC = $434D544F;                       { WM_COPYDATA の dwData（'CMTO'） }
+  CM_MERGE_TIMEOUT = 3000;                          { 返事を待つ時間（ミリ秒） }
+  ReceiverClassName = 'CMTearOffReceiver';
+
+{ FPC の Windows ユニットで、版によって宣言が無い・引数の形が違うものは、ここで宣言する }
+function CMGetAncestor(AWnd: HWND; AFlags: UINT): HWND; stdcall;
+  external 'user32.dll' name 'GetAncestor';
+function CMFindWindowExW(AParent, AChildAfter: HWND; AClass, AWindow: PWideChar): HWND; stdcall;
+  external 'user32.dll' name 'FindWindowExW';
+function CMSendMessageTimeoutW(AWnd: HWND; AMsg: UINT; AWParam: WPARAM; ALParam: LPARAM;
+  AFlags, ATimeout: UINT; AResult: PPtrUInt): LRESULT; stdcall;
+  external 'user32.dll' name 'SendMessageTimeoutW';
+function CMAllowSetForegroundWindow(AProcessId: DWORD): BOOL; stdcall;
+  external 'user32.dll' name 'AllowSetForegroundWindow';
+function CMQueryFullProcessImageNameW(AProcess: THandle; AFlags: DWORD; AExeName: PWideChar;
+  var ASize: DWORD): BOOL; stdcall; external 'kernel32.dll' name 'QueryFullProcessImageNameW';
+
+{ プロセスの EXE のフルパス。取れなければ '' }
+function ProcessExePath(APid: DWORD): string;
+var
+  H: THandle;
+  Buf: array[0..32767] of WideChar;
+  N: DWORD;
+begin
+  Result := '';
+  H := Windows.OpenProcess(CM_PROCESS_QUERY_LIMITED_INFORMATION, False, APid);
+  if H = 0 then Exit;
+  try
+    N := Length(Buf);
+    if CMQueryFullProcessImageNameW(H, 0, @Buf[0], N) then
+      Result := UTF8Encode(UnicodeString(PWideChar(@Buf[0])));
+  finally
+    Windows.CloseHandle(H);
+  end;
+end;
+
+{ 画面の位置 (X, Y) の下が「同じ EXE の別のウィンドウ」なら、そのプロセスの受け口を返す。違えば 0。
+  APid には、そのプロセスの ID を入れる }
+function FindMergeReceiver(X, Y: Integer; out APid: DWORD): HWND;
+var
+  W, Root: HWND;
+  Pid: DWORD;
+  MyPath, Path: string;
+begin
+  Result := 0;
+  APid := 0;
+  W := Windows.WindowFromPoint(Point(X, Y));
+  if W = 0 then Exit;
+  Root := CMGetAncestor(W, CM_GA_ROOT);
+  if Root = 0 then Root := W;
+  Windows.GetWindowThreadProcessId(Root, @APid);
+  if (APid = 0) or (APid = Windows.GetCurrentProcessId) then Exit;
+  { 同じ EXE か（フルパスを、大文字小文字を区別せずに比べる） }
+  MyPath := ProcessExePath(Windows.GetCurrentProcessId);
+  Path := ProcessExePath(APid);
+  if (MyPath = '') or (Path = '') or not SameText(MyPath, Path) then Exit;
+  { そのプロセスの受け口を探す（メッセージ専用のウィンドウを、クラス名で順に） }
+  W := 0;
+  repeat
+    W := CMFindWindowExW(CM_HWND_MESSAGE, W, PWideChar(UnicodeString(ReceiverClassName)), nil);
+    if W = 0 then Break;
+    Pid := 0;
+    Windows.GetWindowThreadProcessId(W, @Pid);
+    if Pid = APid then Exit(W);
+  until False;
+end;
+
+{ 受け口のウィンドウ手続き。WM_COPYDATA（dwData = 'CMTO'）で「一時ファイル #10 X #10 Y」を受ける。
+  返事：1＝受け取った（あとでタブを作る） 2＝同じファイルを開いている（そのタブに切り替えた） 0＝受け取らない。
+  送る側が返事を待っているので、ここではダイアログを出さず、待たず、タブも作らない（AsyncMerge で後から作る） }
+function ReceiverWndProc(AWnd: HWND; AMsg: UINT; AWParam: WPARAM; ALParam: LPARAM): LRESULT; stdcall;
+var
+  CDS: PCopyDataStruct;
+  U: UnicodeString;
+  Parts: TStringList;
+  Head: TStringList;
+  Body, FN, FileN: string;
+  X, Y, I, Idx: Integer;
+  E, Target: TCMonacoEditor;
+  P: TPoint;
+  Root: HWND;
+begin
+  if AMsg <> WM_COPYDATA then Exit(Windows.DefWindowProcW(AWnd, AMsg, AWParam, ALParam));
+  Result := 0;
+  CDS := PCopyDataStruct(ALParam);
+  if (CDS = nil) or (CDS^.dwData <> CM_MERGE_MAGIC) or (CDS^.lpData = nil) then Exit;
+  try
+    SetString(U, PWideChar(CDS^.lpData), CDS^.cbData div SizeOf(WideChar));
+    Parts := TStringList.Create;
+    Head := TStringList.Create;
+    try
+      Parts.Delimiter := #10;
+      Parts.StrictDelimiter := True;
+      Parts.DelimitedText := UTF8Encode(U);
+      if Parts.Count < 3 then Exit;
+      FN := Parts[0];
+      X := StrToIntDef(Parts[1], 0);
+      Y := StrToIntDef(Parts[2], 0);
+      if not ReadTearOffFile(FN, Head, Body) then Exit;
+
+      { 受けるエディタ：見えていて、(X, Y) がその範囲の中にあり、ほかのウィンドウに隠れていないもの }
+      Target := nil;
+      Root := CMGetAncestor(Windows.WindowFromPoint(Point(X, Y)), CM_GA_ROOT);
+      for I := 0 to GEditors.Count - 1 do
+      begin
+        E := TCMonacoEditor(GEditors[I]);
+        if (csDestroying in E.ComponentState) or not E.Showing or not E.HandleAllocated then Continue;
+        P := E.ScreenToClient(Point(X, Y));
+        if not PtInRect(E.ClientRect, P) then Continue;
+        if CMGetAncestor(E.Handle, CM_GA_ROOT) <> Root then Continue;
+        Target := E;
+        Break;
+      end;
+      if Target = nil then Exit;                                   { エディタの上ではない }
+      if not Target.FTabTearOff or not Target.FMultiDocument then Exit;
+
+      { 同じファイルを開いていれば、結合しない。そのタブに切り替え、ウィンドウを前に出す }
+      FileN := Head.Values['FileName'];
+      if FileN <> '' then
+      begin
+        Idx := Target.FindPage(FileN);
+        if Idx >= 0 then
+        begin
+          Target.ActiveIndex := Idx;
+          Application.QueueAsyncCall(@Target.AsyncBringFront, 0);
+          Exit(2);
+        end;
+      end;
+
+      { 受け取る。タブは返事のあとで作る }
+      Target.FMergeQueue.Add(FN);
+      Application.QueueAsyncCall(@Target.AsyncMerge, 0);
+      Result := 1;
+    finally
+      Head.Free;
+      Parts.Free;
+    end;
+  except
+    Result := 0;
+  end;
+end;
+
+{ 受け口を作る（プロセスに 1 つ。設計時は作らない。CreateWnd の実行時の分岐からだけ呼ぶ） }
+procedure EnsureReceiver;
+var
+  WC: Windows.TWndClassW;
+begin
+  if GReceiverWnd <> 0 then Exit;
+  if not GReceiverClassOk then
+  begin
+    FillChar(WC, SizeOf(WC), 0);
+    WC.lpfnWndProc := @ReceiverWndProc;
+    WC.hInstance := System.HInstance;
+    WC.lpszClassName := PWideChar(UnicodeString(ReceiverClassName));
+    GReceiverClassOk := Windows.RegisterClassW(WC) <> 0;
+    if not GReceiverClassOk then Exit;
+  end;
+  GReceiverWnd := Windows.CreateWindowExW(0, PWideChar(UnicodeString(ReceiverClassName)), nil, 0,
+    0, 0, 0, 0, CM_HWND_MESSAGE, 0, System.HInstance, nil);
+end;
+
+{ 一時ファイル（4.11.4 の形）を書く。書けなければ OnError で知らせて False }
+function TCMonacoEditor.MakeTearOffFile(AIndex, X, Y: Integer; out AFile: string): Boolean;
+var
+  Head: TStringList;
+begin
+  Result := False;
+  AFile := GetTempFileName(GetTempDir, 'cmt');
+  Head := TStringList.Create;
+  try
+    Head.Add('Editor=' + TearOffName);
+    Head.Add('FileName=' + FMonaco.DocumentFileName[AIndex]);
+    Head.Add('Encoding=' + IntToStr(Ord(FMonaco.DocumentEncoding[AIndex])));
+    Head.Add('Language=' + FMonaco.DocumentLanguage[AIndex]);
+    Head.Add('Modified=' + IntToStr(Ord(FMonaco.DocumentModified[AIndex])));
+    Head.Add('X=' + IntToStr(X));
+    Head.Add('Y=' + IntToStr(Y));
+    try
+      WriteTearOffFile(AFile, Head, FMonaco.DocumentText[AIndex]);   { 本文は写し（入力の直後は約 0.1 秒古いことがある） }
+      Result := True;
+    except
+      on E: Exception do
+      begin
+        DeleteFile(AFile);
+        DoError('別のウィンドウで開けませんでした: ' + E.Message);
+      end;
+    end;
+  finally
+    Head.Free;
+  end;
+end;
+
+{ 結合を試す。落とした先が同じ EXE の別のウィンドウで、受け口があれば送って True（結果に関わらず、分離はしない）。
+  同じ EXE でない・受け口が無ければ False（分離へ進む） }
+function TCMonacoEditor.TryMerge(AIndex, X, Y: Integer): Boolean;
+var
+  Recv: HWND;
+  Pid: DWORD;
+  FN: string;
+  U: UnicodeString;
+  CDS: TCopyDataStruct;
+  Res: PtrUInt;
+begin
+  Result := False;
+  Recv := FindMergeReceiver(X, Y, Pid);
+  if Recv = 0 then Exit;
+  Result := True;
+  if not MakeTearOffFile(AIndex, X, Y, FN) then Exit;
+  U := UTF8Decode(FN + #10 + IntToStr(X) + #10 + IntToStr(Y));
+  FillChar(CDS, SizeOf(CDS), 0);
+  CDS.dwData := CM_MERGE_MAGIC;
+  CDS.cbData := (Length(U) + 1) * SizeOf(WideChar);
+  CDS.lpData := PWideChar(U);
+  CMAllowSetForegroundWindow(Pid);       { 相手がウィンドウを前に出せるように }
+  Res := 0;
+  if CMSendMessageTimeoutW(Recv, WM_COPYDATA, 0, LPARAM(@CDS), CM_SMTO_ABORTIFHUNG,
+       CM_MERGE_TIMEOUT, @Res) = 0 then
+  begin
+    { 送れない（相手が管理者として動いている）・3 秒で返事が無い：元のタブは残す }
+    DeleteFile(FN);
+    DoError('ほかのウィンドウへ移せませんでした');
+    Exit;
+  end;
+  case Res of
+    1: PageClose(AIndex, True);          { 相手が受け取った（一時ファイルは相手が消す） }
+  else
+    DeleteFile(FN);                      { 2＝相手は同じファイルを開いている／0＝受け取らない：元のタブは残す }
+  end;
+end;
+
+{ 結合で受け取った一時ファイルから、新しいタブを作る（受け口の返事のあとで呼ばれる） }
+procedure TCMonacoEditor.AsyncMerge(Data: PtrInt);
+var
+  FN, FileN, Body: string;
+  Head: TStringList;
+  I, N: Integer;
+  Pg: TCMPage;
+begin
+  if (FMergeQueue = nil) or (csDestroying in ComponentState) then Exit;
+  Head := TStringList.Create;
+  try
+    while FMergeQueue.Count > 0 do
+    begin
+      FN := FMergeQueue[0];
+      FMergeQueue.Delete(0);
+      if not ReadTearOffFile(FN, Head, Body) then Continue;
+      I := -1;
+      FileN := Head.Values['FileName'];
+      if (FileN <> '') and FileExists(FileN) then
+      begin
+        { ファイルがある：新しいタブで開く。保存していない編集があったなら、その本文に置き換える（' *' が付く） }
+        try
+          I := OpenFile(FileN);
+        except
+          on E: Exception do
+          begin
+            DoError(FileN + ': ' + E.Message);
+            I := -1;
+          end;
+        end;
+        if (I >= 0) and (Head.Values['Modified'] = '1') then GetPage(I).Text := Body;
+      end;
+      if I < 0 then
+      begin
+        { 無題、ファイルが消えている、開けなかった：新しい無題のタブに本文を入れる }
+        I := NewPage;
+        if I < 0 then Continue;
+        GetPage(I).Text := Body;
+      end;
+      Pg := GetPage(I);
+      N := StrToIntDef(Head.Values['Encoding'], Ord(ceUTF8));
+      if (N >= Ord(Low(TCMEncoding))) and (N <= Ord(High(TCMEncoding))) then
+        Pg.Encoding := TCMEncoding(N);
+      if Head.Values['Language'] <> '' then Pg.Language := Head.Values['Language'];
+      if I <> FMonaco.ActiveIndex then FMonaco.ActiveIndex := I;
+      DeleteFile(FN);                    { 読み終わってから消す }
+    end;
+  finally
+    Head.Free;
+  end;
+  AsyncBringFront(0);
+end;
+
+{ このエディタのフォームを前に出す }
+procedure TCMonacoEditor.AsyncBringFront(Data: PtrInt);
+var
+  F: TCustomForm;
+begin
+  F := GetParentForm(Self);
+  if F = nil then Exit;
+  if F.WindowState = wsMinimized then F.WindowState := wsNormal;
+  F.BringToFront;
+  if F.HandleAllocated then Windows.SetForegroundWindow(F.Handle);
+end;
+
+{ 送る：一時ファイルを書き、自分の EXE を CM_TEAROFF=一時ファイル の環境で起動し、元のタブを閉じる。
+  起動に失敗したら、一時ファイルを消し、タブは残して OnError で知らせる }
+function TCMonacoEditor.SendTearOff(AIndex, X, Y: Integer): Boolean;
+var
+  FN: string;
+  EnvBlock, Cmd, Exe: UnicodeString;
+  P, Env: PWideChar;
+  Entry: UnicodeString;
+  SI: Windows.TStartupInfoW;      { ShellApi にも同じ名前があるので、Windows のものを使う }
+  ProcInfo: TProcessInformation;
+  Ok: Boolean;
+  Err: DWORD;
+begin
+  Result := False;
+  { 【2.21】落とした先が同じ EXE の別のウィンドウで、受け口があれば結合する（ここで終わり） }
+  if TryMerge(AIndex, X, Y) then Exit(True);
+  { 1. 一時ファイルを書く }
+  if not MakeTearOffFile(AIndex, X, Y, FN) then Exit;
+
+  { 2. 環境変数の写しを作る：今の環境変数すべて（CM_TEAROFF は除く）＋ CM_TEAROFF=一時ファイル。
+       起動する新しい EXE にだけ渡る（レジストリにも書かず、ほかには影響しない） }
+  EnvBlock := '';
+  Env := Windows.GetEnvironmentStringsW;
+  if Env <> nil then
+  try
+    P := Env;
+    while P^ <> #0 do
+    begin
+      Entry := P;
+      { CM_TEAROFF= で始まるものは除く（名前は英字なので、英字の大文字小文字だけ区別しない） }
+      if not SameText(UTF8Encode(System.Copy(Entry, 1, Length(TearOffEnv) + 1)), TearOffEnv + '=') then
+        EnvBlock := EnvBlock + Entry + #0;
+      Inc(P, Length(Entry) + 1);
+    end;
+  finally
+    Windows.FreeEnvironmentStringsW(Env);
+  end;
+  EnvBlock := EnvBlock + UnicodeString(TearOffEnv) + '=' + UTF8Decode(FN) + #0 + #0;
+
+  { 3. 自分の EXE を起動する（起動パラメータは付けない。終わるのは待たない） }
+  Exe := UTF8Decode(Application.ExeName);
+  Cmd := '"' + Exe + '"';
+  UniqueString(Cmd);                      { CreateProcessW は、コマンドラインを書き換えることがある }
+  FillChar(SI, SizeOf(SI), 0);
+  SI.cb := SizeOf(SI);
+  FillChar(ProcInfo, SizeOf(ProcInfo), 0);
+  Ok := Windows.CreateProcessW(PWideChar(Exe), PWideChar(Cmd), nil, nil, False,
+    CM_CREATE_UNICODE_ENVIRONMENT, PWideChar(EnvBlock), nil, SI, ProcInfo);
+  if not Ok then
+  begin
+    Err := Windows.GetLastError;
+    DeleteFile(FN);
+    DoError('別のウィンドウで開けませんでした: ' + SysErrorMessage(Err));
+    Exit;                                 { タブは閉じずに残す }
+  end;
+  Windows.CloseHandle(ProcInfo.hThread);
+  Windows.CloseHandle(ProcInfo.hProcess);
+
+  { 4. 起動できたら、聞かずに閉じる（本文は一時ファイルに残っている）。最後の 1 枚なら空の無題が残る }
+  PageClose(AIndex, True);
+  Result := True;
+end;
+
+{ 受ける：分離で起動され、一時ファイルの Editor が自分の名前と同じなら受け取る（1 回だけ）。
+  受け取ったら一時ファイルの中身を覚えて True。タブは準備ができてから作る（ApplyTearOff） }
+function TCMonacoEditor.TryClaimTearOff: Boolean;
+var
+  FN: string;
+begin
+  Result := False;
+  if FTearOffPending then Exit(True);
+  if not FTabTearOff or GTearOffClaimed then Exit;
+  if (csDesigning in ComponentState) or CMIsDesigning(Self) then Exit;
+  FN := TearOffFile;
+  if (FN = '') or not FileExists(FN) then Exit;
+  if not ReadTearOffFile(FN, FTearOffHead, FTearOffBody) then Exit;   { 形が違う：普通の起動（ファイルは消さない） }
+  if FTearOffHead.Values['Editor'] <> TearOffName then
+  begin
+    FTearOffHead.Clear;
+    FTearOffBody := '';
+    Exit;                                 { 名前が違う：ほかのエディタが受ける }
+  end;
+  GTearOffClaimed := True;
+  FTearOffPending := True;
+  Result := True;
+end;
+
+{ 受け取ったエディタのフォームを、タブを落とした位置に出す。画面からはみ出すなら、作業領域に収まるように寄せる }
+procedure TCMonacoEditor.MoveFormToTearOff;
+var
+  F: TCustomForm;
+  X, Y: Integer;
+  WA: TRect;
+  M: TMonitor;
+begin
+  F := GetParentForm(Self);
+  if F = nil then Exit;
+  X := StrToIntDef(FTearOffHead.Values['X'], F.Left);
+  Y := StrToIntDef(FTearOffHead.Values['Y'], F.Top);
+  M := Screen.MonitorFromPoint(Point(X, Y));
+  if M <> nil then
+  begin
+    WA := M.WorkareaRect;
+    if X + F.Width > WA.Right then X := WA.Right - F.Width;
+    if Y + F.Height > WA.Bottom then Y := WA.Bottom - F.Height;
+    if X < WA.Left then X := WA.Left;
+    if Y < WA.Top then Y := WA.Top;
+  end;
+  F.Position := poDesigned;               { 表示するときに中央などへ動かされないように }
+  F.Left := X;
+  F.Top := Y;
+end;
+
+{ 受け取った一時ファイルから、0 番（起動直後の無題）にタブを作る。そのあと一時ファイルを消す }
+procedure TCMonacoEditor.ApplyTearOff;
+var
+  FN, FileN: string;
+  Pg: TCMPage;
+  N: Integer;
+begin
+  FTearOffPending := False;
+  if FMonaco.DocumentCount = 0 then Exit;
+  Pg := GetPage(0);
+  FileN := FTearOffHead.Values['FileName'];
+  if (FileN <> '') and FileExists(FileN) then
+  begin
+    { ファイルがある：読み込む。保存していない編集があったなら、その本文に置き換える（' *' が付く） }
+    if PageLoad(0, FileN) then
+    begin
+      if FTearOffHead.Values['Modified'] = '1' then Pg.Text := FTearOffBody;
+    end
+    else
+      Pg.Text := FTearOffBody;            { 読めなかった：無題のまま本文を入れる }
+  end
+  else
+    Pg.Text := FTearOffBody;              { 無題、またはファイルが消えている：無題のまま本文を入れる }
+  N := StrToIntDef(FTearOffHead.Values['Encoding'], Ord(ceUTF8));
+  if (N >= Ord(Low(TCMEncoding))) and (N <= Ord(High(TCMEncoding))) then
+    Pg.Encoding := TCMEncoding(N);
+  if FTearOffHead.Values['Language'] <> '' then Pg.Language := FTearOffHead.Values['Language'];
+  FN := TearOffFile;
+  if FN <> '' then DeleteFile(FN);        { 読み終わってから消す }
+  FTearOffHead.Clear;
+  FTearOffBody := '';
+end;
+
 procedure TCMonacoEditor.MonacoFileDrop(Sender: TObject; Files: TStrings; var Handled: Boolean);
 var
   I: Integer;
@@ -2129,6 +2743,10 @@ end;
 
 procedure TCMonacoEditor.MonacoReady(Sender: TObject);
 begin
+  { 【2.20】コードで作ったエディタは Loaded が呼ばれないので、ここで受け取る（フォームは表示の後で動く） }
+  if not FTearOffPending and TryClaimTearOff then MoveFormToTearOff;
+  { 【2.20】受け取っていれば、利用者の OnReady の前にタブを作る }
+  if FTearOffPending then ApplyTearOff;
   if Assigned(FOnReady) then FOnReady(Self);
 end;
 
@@ -2535,7 +3153,12 @@ procedure TCMonacoEditor.ToggleOverwrite; begin FMonaco.ToggleOverwrite; end;
 initialization
   GShownErrors := TStringList.Create;
 
+  GEditors := TFPList.Create;          { 【2.21】 }
+
 finalization
   FreeAndNil(GShownErrors);
+  if GReceiverWnd <> 0 then Windows.DestroyWindow(GReceiverWnd);   { 【2.21】 }
+  GReceiverWnd := 0;
+  FreeAndNil(GEditors);
 
 end.

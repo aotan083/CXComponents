@@ -12,6 +12,8 @@
 
   ・タブの「+」で新規文書、「x」で閉じる（未保存なら確認）、ドラッグで並べ替え。
   ・変更ありのタブは名前の後ろに ' *' が付く。
+  ・【2.20】タブを自分のアプリのウィンドウの外で離したら、OnDragOut で知らせる（タブの分離。設計書 4.11.1）。
+    ほかの ATTabs へタブを移す ATTabs の機能は止める（文書を持たないタブだけが移り、対応が壊れるため）。
   ・未保存の確認は、Ed.OnQueryClose が未設定のときだけ標準ダイアログを使う。
   ・保存先が未定の文書は Ed.OnNeedFileName でファイル名を渡すこと（渡さないと保存されず閉じない）。 }
 unit CMonacoTabs;
@@ -28,6 +30,9 @@ type
   TCMTabImageEvent = procedure(Sender: TObject; Index: Integer; const FileName: string;
     var ImageIndex: Integer) of object;
 
+  { 【2.20】タブがアプリのウィンドウの外で離された。Index はそのタブの番号、X・Y は離した画面の位置 }
+  TCMBinderDragOutEvent = procedure(Sender: TObject; Index, X, Y: Integer) of object;
+
   TCMTabBinder = class(TComponent)
   private
     FEditor: TCMMonacoView;
@@ -37,6 +42,10 @@ type
     FFocusPending: Boolean;
     FFocusOnMouseUp: Boolean;
     FOldTabsMouseUp: TMouseEvent;
+    FOldTabsEndDrag: TEndDragEvent;
+    FOnDragOut: TCMBinderDragOutEvent;   { 【2.20】 }
+    FDragOutId: Integer;                 { 【2.20】外へ出したタブの文書の Id（並べ替えても変わらない） }
+    FDragOutPos: TPoint;                 { 【2.20】離した画面の位置 }
     FColorActive: TColor;
     FColorOver: TColor;
     FOnGetImageIndex: TCMTabImageEvent;
@@ -65,6 +74,8 @@ type
     procedure AsyncFocus(Data: PtrInt);
     procedure FocusEditorLater;
     procedure TabsMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure TabsEndDrag(Sender, Target: TObject; X, Y: Integer);   { 【2.20】 }
+    procedure AsyncTabDragOut(Data: PtrInt);                          { 【2.20】 }
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -75,11 +86,49 @@ type
     property Tabs: TATTabs read FTabs;
     property Editor: TCMMonacoView read FEditor;
     property ConfirmClose: Boolean read FConfirmClose write FConfirmClose;
+    { 【2.20】タブがアプリのウィンドウの外で離された（ドラッグの処理が終わってから呼ぶ） }
+    property OnDragOut: TCMBinderDragOutEvent read FOnDragOut write FOnDragOut;
     { 選択中・マウスを乗せたタブの背景色を、全タブに設定する（フラット表示でも、選択中のタブを浮き上がらせるため） }
     procedure SetTabColors(AActive, AOver: TColor);
   end;
 
 implementation
+
+uses
+  Windows;
+
+const
+  CM_GA_ROOT = 2;   { GetAncestor：一番外（トップレベル）のウィンドウ }
+
+{ 【2.20】GetAncestor（user32）。FPC の Windows ユニットに無い版があるため、ここで宣言する }
+function CMGetAncestor(AWnd: HWND; AFlags: UINT): HWND; stdcall; external 'user32.dll' name 'GetAncestor';
+
+{ 【2.20】画面の位置 P が、自分のアプリのウィンドウの上ではないか。
+  P の下のウィンドウの一番外（トップレベル）を調べ、自分のプロセスのものでなければ True。
+  WebView2（エディタ・プレビュー）の中のウィンドウは自分のフォームの子なので、一番外は自分のフォームになり False。
+  デスクトップ・ほかのアプリのウィンドウの上なら True }
+function IsOutsideApp(const P: TPoint): Boolean;
+var
+  W, Root: HWND;
+  Pid: DWORD;
+begin
+  W := Windows.WindowFromPoint(P);
+  if W = 0 then Exit(True);
+  Root := CMGetAncestor(W, CM_GA_ROOT);
+  if Root = 0 then Root := W;
+  Pid := 0;
+  Windows.GetWindowThreadProcessId(Root, @Pid);
+  Result := Pid <> Windows.GetCurrentProcessId;
+end;
+
+{ 【2.20】マウスの左ボタン（左右を入れ替えている設定なら右ボタン）が、今押されているか }
+function MainButtonDown: Boolean;
+var
+  VK: Integer;
+begin
+  if Windows.GetSystemMetrics(SM_SWAPBUTTON) <> 0 then VK := VK_RBUTTON else VK := VK_LBUTTON;
+  Result := (Windows.GetAsyncKeyState(VK) and $8000) <> 0;
+end;
 
 constructor TCMTabBinder.Create(AOwner: TComponent);
 begin
@@ -98,7 +147,11 @@ begin
     FEditor.OnDocumentChange := FOldDocumentChange;
     FEditor.OnActiveChange := FOldActiveChange;
   end;
-  if FTabs <> nil then FTabs.OnMouseUp := FOldTabsMouseUp;
+  if FTabs <> nil then
+  begin
+    FTabs.OnMouseUp := FOldTabsMouseUp;
+    FTabs.OnEndDrag := FOldTabsEndDrag;
+  end;
   inherited Destroy;
 end;
 
@@ -118,6 +171,12 @@ begin
   FTabs.TabStop := False;                  { タブ自体はキーボードのフォーカスを受け取らない }
   FOldTabsMouseUp := FTabs.OnMouseUp;
   FTabs.OnMouseUp := @TabsMouseUp;         { フォーカスは、マウスのボタンを離したあとでエディタへ戻す }
+  { 【2.20】タブのドラッグの終わりで、アプリの外へ出したかを調べる（タブの分離） }
+  FOldTabsEndDrag := FTabs.OnEndDrag;
+  FTabs.OnEndDrag := @TabsEndDrag;
+  { 【2.20】ほかの ATTabs（別のエディタのタブの帯）へタブを移す機能を止める。
+    移すと、文書を持たないタブだけが移って、タブと文書の対応が壊れるため }
+  FTabs.OptMouseDragOutEnabled := False;
 
   FTabs.OnTabClick := @TabClick;
   FTabs.OnTabPlusClick := @TabPlusClick;
@@ -287,6 +346,44 @@ begin
     FFocusOnMouseUp := False;
     FocusEditorLater;
   end;
+end;
+
+{ ---------- 【2.20】タブを外へ出す（設計書 4.11.1） ---------- }
+
+{ ATTabs はタブのドラッグを LCL のドラッグで行う。落とした先に受け取る部品が無いとき、Target = nil で来る。
+  次をすべて満たすときだけ「アプリの外へ出した」とみなし、ドラッグの処理が終わってから OnDragOut で知らせる。
+  ・Target = nil（自分のタブの帯の中での並べ替えなら Target はタブの帯）
+  ・タブが出ている（MultiDocument = False ならタブは隠れている）
+  ・ボタンが離されている（Esc でドラッグを取り消したときは、まだ押されているので除く）
+  ・離した位置が、自分のアプリのウィンドウの上ではない（エディタ・プレビュー・別のフォームの上は除く） }
+procedure TCMTabBinder.TabsEndDrag(Sender, Target: TObject; X, Y: Integer);
+var
+  P: TPoint;
+begin
+  if Assigned(FOldTabsEndDrag) then FOldTabsEndDrag(Sender, Target, X, Y);
+  Screen.Cursor := crDefault;            { ATTabs がドラッグの開始で crDrag にしたものを戻す（外で離すと戻らないことがある） }
+  if (Target <> nil) or (FEditor = nil) or (FTabs = nil) then Exit;
+  if not FTabs.Visible then Exit;
+  if not Assigned(FOnDragOut) then Exit;
+  if MainButtonDown then Exit;           { Esc で取り消した }
+  P := Mouse.CursorPos;
+  if not IsOutsideApp(P) then Exit;
+  if (FEditor.ActiveIndex < 0) or (FEditor.ActiveIndex >= FEditor.DocumentCount) then Exit;
+  { ドラッグを始めたタブは、マウスを押したときに選ばれている（TabClick）ので、見えている文書がそのタブ }
+  FDragOutId := FEditor.DocumentId(FEditor.ActiveIndex);
+  FDragOutPos := P;
+  { ATTabs のドラッグの処理の途中でタブを閉じると、ATTabs が消えたタブを触るおそれがあるため、あとで知らせる }
+  Application.QueueAsyncCall(@AsyncTabDragOut, 0);
+end;
+
+procedure TCMTabBinder.AsyncTabDragOut(Data: PtrInt);
+var
+  I: Integer;
+begin
+  if (FEditor = nil) or not Assigned(FOnDragOut) then Exit;
+  I := FEditor.IndexOfId(FDragOutId);    { その間に閉じられていれば -1：何もしない }
+  if I < 0 then Exit;
+  FOnDragOut(Self, I, FDragOutPos.X, FDragOutPos.Y);
 end;
 
 procedure TCMTabBinder.FocusEditorLater;

@@ -12,7 +12,6 @@ uses
   Interfaces, // this includes the LCL widgetset
 
   Forms,
-  uWV2Setup,
 
   Unit1
   { you can add units after this };

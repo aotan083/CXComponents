@@ -1,8 +1,8 @@
 # TCMonacoEditor 取扱説明書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-10-30
+版: 1.2
 
 ---
 
@@ -29,6 +29,7 @@
 - 印刷（PDF 保存）は Edge の印刷ダイアログで行う。
 - フォームを閉じるとき、保存していない文書を自動で確認する。
 - 標準アクション（25 個）をメニュー・ボタンに割り当てられる（12章）。
+- タブをウィンドウの外へドラッグすると、そのタブを別のウィンドウ（同じ EXE をもう 1 つ起動）で開く。同じ EXE の別のウィンドウのエディタへ落とすと、そこに新しいタブで開く（`TabTearOff`。9.9）。
 
 | 項目 | 内容 |
 |---|---|
@@ -318,6 +319,7 @@ PreviewFolder=
 | `OnReplaceAllDone` | `Sender: TObject; Count: Integer` | すべて置換の結果 |
 | `OnPopup` | `Sender: TObject` | 右クリックメニューを出す直前 |
 | `OnGetTabImageIndex` | `Sender: TObject; Index: Integer; const FileName: string; var ImageIndex: Integer` | タブのアイコンを決めるとき（`TabImages` を設定したときだけ。9.3） |
+| `OnTabDragOut` | `Sender: TObject; Index, X, Y: Integer; var TearOff: Boolean` | タブがアプリのウィンドウの外へ落とされた（9.9）。`Index` はそのタブの番号、`X`・`Y` は落とした画面の位置。`TearOff := False` で部品の分離・結合をやめる |
 | `OnKeyDown` | `Sender: TObject; var Key: Word; Shift: TShiftState` | ショートカット用のキーが押された（9.6）。`Key := 0` で内蔵の動きを止める |
 | `OnError` | `Sender: TObject; const AMessage: string` | エディタとプレビューの、すべてのエラー |
 
@@ -332,6 +334,7 @@ PreviewFolder=
 | `OnFileDrop` | 標準の開く処理をする |
 | `OnToggleMaximize` | 何もしない |
 | `OnGetTabImageIndex` | `TabImages` の 0 番を使う |
+| `OnTabDragOut` | `TabTearOff` に従う（9.9） |
 | そのほか | 何もしない（知らせるだけのイベント） |
 
 ## 7. 設定（オブジェクトインスペクタ）
@@ -340,6 +343,7 @@ PreviewFolder=
 |---|---|---|---|
 | `MultiDocument` | `Boolean` | `True` | `True`＝タブあり（複数ファイル）／`False`＝1 ファイルだけ（9.1）。設計時（と、コードで作った直後）だけ変えられる。実行時に変えても無視する |
 | `ConfirmOnFormClose` | `Boolean` | `True` | 保存していない文書を閉じるとき、`OnQueryClose` を設定していなければ、`True`＝確認ダイアログ／`False`＝確認せずに捨てる（9.5） |
+| `TabTearOff` | `Boolean` | `True` | `True`＝タブをウィンドウの外へ落とすと、別のウィンドウで開く。同じ EXE の別のウィンドウのエディタへ落とすと、そこに新しいタブで開く。ほかのウィンドウから落とされたタブも受ける（9.9） |
 | `OpenDialog` | `TOpenDialog` | nil | 開くときに使うダイアログ。設定しないときは内蔵のもの（下の表） |
 | `SaveDialog` | `TSaveDialog` | nil | 保存に使うダイアログ。設定しないときは内蔵のもの |
 | `FindDialog` | `TCMFindDialog` | nil | 検索・置換ダイアログ。設定しないときは内蔵の共有ダイアログ（10章） |
@@ -492,6 +496,7 @@ Monaco に最初から入っているショートカットのうち、主なも�
 | ［＋］ | 新しい文書を足す |
 | ［×］、中ボタンのクリック | 閉じる。保存していなければ 9.5 の確認をする |
 | ドラッグ | タブを並べ替える。エディタの文書の順番も入れ替わる |
+| ウィンドウの外へドラッグ | `TabTearOff = True`（既定値）なら、そのタブを別のウィンドウで開く。同じ EXE の別のウィンドウのエディタへ落とすと、そこに新しいタブで開く（9.9）。同じウィンドウ・同じアプリの中の別のエディタへ落としても、何も起きない（タブは移らない） |
 | マウスを乗せる | フルパスのヒントが出る |
 
 - 文書ごとに、ファイル名・文字コード・BOM・` *`・Undo/Redo の履歴・カーソル位置・スクロール位置・言語を持つ。切り替えて戻ると、それらが戻る。
@@ -632,6 +637,66 @@ TCMonacoEditor は、protected の virtual メソッド `KeyDown(var Key: Word; 
 - フォルダーは無視する。
 - `OpenDroppedFiles := False`、または `OnFileDrop` で `Handled := True` にすると、標準の処理を止められる。
 - タブの帯（上の部分）へのドロップには、対応していない。
+
+### 9.9 タブの分離と結合（TabTearOff）
+
+タブを、アプリのウィンドウの外へドラッグして離すと、落とした先によって次のようになる。
+
+| 落とした先 | 動き |
+|---|---|
+| デスクトップ・ほかのアプリのウィンドウの上 | 分離：同じ EXE をもう 1 つ起動して、そのタブを開く。元のウィンドウからは、そのタブが消える |
+| 同じ EXE の別のウィンドウ（別に起動したもの）の、エディタの上（タブの帯・本文・プレビュー） | 結合：そのエディタに新しいタブを作って開く。元のウィンドウからは、そのタブが消える |
+| 同じ EXE の別のウィンドウの、エディタではない所（メニュー・ボタンなど） | 何も起きない |
+| 自分のアプリの中（エディタ・プレビュー・別のフォーム・別のエディタのタブの帯） | 何も起きない |
+
+| 設定 | 動き |
+|---|---|
+| `TabTearOff = True`（既定値） | 部品が分離・結合をすべて行う。アプリのコードは要らない |
+| `TabTearOff = False` | 分離も結合もしない。ほかのウィンドウから落とされたタブも受けない。`OnTabDragOut` は来るので、自分で分離を作れる（15.14） |
+
+**引き継ぐもの**（分離・結合とも）
+
+| 項目 | 引き継ぎ |
+|---|---|
+| 本文 | 引き継ぐ（保存していない編集も） |
+| ファイル名 | 引き継ぐ |
+| 文字コード・言語 | 引き継ぐ |
+| 変更した印（` *`） | 引き継ぐ |
+| Undo の履歴・カーソル位置・スクロール位置 | 引き継がない |
+
+**開き方**（分離・結合とも）
+
+| 元のタブ | 開き方 |
+|---|---|
+| ファイルを開いていて、変更なし | そのファイルを開く（` *` なし） |
+| ファイルを開いていて、変更あり | そのファイル名で、保存していない本文のまま開く（` *` あり） |
+| 無題（まだ保存していない） | 無題のまま、本文を入れて開く（本文があれば ` *` あり。保存すると、名前を付けて保存のダイアログが出る） |
+| ファイル名はあるが、ディスクのファイルが消えている | 無題のまま、本文を入れて開く（` *` あり） |
+
+**分離の決まり**
+
+- 新しいウィンドウは、タブを落とした位置に出る。画面からはみ出すときは、収まるように寄せる。
+- 新しいウィンドウの中身は、WebView2 と Monaco の起動を待つため、1〜2 秒遅れて出る。
+- 新しいウィンドウで受けるのは、元と同じ名前（フォームの `Name` とエディタの `Name`）で、`TabTearOff = True` のエディタ。1 つのフォームにエディタが複数あっても、元と同じエディタに開く。
+- フォームに貼ったエディタ（`.lfm`）は、新しいウィンドウが最初から落とした位置に出る。コードで作ったエディタ（15.13）は、表示の後で落とした位置へ動くので、一瞬動いて見える。
+- 新しいウィンドウを起動できなかったときは、タブを閉じずに残し、`OnError` で知らせる。
+- 二重起動を禁止しているアプリでは、新しいウィンドウを起動できないので分離できない。
+- 受け渡しには、環境変数 `CM_TEAROFF` を使う（起動する新しい EXE にだけ渡す。起動パラメータは使わない）。アプリでは、この名前の環境変数を使わない。
+
+**結合の決まり**
+
+- 受けるのは、落とした位置の下にある、相手のウィンドウのエディタ。新しいタブは、そのエディタの見えるタブになり、相手のウィンドウが前に出る。
+- 相手のエディタが、同じファイルをすでに開いているときは、結合しない。相手のそのタブに切り替えて、相手のウィンドウを前に出す。元のタブは残る。
+- 相手のエディタが `TabTearOff = False` または `MultiDocument = False` のときは、何も起きない。
+- 相手のウィンドウが応答しない（3 秒）・管理者として動いているときは、移せない。元のタブを残し、`OnError` で知らせる。
+
+**共通の決まり**
+
+- 何も入っていない無題が 1 枚だけのときは、分離も結合もしない（`OnTabDragOut` は来る。その `TearOff` の値が `False` で来るので、`True` にすれば分離・結合する）。
+- 外へ出したタブが最後の 1 枚なら、元のウィンドウには空の無題が 1 枚残る（タブは常に 1 枚以上）。
+- `Esc` でドラッグをやめたときは、何も起きない。
+- `MultiDocument = False` のときは、タブが出ないので操作できない。
+- ドラッグ中、アプリのウィンドウの外ではマウスカーソルが「落とせない」形になるが、離せば分離・結合する。
 
 ## 10. 検索・置換ダイアログ
 
@@ -1071,3 +1136,185 @@ begin
   E.Align := alClient;
 end;
 ```
+
+### 15.14 タブの分離を自分で作る（上級者向け）
+
+部品の分離（`TabTearOff = True`）を使わずに、`OnTabDragOut` の中で自分で作るときの例。`TabTearOff = False` にする。この例では、受け渡しに起動パラメータ（`/tearoff 一時ファイル`）を使う。
+
+一時ファイル（UTF-8）の形：
+
+```
+CMTEAROFF1
+Editor=Form1.CMonacoEditor1
+FileName=C:\docs\a.md
+Encoding=0
+Language=markdown
+Modified=1
+X=800
+Y=300
+
+（ここから最後までが本文）
+```
+
+- 1 行目は目印。空の行までが見出し、その後ろの全部が本文。
+- `FileName` は、無題なら空。`Encoding` は `TCMEncoding` の番号（`Ord`）。
+
+送る側（元の EXE）：
+
+```pascal
+uses
+  Process, uCmonacos;
+
+const
+  TearOffMark = 'CMTEAROFF1';
+
+// タブを外へ出したら、そのタブを別の EXE で開き、このタブを閉じる
+procedure TForm1.CMonacoEditor1TabDragOut(Sender: TObject; Index, X, Y: Integer;
+  var TearOff: Boolean);
+var
+  E: TCMonacoEditor;
+  P: TCMPage;
+  FN, S: string;
+  FS: TFileStream;
+  Proc: TProcess;
+begin
+  TearOff := False;   // 部品の分離は使わない（TabTearOff = False なら、もともと False）
+  E := Sender as TCMonacoEditor;
+  P := E.Pages[Index];
+
+  // 何も入っていない無題が 1 枚だけのときは、出しても意味がないので何もしない
+  if (E.PageCount = 1) and (P.FileName = '') and (P.Text = '') then Exit;
+
+  // 1. タブの中身を一時ファイルに書く（見出し・空の行・本文）
+  FN := GetTempFileName(GetTempDir, 'cmt');
+  S := TearOffMark + LineEnding +
+       'Editor=' + Name + '.' + E.Name + LineEnding +
+       'FileName=' + P.FileName + LineEnding +
+       'Encoding=' + IntToStr(Ord(P.Encoding)) + LineEnding +
+       'Language=' + P.Language + LineEnding +
+       'Modified=' + IntToStr(Ord(P.Modified)) + LineEnding +
+       'X=' + IntToStr(X) + LineEnding +
+       'Y=' + IntToStr(Y) + LineEnding +
+       LineEnding +
+       P.Text;
+  FS := TFileStream.Create(FN, fmCreate);
+  try
+    if S <> '' then FS.WriteBuffer(S[1], Length(S));
+  finally
+    FS.Free;
+  end;
+
+  // 2. 自分の EXE を、一時ファイルを引数にして起動する（終わるのは待たない）
+  Proc := TProcess.Create(nil);
+  try
+    Proc.Executable := Application.ExeName;
+    Proc.Parameters.Add('/tearoff');
+    Proc.Parameters.Add(FN);
+    try
+      Proc.Execute;
+    except
+      on Ex: Exception do
+      begin
+        DeleteFile(FN);   // 起動できなければ、タブは閉じずに残す
+        MessageDlg('別のウィンドウで開けませんでした: ' + Ex.Message, mtError, [mbOK], 0);
+        Exit;
+      end;
+    end;
+  finally
+    Proc.Free;
+  end;
+
+  // 3. 起動できたら、このタブを聞かずに閉じる（本文は一時ファイルに残っている）
+  P.Close(True);
+end;
+```
+
+受ける側（新しい EXE。同じ EXE なので、同じフォームに書く）：
+
+```pascal
+// FTearFile: string;  … フォームの private に置く。受け取った一時ファイル
+
+// 一時ファイルを、見出し（Head）と本文（Body）に分けて読む
+function ReadTearOff(const AFile: string; Head: TStrings; out Body: string): Boolean;
+var
+  FS: TFileStream;
+  S: string;
+  p: Integer;
+begin
+  Result := False;
+  Body := '';
+  FS := TFileStream.Create(AFile, fmOpenRead or fmShareDenyNone);
+  try
+    SetLength(S, FS.Size);
+    if S <> '' then FS.ReadBuffer(S[1], Length(S));
+  finally
+    FS.Free;
+  end;
+  p := Pos(LineEnding + LineEnding, S);          // 最初の空の行
+  if p = 0 then Exit;
+  Head.Text := Copy(S, 1, p - 1);
+  Body := Copy(S, p + 2 * Length(LineEnding), MaxInt);
+  Result := (Head.Count > 0) and (Head[0] = TearOffMark);
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+var
+  Head: TStringList;
+  Body: string;
+begin
+  FTearFile := '';
+  if (ParamCount >= 2) and (ParamStr(1) = '/tearoff') and FileExists(ParamStr(2)) then
+  begin
+    FTearFile := ParamStr(2);
+    // ウィンドウを、タブを落とした位置に出す
+    Head := TStringList.Create;
+    try
+      if ReadTearOff(FTearFile, Head, Body) then
+      begin
+        Position := poDesigned;
+        Left := StrToIntDef(Head.Values['X'], Left);
+        Top  := StrToIntDef(Head.Values['Y'], Top);
+      end;
+    finally
+      Head.Free;
+    end;
+  end;
+end;
+
+// エディタの準備ができたら、一時ファイルからタブを作る
+procedure TForm1.CMonacoEditor1Ready(Sender: TObject);
+var
+  E: TCMonacoEditor;
+  Head: TStringList;
+  Body, FN: string;
+begin
+  if FTearFile = '' then Exit;
+  E := Sender as TCMonacoEditor;
+  Head := TStringList.Create;
+  try
+    if ReadTearOff(FTearFile, Head, Body) then
+    begin
+      FN := Head.Values['FileName'];
+      if (FN <> '') and FileExists(FN) then
+      begin
+        // ファイルがある：起動直後の無題のタブに読み込む（タブは増えない）
+        E.LoadFromFile(FN);
+        if Head.Values['Modified'] = '1' then
+          E.Text := Body;                          // 保存していない本文に置き換える（* が付く）
+      end
+      else
+        // 無題、またはファイルが消えている：無題のまま本文を入れる（* が付く）
+        E.Text := Body;
+      E.Encoding := TCMEncoding(StrToIntDef(Head.Values['Encoding'], 0));
+      E.Language := Head.Values['Language'];
+    end;
+  finally
+    Head.Free;
+  end;
+  DeleteFile(FTearFile);   // 読み終わってから消す（読む前に失敗しても本文は残る）
+  FTearFile := '';
+  E.SetFocus;
+end;
+```
+
+- 一時ファイルは、新しい EXE が読み終わってから消す。新しい EXE が読む前に失敗したときは、`%TEMP%` に `cmt*.tmp` として残る。
