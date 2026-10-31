@@ -11,7 +11,9 @@ unit CShellMenu;
   - ShellInvokeVerbOnFolder : フォルダーに対してシェルのコマンド（paste 等）を実行
   - TrackShellContextMenu   : 右クリックメニューを表示する。
                               「送る」など、開いた時点で中身が作られるサブメニューが
-                              正しく表示されるよう、メニュー関連のメッセージをシェルへ転送する
+                              正しく表示されるよう、メニュー関連のメッセージをシェルへ転送する。
+                              シェルの項目を LCL が TMenuItem と誤って読まないよう、
+                              メニュー関連のメッセージは LCL へ渡さない
   - ShellMenuVerb           : 選ばれたメニュー項目のコマンド名（'rename' 等）を取得
   - ExtraMenuInsert / ExtraMenuClick : アプリの TPopupMenu の項目を右クリックメニューへ追加し、
                               選ばれたら その項目の OnClick を呼ぶ
@@ -265,11 +267,27 @@ var
   GMenuCM3: ICShellContextMenu3 = nil;
   GOldWndProc: PtrInt = 0;
 
+// シェルの右クリックメニューを出している間だけ差し替えるウィンドウ手続き。
+//   1. メニュー関連のメッセージ（WM_INITMENUPOPUP・WM_MENUCHAR・メニューの WM_DRAWITEM・WM_MEASUREITEM）は
+//      シェルへ渡す（「送る」「新規作成」など、開いたときに中身が作られるサブメニューのため）。
+//   2. シェルが処理しなかったメニュー関連のメッセージと WM_MENUSELECT は、LCL の元の手続きへ渡さず
+//      Windows の既定の処理（DefWindowProcW）だけを行う。
+//      LCL はメニュー項目に付いた値（項目ごとの付加情報）を TMenuItem とみなして読むため、
+//      シェルが自分用の値を入れた項目（「新規作成」など）で例外になる。このメニューは LCL の
+//      TPopupMenu ではないので、LCL が処理する必要はない。
+//   3. ほかのメッセージは元の手続きへ渡す。
 function MenuHookProc(hWnd: HWND; uMsg: UINT; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
   R: LRESULT;
   IsMenuMsg: Boolean;
 begin
+  // WM_MENUSELECT（カーソルが項目に乗った）：LCL へ渡さない（上の 2）
+  if uMsg = WM_MENUSELECT then
+  begin
+    Result := DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    Exit;
+  end;
+
   IsMenuMsg := False;
   case uMsg of
     WM_INITMENUPOPUP, WM_MENUCHAR:
@@ -306,8 +324,12 @@ begin
     except
       // シェル拡張側の例外でアプリを落とさない
     end;
+    // シェルが処理しなかったメニュー関連のメッセージ：LCL へ渡さず、既定の処理だけを行う（上の 2）
+    Result := DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    Exit;
   end;
 
+  // メニューと関係のないメッセージ：元の手続きへ渡す（上の 3）
   Result := _CallWindowProcW(Pointer(GOldWndProc), hWnd, uMsg, wParam, lParam);
 end;
 
@@ -322,8 +344,10 @@ begin
     if not Supports(ACM, ICShellContextMenu3, GMenuCM3) then
       Supports(ACM, ICShellContextMenu2, GMenuCM2);
 
-  // メニュー表示中だけウィンドウプロシージャを差し替え、メニュー関連のメッセージをシェルへ転送する
-  Hooked := (GMenuCM2 <> nil) or (GMenuCM3 <> nil);
+  // シェルのメニュー（ACM が nil でない）を出すときは、IContextMenu2/3 の有無にかかわらず、
+  // 表示中だけウィンドウ手続きを差し替える（メニュー関連のメッセージを LCL へ流さないため）。
+  // 独自項目だけのメニュー（ACM = nil）は、項目に付いた値が 0 で LCL が読んでも問題ないため差し替えない
+  Hooked := ACM <> nil;
   if Hooked then
     GOldWndProc := _SetWindowLongPtrW(AWnd, CGWLP_WNDPROC, PtrInt(@MenuHookProc));
   try

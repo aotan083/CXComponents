@@ -1,8 +1,8 @@
 # TCListView 取扱説明書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-10-31
+版: 1.1
 
 ---
 
@@ -162,7 +162,7 @@ sample.pas        12 kB     pas      2026/10/18 10:12
 
 | 名前 | 引数 | 戻り値 | 中身 |
 |---|---|---|---|
-| `Create` | `AOwner: TComponent` | ― | 作る。コードで作るときに使う（10.10） |
+| `Create` | `AOwner: TComponent` | ― | 作る。コードで作るときに使う（10.11） |
 | `NavigateTo` | `const APath: string` | `Boolean` | そのフォルダーを表示する。ない、または表示中と同じなら `False` |
 | `NavigateUp` | ― | `Boolean` | 親フォルダーを表示する。ドライブのルート（`C:\` など）では何もしない（`False`） |
 | `GoBack` | ― | `Boolean` | 履歴の1つ前のフォルダーへ戻る。移ったら `True`。なくなったフォルダーは飛ばす |
@@ -197,7 +197,7 @@ sample.pas        12 kB     pas      2026/10/18 10:12
 | `SelectAllItems` | ― | ― | すべて選ぶ（Ctrl+A と同じ） |
 | `GetSelectedFilePath` | ― | `string` | 選んでいる先頭の項目のフルパス。選んでいなければ '' |
 | `GetSelectedPaths` | `AList: TStrings` | ― | 選んでいるすべての項目のフルパスを `AList` に入れる（先に `AList` を空にする） |
-| `SelectNewItemsOnNextRefresh` | ― | ― | 次に表示を更新したとき、新しく現れた項目を選ぶ。アプリでファイルを作ったときなどに使う（10.8） |
+| `SelectNewItemsOnNextRefresh` | ― | ― | 次に表示を更新したとき、新しく現れた項目を選ぶ。アプリでファイルを作ったときなどに使う（10.9） |
 
 ### 5.5 ユニットの関数
 
@@ -447,7 +447,41 @@ begin
 end;
 ```
 
-### 10.7 右クリックメニューにアプリの項目を足す
+### 10.7 選んだファイルを、エディタで次々に見る
+
+クリックや矢印キーで項目を移るたびに、そのファイルを TCMonacoEditor に開く。
+
+```pascal
+{ 1つ選んだら、ファイルをエディタに開く }
+procedure TForm1.CListView1SelectionChanged(Sender: TObject);
+var
+  Path: string;
+begin
+  if CListView1.SelCount <> 1 then
+    Exit;
+  Path := CListView1.GetSelectedFilePath;
+  if (Path <> '') and not DirectoryExists(Path) then
+    CMonacoEditor1.OpenFile(Path);
+end;
+
+{ ダブルクリック・Enter で、関連付けられたアプリが開かないようにする }
+procedure TForm1.CListView1DblClick(Sender: TObject);
+var
+  Path: string;
+begin
+  // OnDblClick を設定すると、部品のダブルクリックの動き（フォルダーへ移る、ファイルを開く）は行わない。
+  // フォルダーへの移動だけ自分で書く。ファイルは選んだ時点でエディタに開いているので、何もしない
+  Path := CListView1.GetSelectedFilePath;
+  if DirectoryExists(Path) then
+    CListView1.NavigateTo(Path);
+end;
+```
+
+- `OnDblClick` を設定しないと、ダブルクリック・Enter のときに、関連付けられたアプリ（テキストエディタなど）でも同じファイルが開く。同じファイルを2つのアプリで開くと、保存できないことがある。
+- `OnDblClick` を空にすると、ファイルは開かなくなるが、フォルダーにも入れなくなる。フォルダーに入るには、上のように `NavigateTo` を書く。
+- TCMonacoEditor の `OpenFile` は、いつも新しいタブで開く。選んだファイルの数だけタブが増える。
+
+### 10.8 右クリックメニューにアプリの項目を足す
 
 1. TPopupMenu をフォームに置き、項目（例：「送る」）を作る。
 2. TCListView の `ExtraItemMenu` に、その TPopupMenu を選ぶ。
@@ -478,7 +512,7 @@ end;
 - 対象は、項目の上なら `GetSelectedPaths`・`GetSelectedFilePath`、何もない所なら `Root` で取れる。
 - メニューに反映されるのは、`Caption`・サブメニュー・区切り線（`Caption = '-'`）・`Enabled`・`Visible`・`Checked`・ショートカットの表示。アイコンは表示されない。
 
-### 10.8 アプリで作ったファイルを、一覧で選ばれた状態にする
+### 10.9 アプリで作ったファイルを、一覧で選ばれた状態にする
 
 ```pascal
 procedure TForm1.btnNewMemoClick(Sender: TObject);
@@ -496,7 +530,7 @@ begin
 end;
 ```
 
-### 10.9 指定したフォルダーより上に行かせない
+### 10.10 指定したフォルダーより上に行かせない
 
 この機能は部品にはない。`OnFolderChanged` の中で `Root` を確かめ、範囲の外なら戻す。
 
@@ -518,7 +552,7 @@ end;
 
 - 範囲の外のフォルダーが一瞬表示されてから戻る。戻る・進むの履歴にも、範囲の外のフォルダーが残る。
 
-### 10.10 コードで作る
+### 10.11 コードで作る
 
 ```pascal
 uses

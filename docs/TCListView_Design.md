@@ -1,8 +1,8 @@
 # TCListView 設計書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-10-31
+版: 1.1
 
 ---
 
@@ -417,7 +417,7 @@ function ShellInvokeMenuCommand(ACM: IContextMenu; AWnd: HWND; ACmdOffset: UINT;
 |---|---|
 | `ShellInvokeVerbOnItems` | 各パスを `ILCreateFromPathW`。先頭の親を `SHBindToParent` で取り（全項目が同じ親である前提）、子の PIDL（2つ目からは `ILFindLastID`）で `GetUIObjectOf(IID_IContextMenu)`。`InvokeVerb`：先に `QueryContextMenu` を呼んでから（呼ばないと動かない実装があるため）、`lpVerb` にコマンド名（AnsiString）、`AShift` なら `CMIC_MASK_SHIFT_DOWN`（$10000000）で `InvokeCommand` |
 | `ShellInvokeVerbOnFolder` | フォルダー自体を項目として扱う（"C:" は "C:\" にする。ドライブのルートは「PC」が親になる）。`ShellInvokeVerbOnItems` |
-| `TrackShellContextMenu` | `ACM` が `IContextMenu3`（なければ `IContextMenu2`）を持てば、出している間だけ `AWnd` のウィンドウ手続きを `SetWindowLongPtrW(GWLP_WNDPROC)` で差し替え、`WM_INITMENUPOPUP`・`WM_MENUCHAR`・メニューの `WM_DRAWITEM`・`WM_MEASUREITEM` をシェルの `HandleMenuMsg2`（`HandleMenuMsg`）へ渡す（「送る」など、開いたときに中身が作られるサブメニューのため。例外は握りつぶす）。`TrackPopupMenu(TPM_LEFTALIGN or TPM_RIGHTBUTTON or TPM_RETURNCMD)` で選ばれた ID を返す（0 は選ばれなかった）。最後に元に戻す |
+| `TrackShellContextMenu` | `ACM` が nil でなければ、出している間だけ `AWnd` のウィンドウ手続きを `SetWindowLongPtrW(GWLP_WNDPROC)` で差し替える（`ACM` が nil のとき、つまり独自項目だけのメニューは差し替えない）。差し替えた手続き（`MenuHookProc`）は次のとおり。1. `WM_INITMENUPOPUP`・`WM_MENUCHAR`・メニューの `WM_DRAWITEM`・`WM_MEASUREITEM` は、`ACM` が `IContextMenu3` を持てば `HandleMenuMsg2`、`IContextMenu2` を持てば `HandleMenuMsg`（`WM_MENUCHAR` を除く）へ渡す（「送る」「新規作成」など、開いたときに中身が作られるサブメニューのため。例外は握りつぶす）。シェルが処理したら、その結果を返して終わる。2. 1 でシェルが処理しなかったもの、どちらも持たないとき、および `WM_MENUSELECT` は、LCL の元の手続きへ渡さず `DefWindowProcW` だけを行う（LCL はメニュー項目に付いた値を `TMenuItem` とみなして読むため、シェルが値を入れた項目（「新規作成」など）で例外になる）。3. ほかのメッセージは元の手続きへ渡す。`TrackPopupMenu(TPM_LEFTALIGN or TPM_RIGHTBUTTON or TPM_RETURNCMD)` で選ばれた ID を返す（0 は選ばれなかった）。最後に元に戻す。メニューを出している間、`Application.Hint` は更新されない |
 | `ShellMenuVerb` | `GetCommandString(相対 ID, GCS_VERBW)` で 256 文字まで。例外・失敗は '' |
 | `ContainsInvalidChar` | `\ / : * ? " < > \|` のどれかがあれば `True` |
 | `ShellRenameItem` | `SHBindToParent` で親を取り、`SetNameOf(AWnd, 子, 新しい名前, SHGDN_INFOLDER or SHGDN_FORPARSING)`（拡張子を含む実際の名前として扱う）。成功なら `True`（失敗の理由はシェルが出す） |
@@ -508,5 +508,6 @@ function ShellDoDragDrop(AWnd: HWND; APaths: TStrings; AUseWindowImage: Boolean;
 | 大きさを変えるとちらつく | `AutoSizeColumns`、`DoAsyncColumnResize` の余白（6章、7.8） |
 | エクスプローラーへドロップできない | `MouseMove` の `PostMessage(CM_CSTARTDRAG)`、`StartOleDrag` の `ReleaseCapture`（7.13） |
 | 「送る」のサブメニューが空 | `TrackShellContextMenu` の差し替え（10章） |
+| 右クリックメニューで、カーソルを合わせると例外で止まる（「新規作成」など） | `TrackShellContextMenu` の差し替えで、メニュー関連のメッセージが LCL へ流れていないか（10章） |
 | 日本語のパスで失敗する | W 版の API を使っているか（`PerformFileOperation`、`ShellInvokeMenuCommand`） |
 | D&D の動きを追いたい | `ShellDragTrace := True` にして `%TEMP%\cshell_dd.log` を見る（11章） |
