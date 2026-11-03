@@ -23,7 +23,8 @@ Author: aotan083 / License: MIT
 
 All components appear on the [CX] palette page. The manuals and design documents are written in Japanese.
 
-![components](demo/lazarus/20261028-122432-コンポーネントパレット.jpg)
+![components](demo/Lazarus/20261028-122432-コンポーネントパレット.jpg)
+
 
 ## Requirements
 
@@ -95,28 +96,28 @@ MIT License (see [LICENSE](LICENSE)). Licenses of third-party libraries are list
 ---
 * demos
 
-![components](demo/lazarus/20261028-122432-コンポーネントパレット.jpg)
+![components](demo/Lazarus/20261028-122432-コンポーネントパレット.jpg)
 
-![TCTreeView_TCListView](demo/lazarus/20261028-122756-TCTreeView_TCListView.jpg)
+![TCTreeView_TCListView](demo/Lazarus/20261028-122756-TCTreeView_TCListView.jpg)
 
-![TCsynEdit](demo/lazarus/20261028-124621-TCsynEdit.jpg)
+![TCsynEdit](demo/Lazarus/20261028-124621-TCsynEdit.jpg)
 
-![tcTabBrowser01](demo/lazarus/20261028-125612-tcTabBrowser01.jpg)
+![tcTabBrowser01](demo/Lazarus/20261028-125612-tcTabBrowser01.jpg)
 
-![tcTabBrowser02](demo/lazarus/20261028-130138-tcTabBrowser02.jpg)
+![tcTabBrowser02](demo/Lazarus/20261028-130138-tcTabBrowser02.jpg)
 
-![tcTabBrowser03](demo/lazarus/20261028-130217-tcTabBrowser03.jpg)
+![tcTabBrowser03](demo/Lazarus/20261028-130217-tcTabBrowser03.jpg)
 
-![tcTabBrowser04](demo/lazarus/20261028-130419-tcTabBrowser04.jpg)
+![tcTabBrowser04](demo/Lazarus/20261028-130419-tcTabBrowser04.jpg)
 
-![tcMonacoEditor](demo/lazarus/20261028-131941-tcMonacoEditor.jpg)
+![tcMonacoEditor](demo/Lazarus/20261028-131941-tcMonacoEditor.jpg)
 
-![tcSideBar](demo/lazarus/20261029-043741-tcSideBar.jpg)
+![tcSideBar](demo/Lazarus/20261029-043741-tcSideBar.jpg)
 
-![tcSideBar02](demo/lazarus/20261029-043741-tcSideBar02.jpg)
+![tcSideBar02](demo/Lazarus/20261030-045432-tcSideBar02.jpg)
 
-![tcPageControl](demo/lazarus/20261029-084726-tcPageControl.jpg)
+![tcPageControl](demo/Lazarus/20261029-084726-tcPageControl.jpg)
 
-![tcBookmarks](demo/lazarus/20261028-133312-tcBookmarks.jpg)
+![tcBookmarks](demo/Lazarus/20261028-133312-tcBookmarks.jpg)
 
 ---
