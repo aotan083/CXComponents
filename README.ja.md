@@ -7,6 +7,8 @@
 
 作者: aotan083 ／ ライセンス: MIT
 
+[English Documentation](README.md) | [日本語ドキュメント](README.ja.md)
+
 ## 部品
 
 | 部品 | 中身 | 取扱説明書 | 設計書 |

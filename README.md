@@ -8,6 +8,8 @@ What I've listed here is a collection of components for Lazarus (Free Pascal). S
 
 Author: aotan083 / License: MIT
 
+[English Documentation](README.md) | [日本語ドキュメント](README.ja.md)
+
 ## Components
 
 | Component | Description | Manual (Japanese) | Design (Japanese) |
