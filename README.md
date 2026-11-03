@@ -1,6 +1,10 @@
 # CX Components
 
-A set of components for Lazarus (Free Pascal). Drop them on a form to get Explorer-style file handling, a tabbed browser, tabbed editors (Monaco and SynEdit), Markdown preview, bookmark management and more.
+I'm Japanese, so please forgive my poor English!
+
+I love Delphi/Lazarus and use it all the time. However, almost no one in Japan knows about Lazarus, and very few people use it. Even when I search for tools I want to use, they aren't available in Japan. So, I have no choice but to create and use them myself.
+
+What I've listed here is a collection of components for Lazarus (Free Pascal). Simply placing them on a form allows you to use file operations similar to Windows Explorer, a tabbed browser, a tabbed editor (Monaco/SynEdit), Markdown preview, bookmark management, and more. Currently, only a Windows version is available. If there's enough demand, I'd like to create a Linux version as well. Please refer to the Usage section for instructions. The internal workings are described in the Design section. Please take a look if you're interested. Since I'm not good at English, the code comments are in Japanese.
 
 Author: aotan083 / License: MIT
 
@@ -8,18 +12,18 @@ Author: aotan083 / License: MIT
 
 | Component | Description | Manual (Japanese) | Design (Japanese) |
 |---|---|---|---|
-| TCTreeView | Folder tree that works like the left pane of Windows Explorer | [Usage](docs/TCTreeView_Usage.md) | [Design](docs/TCTreeView_Design.md) |
-| TCListView | File list that works like the right pane of Windows Explorer | [Usage](docs/TCListView_Usage.md) | [Design](docs/TCListView_Design.md) |
-| TCSynEdit | TSynEdit with file loading/saving, color styles (including VS Code light/dark), syntax highlighting by file extension (including Markdown) and a context menu | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
-| TCCheckListBox | TCheckListBox that can be limited to a single check | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
-| TCGroupBox / TCCheckGroupBox | Group box whose child controls never disappear, and a group box with a check box in its caption | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
-| TCSideBar | Edge-style icon bar with a collapsible panel | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
-| TCPageControl / TCTitleBar | Browser-style tabs, and a title bar that can host the tabs | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
-| TCTabBrowser | Tabbed web browser based on WebView2 | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
-| TCMonacoEditor / TCMFindDialog | Editor based on WebView2 and Monaco Editor (tabs, preview, search and printing built in), plus 25 standard actions | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
-| TCsEditor / TCsFindDialog | Tabbed editor based on TCSynEdit, used the same way as TCMonacoEditor (search/replace dialog, minimap, tab tear-off), plus 25 standard actions | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
-| TCPreview | Preview (Markdown / code) and printing (PDF) for TCsEditor, placed separately from the editor and shareable by several editors | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
-| TCBookmark | Firefox-style bookmark manager (opens items in TCTabBrowser / TCMonacoEditor) | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
+| TCTreeView | Folder tree that works like the left pane of Windows Explorer | [Usage](docs/en/TCTreeView_Usage.md) | [Design](docs/en/TCTreeView_Design.md) |
+| TCListView | File list that works like the right pane of Windows Explorer | [Usage](docs/en/TCListView_Usage.md) | [Design](docs/en/TCListView_Design.md) |
+| TCSynEdit | TSynEdit with file loading/saving, color styles (including VS Code light/dark), syntax highlighting by file extension (including Markdown) and a context menu | [Usage](docs/en/TCSynEdit_Usage.md) | [Design](docs/en/TCSynEdit_Design.md) |
+| TCCheckListBox | TCheckListBox that can be limited to a single check | [Usage](docs/en/TCCheckListBox_Usage.md) | [Design](docs/en/TCCheckListBox_Design.md) |
+| TCGroupBox / TCCheckGroupBox | Group box whose child controls never disappear, and a group box with a check box in its caption | [Usage](docs/en/TCGroupBox_Usage.md) | [Design](docs/en/TCGroupBox_Design.md) |
+| TCSideBar | Edge-style icon bar with a collapsible panel | [Usage](docs/en/TCSideBar_Usage.md) | [Design](docs/en/TCSideBar_Design.md) |
+| TCPageControl / TCTitleBar | Browser-style tabs, and a title bar that can host the tabs | [Usage](docs/en/TCPageControl_Usage.md) | [Design](docs/en/TCPageControl_Design.md) |
+| TCTabBrowser | Tabbed web browser based on WebView2 | [Usage](docs/en/TCTabBrowser_Usage.md) | [Design](docs/en/TCTabBrowser_Design.md) |
+| TCMonacoEditor / TCMFindDialog | Editor based on WebView2 and Monaco Editor (tabs, preview, search and printing built in), plus 25 standard actions | [Usage](docs/en/TCMonacoEditor_Usage.md) | [Design](docs/en/TCMonacoEditor_Design.md) |
+| TCsEditor / TCsFindDialog | Tabbed editor based on TCSynEdit, used the same way as TCMonacoEditor (search/replace dialog, minimap, tab tear-off), plus 25 standard actions | [Usage](docs/en/TCsEditor_Usage.md) | [Design](docs/en/TCsEditor_Design.md) |
+| TCPreview | Preview (Markdown / code) and printing (PDF) for TCsEditor, placed separately from the editor and shareable by several editors | [Usage](docs/en/TCPreview_Usage.md) | [Design](docs/en/TCPreview_Design.md) |
+| TCBookmark | Firefox-style bookmark manager (opens items in TCTabBrowser / TCMonacoEditor) | [Usage](docs/en/TCBookmark_Usage.md) | [Design](docs/en/TCBookmark_Design.md) |
 
 All components appear on the [CX] palette page. The manuals and design documents are written in Japanese.
 
