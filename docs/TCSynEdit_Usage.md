@@ -1,8 +1,8 @@
 # TCSynEdit 取扱説明書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-03
+版: 1.1
 
 ---
 
@@ -10,14 +10,15 @@
 
 SynEdit をもとにした、テキストエディタの部品です。TSynEdit の機能はそのまま使え、ファイルの読み書き、配色の切り替え、秀丸エディタに似た右クリックメニュー、状態の変化を知らせるイベントなどを加えています。
 
-- ファイル名の拡張子に合わせて、色分け（ハイライター）を自動で切り替える。
-- 配色を、黒・灰・白・Windows のテーマに合わせる、の4つから選べる。
+- ファイル名の拡張子に合わせて、言語と色分け（ハイライター）を自動で切り替える。拡張子と言語の対応は TCMonacoEditor と同じ。
+- 配色を、黒・灰・白・Windows のテーマに合わせる・VS Code のライト・VS Code のダーク、の 6 つから選べる。
+- Markdown の色分けを持つ。
 - ファイルをドロップすると開く。
 - Ctrl+S で上書き保存、Ctrl+マウスホイールで文字の大きさを変えられる。
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0 以降 |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 | パレット | CX |
@@ -28,10 +29,11 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 | クラス | ユニット | パッケージ | 元のクラス | 中身 |
 |---|---|---|---|---|
 | `TCSynEdit` | `cSynEdit` | cx | `TSynEdit`（SynEdit） | SynEdit をもとにしたテキストエディタ。ファイルの読み書き、配色の切り替え、秀丸エディタに似た右クリックメニュー、状態の変化を知らせるイベントを足したもの |
+| `TCSynMarkdownSyn` | `cSynEdit` | cx | `TSynCustomHighlighter`（SynEdit） | Markdown の色分け。`Language := 'markdown'` で部品が自分で作って使う（4.2） |
 
 | 型 | ユニット | 中身 |
 |---|---|---|
-| `TCEditStyle` | `cSynEdit` | 配色。`csBlack`・`csGray`・`csWhite`・`csThema`（3章） |
+| `TCEditStyle` | `cSynEdit` | 配色。`csBlack`・`csGray`・`csWhite`・`csThema`・`csVSLight`・`csVSDark`（3章） |
 | `TCFileEncoding` | `cSynEdit` | 文字コードの種類。`feUTF8`・`feANSI_SJIS`・`feUTF16LE`・`feUTF16BE`・`feEUCJP` |
 | `TCLineEnding` | `cSynEdit` | 改行コードの種類。`leCRLF`・`leLF`・`leCR` |
 | `TCSynTextChangeEvent` | `cSynEdit` | `procedure(Sender: TObject; const AText: string) of object`。`OnTextChange` の型 |
@@ -45,6 +47,10 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 | `TOnSelectionChangeEvent` | `cSynEdit` | `procedure(Sender: TObject; var sSelText: String; var iStartX, iStartY, iEndX, iEndY: Integer) of object`。`OnSelectionChangeEvent` の型 |
 | `TOnFocusChangeEvent` | `cSynEdit` | `procedure(Sender: TObject; var bFocused: Boolean) of object`。`OnFocusChangeEvent` の型 |
 | `TOnDropFilesEvent` | `cSynEdit` | `procedure(Sender: TObject; const AFiles: array of string) of object`。`OnDropFilesEvent` の型 |
+
+| 関数 | ユニット | 中身 |
+|---|---|---|
+| `CSLanguageForFile(const AFileName, ADefault: string): string` | `cSynEdit` | ファイル名の拡張子から言語の名前を返す（4.1 の表）。表にない拡張子なら `ADefault` |
 
 - フォームに置くと、uses に `cSynEdit` が自動で入る。
 - フォームに置くと、プロジェクトの必要パッケージに cx が自動で追加される。
@@ -64,7 +70,7 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 |---|---|
 | フォント | BIZ UDGothic、12 ポイント |
 | 配色（`EditStyle`） | `csGray` |
-| 色分け | Pascal |
+| 言語・色分け | pascal（Pascal の色分け） |
 | `FileName` | 実行ファイルのフォルダー ＋「無題.txt」 |
 | 挿入・上書き | 挿入 |
 | 右クリックメニュー | 部品が持つメニュー（8.3） |
@@ -79,21 +85,78 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 | `csGray` | 黒 | 白 | 黒の配色。行番号は 5 行ごとに表示（既定値） |
 | `csWhite` | 白 | 黒 | 白の配色 |
 | `csThema` | システム色 | システム色 | Windows のテーマ（ダーク・ライト）に合わせる。MetaDarkStyle などと組み合わせて使う |
+| `csVSLight` | 白 | 黒 | VS Code（TCMonacoEditor）のライトと同じ配色 |
+| `csVSDark` | 黒に近い灰 | 明るい灰 | VS Code（TCMonacoEditor）のダークと同じ配色 |
 
-- 予約語・文字列・コメント・数値などの色分けの配色は、Pascal の色分けのときだけ、配色に合わせて変わる。
+- 予約語・文字列・コメント・数値などの色分けの色も、配色に合わせて変わる（どの言語の色分けでも）。
+- 言語を切り替えても（ファイルを開いたときを含む）、配色の色は保たれる。
 - どの配色でも、左端のブックマークの欄は出さない。行番号の欄は出す（F12 で切り替え）。
+- `csVSLight`・`csVSDark` では、変更行の印（左端の色の付いた縦線）は出さない。行番号は 1 行ごとに出す。
+
+**csVSLight・csVSDark の主な色**
+
+| 項目 | csVSLight | csVSDark |
+|---|---|---|
+| 背景 | #FFFFFE | #1E1E1E |
+| 文字 | #000000 | #D4D4D4 |
+| 予約語 | #0000FF | #569CD6 |
+| 文字列 | #A31515 | #CE9178 |
+| コメント | #008000 | #6A9955 |
+| 数値 | #098658 | #B5CEA8 |
+| 行番号 | #237893 | #6E7681 |
+| カーソル行の行番号 | #0B216F | #C6C6C6 |
+| 折りたたみの印 | #424242 | #5A5A5A |
+| カーソル行の背景 | #EAF2FF | #2C313C |
+| 選択の背景 | #ADD6FF | #264F78 |
 - 右端の 80 桁のガイド線は、背景と同じ色にしているため見えない。
 
-## 4. 色分け（ハイライター）
+## 4. 言語と色分け（Language）
 
-`FileName` を設定したとき（`LoadFromFile`・`SaveToFile` を含む）、拡張子に合わせて色分けを切り替える。
+### 4.1 拡張子と言語
 
-| 拡張子 | 色分け |
-|---|---|
-| .pas、.pp、.lpr、.dpr、.txt、拡張子なし | Pascal |
-| .html、.htm、.md、.markdown、.json、.csv、.yaml、.yml | HTML |
-| .xml | XML |
-| 上のほか | 切り替えない（それまでの色分けのまま） |
+`FileName` を設定したとき（`LoadFromFile`・`SaveToFile` を含む）、拡張子から言語を決めて `Language` に入れる。`Language` を書くと、言語に合わせて色分けを切り替える。
+
+| 拡張子 | 言語（`Language`） | 色分け |
+|---|---|---|
+| .pas .pp .lpr .inc .dpr .lpk、拡張子なし | pascal | Pascal |
+| .md .markdown | markdown | Markdown（4.2） |
+| .txt | plaintext | なし |
+| .html .htm | html | HTML |
+| .css | css | CSS |
+| .js | javascript | JavaScript |
+| .json | json | JavaScript |
+| .xml | xml | XML |
+| .sql | sql | SQL |
+| .ini .cfg | ini | INI |
+| .bat .cmd | bat | バッチファイル |
+| .py | python | Python |
+| .c .h .cpp .hpp | cpp | C++ |
+| .cs | csharp | C++ |
+| .ts .tsx | typescript | JavaScript |
+| .java | java | Java |
+| .sh .bash | shell | シェルスクリプト |
+| .ps1 .psm1 .psd1 | powershell | なし |
+| .yml .yaml | yaml | なし |
+| .php | php | PHP |
+| .go | go | なし |
+| 上のほか | 変えない | 変えない（それまでの色分けのまま） |
+
+- 色分けが「なし」の言語は、すべての文字が配色の文字の色になる。
+- アプリが自分で `Highlighter` に色分けを入れたときは、部品はそれを壊さない。次に言語が変わると、部品の色分けに切り替わる。
+
+### 4.2 Markdown の色分け
+
+| 書き方 | 色（`csVSDark`） | 色（`csVSLight`） |
+|---|---|---|
+| 見出し（`#`〜`######`）・リストの印（`-` `*` `+` `1.`）・罫線（`---`） | 青 | 青 |
+| 太字（`**…**` `__…__`） | 文字の色で太く | 文字の色で太く |
+| 斜体（`*…*` `_…_`） | 文字の色で斜め | 文字の色で斜め |
+| コード（`` `…` ``）・コードブロック（` ``` ` `~~~`）・リンク（`[…](…)` `<http…>`） | 橙 | 赤茶 |
+| 引用（`>`） | 緑 | 緑 |
+
+- コードブロックの中は、すべてコードの色（`#`・`**` などは色が変わらない）。
+- 閉じていない `**`、英数字の間の `_`（snake_case）は普通の文字。
+- 表・見出しの下線（`===`）・4 つの空白で始まるコードは、特別に色分けしない。
 
 ## 5. プロパティ
 
@@ -101,9 +164,10 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 
 | 名前 | 型 | 読み書き | 中身 |
 |---|---|---|---|
-| `FileName` | `string` | 読み・書き | 編集中のファイル名（既定値は、実行ファイルのフォルダー ＋「無題.txt」）。書くと `OnFileNameChangeEvent` を出し、拡張子に合わせて色分けを切り替える |
+| `FileName` | `string` | 読み・書き | 編集中のファイル名（既定値は、実行ファイルのフォルダー ＋「無題.txt」）。書くと `OnFileNameChangeEvent` を出し、拡張子に合わせて `Language` と色分けを切り替える |
 | `DisplayTitle` | `string` | 読み | タブなどに出す短い名前（`FileName` のファイル名の部分。空なら「無題.txt」）。実行時だけ |
 | `EditStyle` | `TCEditStyle` | 読み・書き | 配色（3章）。既定値は `csGray` |
+| `Language` | `string` | 読み・書き | 言語の名前（4.1 の表の小文字の名前。既定値は 'pascal'）。書くと色分けを切り替える。`FileName` を書くと拡張子から決まる。実行時だけ（.lfm には保存しない） |
 | `InsMode` | `Boolean` | 読み・書き | `True`（既定値）：挿入。`False`：上書き |
 | `CaretX` | `Integer` | 読み・書き | カーソルの桁（1 から） |
 | `CaretY` | `Integer` | 読み・書き | カーソルの行（1 から） |
@@ -147,7 +211,7 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 | `HelpType` | `THelpType` | 読み・書き | ヘルプを番号で引くか（`htContext`）、キーワードで引くか（`htKeyword`） |
 | `HideSelection` | `Boolean` | 読み・書き | フォーカスがないときに、選択の色を消すか |
 | `HighlightAllColor` | `TSynSelectedColor` | 読み・書き | 同じ文字列をすべて強調するときの色 |
-| `Highlighter` | `TSynCustomHighlighter` | 読み・書き | 色分け。`FileName` を設定すると、4章のとおり切り替わる |
+| `Highlighter` | `TSynCustomHighlighter` | 読み・書き | 色分け。`Language`・`FileName` を設定すると、4章のとおり切り替わる |
 | `Hint` | `TTranslateString` | 読み・書き | ヒントの文字 |
 | `IncrementColor` | `TSynSelectedColor` | 読み・書き | インクリメンタル検索で見つかった所の色 |
 | `InsertCaret` | `TSynEditCaretType` | 読み・書き | 挿入のときのカーソルの形 |
@@ -198,7 +262,7 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 
 | 名前 | 引数 | 戻り値 | 中身 |
 |---|---|---|---|
-| `Create` | `AOwner: TComponent` | ― | 作る。コードで作るときに使う（9.9） |
+| `Create` | `AOwner: TComponent` | ― | 作る。コードで作るときに使う（9.12） |
 | `LoadFromFile` | `const AFileName: string` | ― | ファイルを読み込む。`FileName` を設定し、`Modified` を `False` にして、`OnLoadFromFileEvent` を出す |
 | `SaveToFile` | `const AFileName: string` | ― | ファイルに書き込む。`FileName` を設定し、`Modified` を `False` にして、`OnSaveToFileEvent` を出す |
 | `Save` | ― | ― | `FileName` に上書き保存する（Ctrl+S と同じ） |
@@ -224,6 +288,12 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 | `SearchText` | `const ASearchStr: string; ACaseSensitive, AWholeWord, AForward: Boolean` | `Boolean` | 探して選ぶ。見つかれば `True`。`ACaseSensitive`：大文字と小文字を区別する。`AWholeWord`：単語単位。`AForward`：`True` で下へ、`False` で上へ |
 | `ReplaceText` | `const ASearchStr, AReplaceStr: string; ACaseSensitive, AWholeWord: Boolean` | `Boolean` | 次に見つかった1つを置き換える。置き換えたら `True` |
 | `ReplaceAllText` | `const ASearchStr, AReplaceStr: string; ACaseSensitive, AWholeWord: Boolean` | `Integer` | 本文全体をすべて置き換え、置き換えた数を返す |
+
+### 6.4 継承して使うもの（protected）
+
+| 名前 | 引数 | 戻り値 | 中身 |
+|---|---|---|---|
+| `ApplyEditStyle` | ― | ― | 今の `EditStyle` の色を、本文・左端の欄・カーソル行・色分けに入れる（virtual）。継承した部品で override し、`inherited` のあとで色を足せる（9.11） |
 
 ## 7. イベント
 
@@ -291,7 +361,7 @@ SynEdit をもとにした、テキストエディタの部品です。TSynEdit 
 | `OnTripleClick` | `Sender: TObject` | 3回続けてクリックされた |
 | `OnUTF8KeyPress` | `Sender: TObject; var UTF8Key: TUTF8Char` | 文字のキーが押された（UTF-8 の1文字） |
 
-- 部品が使っているキー（Ctrl+S・Shift+F10・F12）を、`OnKeyDown` やフォームの `OnKeyDown`（`KeyPreview = True`）で `Key := 0` にすると、部品の動作が止まる。
+- 部品が使っているキー（Ctrl+S・Shift+F10・F12）は、この部品の `OnKeyDown` より前に処理する。そのため、この部品の `OnKeyDown` では止められない。止めるときは、フォームの `KeyPreview` を `True` にして、フォームの `OnKeyDown` で `Key := 0` にする。
 
 ## 8. 操作
 
@@ -455,7 +525,41 @@ end;
 CSynEdit1.EditStyle := csThema;   // MetaDarkStyle などと組み合わせて使う
 ```
 
-### 9.9 コードで作る
+### 9.9 VS Code と同じダークの配色にする
+
+```pascal
+CSynEdit1.EditStyle := csVSDark;
+```
+
+### 9.10 拡張子と関係なく、言語を決める
+
+```pascal
+CSynEdit1.Text := '# 見出し' + LineEnding + '本文';
+CSynEdit1.Language := 'markdown';                       // Markdown の色分けにする
+
+Label1.Caption := CSLanguageForFile('C:.py', 'plaintext');   // 'python'
+```
+
+- `FileName` を後で設定すると、その拡張子の言語に変わる。
+
+### 9.11 継承して、配色に色を足す
+
+```pascal
+type
+  TMySynEdit = class(TCSynEdit)
+  protected
+    procedure ApplyEditStyle; override;
+  end;
+
+procedure TMySynEdit.ApplyEditStyle;
+begin
+  inherited ApplyEditStyle;                 // 部品の配色を入れる
+  if EditStyle = csVSDark then
+    LineHighlightColor.Background := RGBToColor($30, $30, $30);   // カーソル行の色だけ変える
+end;
+```
+
+### 9.12 コードで作る
 
 ```pascal
 uses

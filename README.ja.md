@@ -1,6 +1,8 @@
 # CX Components
 
-Lazarus（Free Pascal）用の部品集です。フォームに置くだけで、エクスプローラーと同じファイル操作、タブ付きブラウザ、Monaco エディタ、ブックマーク管理などが使えます。
+![コンポーネントパレット](demo/20261028-122432-コンポーネントパレット.jpg)
+
+Lazarus（Free Pascal）用の部品集です。フォームに置くだけで、エクスプローラーと同じファイル操作、タブ付きブラウザ、タブ付きエディタ（Monaco・SynEdit）、Markdown のプレビュー、ブックマーク管理などが使えます。
 
 作者: aotan083 ／ ライセンス: MIT
 
@@ -10,22 +12,28 @@ Lazarus（Free Pascal）用の部品集です。フォームに置くだけで�
 |---|---|---|---|
 | TCTreeView | エクスプローラーの左側と同じフォルダーのツリー | [Usage](docs/TCTreeView_Usage.md) | [Design](docs/TCTreeView_Design.md) |
 | TCListView | エクスプローラーの右側と同じファイルの一覧 | [Usage](docs/TCListView_Usage.md) | [Design](docs/TCListView_Design.md) |
-| TCSynEdit | TSynEdit に、ファイルの読み書き・文字コード・配色・右クリックメニューを足したエディタ | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
+| TCSynEdit | TSynEdit に、ファイルの読み書き・配色（VS Code のライト・ダークを含む）・拡張子に合わせた色分け（Markdown を含む）・右クリックメニューを足したエディタ | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
 | TCCheckListBox | チェックを 1 つだけにできる TCheckListBox | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
 | TCGroupBox・TCCheckGroupBox | 中の部品が消えないグループボックスと、チェック付きの見出しのグループボックス | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
 | TCSideBar | Edge のようなアイコン列と開閉するパネル | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
 | TCPageControl・TCTitleBar | ブラウザのようなタブと、タブを並べられるタイトルバー | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | WebView2 を使ったタブ付きの Web ブラウザ | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor・TCMFindDialog | WebView2 と Monaco Editor によるエディタ（タブ・プレビュー・検索・印刷を内蔵）と、標準アクション 25 個 | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
+| TCsEditor・TCsFindDialog | TCSynEdit をタブで複数持つエディタ。使い方は TCMonacoEditor と同じ（検索・置換ダイアログ・ミニマップ・タブの分離を含む）。標準アクション 25 個 | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
+| TCPreview | TCsEditor のプレビュー（Markdown・コード）と印刷（PDF 保存）。エディタとは別の場所に置き、複数のエディタで共有できる | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
 | TCBookmark | Firefox のようなブックマーク管理（TCTabBrowser・TCMonacoEditor で開く） | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
 
+---
 すべての部品は、パレット [CX] に出ます。
 
+![コンポーネントパレット](demo/20261028-122432-コンポーネントパレット.jpg)
+
+---
 ## 動作環境
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0 以降（TCSynEdit・TCsEditor・TCPreview）。ほかの部品は 4.8 でも動く |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 
@@ -56,14 +64,14 @@ Lazarus（Free Pascal）用の部品集です。フォームに置くだけで�
 - 部品をフォームに置くと、プロジェクトの必要パッケージに `cx` が自動で追加される（`cxdsgn` はアプリには要らない）。
 - .lpr には何も書かない。
 
-TCTabBrowser・TCMonacoEditor・TCBookmark を使うアプリは、EXE と同じフォルダーに次のファイルを置く。
+TCTabBrowser・TCMonacoEditor・TCBookmark・TCPreview を使うアプリは、EXE と同じフォルダーに次のファイルを置く。
 
 | ファイル | 中身 |
 |---|---|
 | `WebView2.ini` | 必ず置く。キーの値は空でもよい（空なら EXE のフォルダーの既定の場所を使う） |
 | `WebView2Loader.dll` | 64 ビット版。WebView4Delphi のリポジトリから入手する |
-| `monaco\` | TCMonacoEditor のエディタ（`runtime\monaco`。`vs` は npm の `monaco-editor` の `min\vs`） |
-| `preview\` | TCMonacoEditor のプレビュー（`runtime\preview`） |
+| `monaco\` | TCMonacoEditor のエディタ（TCMonacoEditor だけ。`runtime\monaco`。`vs` は npm の `monaco-editor` の `min\vs`） |
+| `preview\` | TCMonacoEditor・TCPreview のプレビュー（`runtime\preview`） |
 
 ```ini
 [WebView2]
@@ -82,6 +90,7 @@ PreviewFolder=
 
 - 相対パスは EXE のフォルダーから数える。複数のアプリで 1 か所の `monaco`・`preview` を使うこともできる（[TCMonacoEditor の取扱説明書](docs/TCMonacoEditor_Usage.md)）。
 - 実行には Microsoft Edge WebView2 ランタイム（Windows 11 には最初から入っている）が要る。
+- TCsEditor だけなら、実行時のファイルは要らない。TCPreview を使うときだけ置く。
 
 ## ライセンス
 

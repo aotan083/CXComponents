@@ -1,6 +1,6 @@
 # CX Components
 
-A set of components for Lazarus (Free Pascal). Drop them on a form to get Explorer-style file handling, a tabbed browser, a Monaco editor, bookmark management and more.
+A set of components for Lazarus (Free Pascal). Drop them on a form to get Explorer-style file handling, a tabbed browser, tabbed editors (Monaco and SynEdit), Markdown preview, bookmark management and more.
 
 Author: aotan083 / License: MIT
 
@@ -10,13 +10,15 @@ Author: aotan083 / License: MIT
 |---|---|---|---|
 | TCTreeView | Folder tree that works like the left pane of Windows Explorer | [Usage](docs/TCTreeView_Usage.md) | [Design](docs/TCTreeView_Design.md) |
 | TCListView | File list that works like the right pane of Windows Explorer | [Usage](docs/TCListView_Usage.md) | [Design](docs/TCListView_Design.md) |
-| TCSynEdit | TSynEdit with file loading/saving, encodings, color styles and a context menu | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
+| TCSynEdit | TSynEdit with file loading/saving, color styles (including VS Code light/dark), syntax highlighting by file extension (including Markdown) and a context menu | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
 | TCCheckListBox | TCheckListBox that can be limited to a single check | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
 | TCGroupBox / TCCheckGroupBox | Group box whose child controls never disappear, and a group box with a check box in its caption | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
 | TCSideBar | Edge-style icon bar with a collapsible panel | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
 | TCPageControl / TCTitleBar | Browser-style tabs, and a title bar that can host the tabs | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | Tabbed web browser based on WebView2 | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor / TCMFindDialog | Editor based on WebView2 and Monaco Editor (tabs, preview, search and printing built in), plus 25 standard actions | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
+| TCsEditor / TCsFindDialog | Tabbed editor based on TCSynEdit, used the same way as TCMonacoEditor (search/replace dialog, minimap, tab tear-off), plus 25 standard actions | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
+| TCPreview | Preview (Markdown / code) and printing (PDF) for TCsEditor, placed separately from the editor and shareable by several editors | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
 | TCBookmark | Firefox-style bookmark manager (opens items in TCTabBrowser / TCMonacoEditor) | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
 
 All components appear on the [CX] palette page. The manuals and design documents are written in Japanese.
@@ -25,7 +27,7 @@ All components appear on the [CX] palette page. The manuals and design documents
 
 | Item | Version |
 |---|---|
-| Lazarus | 4.8 / 5.0RC1 |
+| Lazarus | 5.0 or later (TCSynEdit, TCsEditor and TCPreview). The other components also work with 4.8 |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 
@@ -56,14 +58,14 @@ All components appear on the [CX] palette page. The manuals and design documents
 - When you drop a component on a form, `cx` is added to the project's required packages automatically (`cxdsgn` is not needed by applications).
 - Nothing needs to be added to the .lpr file.
 
-Applications that use TCTabBrowser, TCMonacoEditor or TCBookmark need these files in the EXE folder:
+Applications that use TCTabBrowser, TCMonacoEditor, TCBookmark or TCPreview need these files in the EXE folder:
 
 | File | Description |
 |---|---|
 | `WebView2.ini` | Required. The values may be empty (empty means the default location in the EXE folder) |
 | `WebView2Loader.dll` | 64-bit version, from the WebView4Delphi repository |
-| `monaco\` | Editor files for TCMonacoEditor (`runtime\monaco`; `vs` is `min\vs` of the npm package `monaco-editor`) |
-| `preview\` | Preview files for TCMonacoEditor (`runtime\preview`) |
+| `monaco\` | Editor files for TCMonacoEditor only (`runtime\monaco`; `vs` is `min\vs` of the npm package `monaco-editor`) |
+| `preview\` | Preview files for TCMonacoEditor and TCPreview (`runtime\preview`) |
 
 ```ini
 [WebView2]
@@ -82,6 +84,7 @@ PreviewFolder=
 
 - Relative paths are relative to the EXE folder. Several applications can share one `monaco` / `preview` folder.
 - The Microsoft Edge WebView2 Runtime is required (it is preinstalled on Windows 11).
+- TCsEditor itself needs no run-time files. They are needed only when TCPreview is used.
 
 ## License
 

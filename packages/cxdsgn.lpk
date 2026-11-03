@@ -57,6 +57,10 @@
         <Type Value="LRS"/>
       </Item>
       <Item>
+        <Filename Value="../source/res/cseditor_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
         <Filename Value="../source/res/csidebar_icon.lrs"/>
         <Type Value="LRS"/>
       </Item>

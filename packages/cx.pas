@@ -12,7 +12,7 @@ uses
   CShellOleDrop, CShellOleDrag, csynedit, CCheckListBox, uCGroupBox,
   uCCheckGroupBox, uCSideBar, uCTitleBar, uCPageControl, uCXRuntime,
   uCTabBrowser, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview,
-  CMonacoFindDlg, uCmonacos, CMonacoActions, uCbookmark;
+  CMonacoFindDlg, uCmonacos, CMonacoActions, uCbookmark, uCPreview, uCsEditor;
 
 implementation
 
