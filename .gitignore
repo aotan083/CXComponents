@@ -16,3 +16,5 @@ WebView2Loader.dll
 runtime/chat/
 docs/test_docs/
 THIRD_PARTY/
+RULES.md
+CLAUDE.md
