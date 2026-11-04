@@ -1,8 +1,8 @@
 # TCTabBrowser User Manual
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -80,6 +80,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | Key | Contents | When empty or omitted |
@@ -88,6 +91,7 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 user data folder (used by TCMonacoEditor. Not used by TCTabBrowser. Chapter 7) | EXE folder\WebView2Data |
 | `MonacoFolder` | Folder containing TCMonacoEditor's `editor.html` and `vs`. TCTabBrowser's settings file (chapter 7) is also placed here | EXE folder\monaco |
 | `PreviewFolder` | Folder containing TCMonacoEditor's `preview.html` and `lib` | EXE folder\preview |
+| `Language` (`[CX]`) | Screen language, `ja` or `en` (2.2) | Windows display language |
 
 - Always place the file. All key values may be empty (the empty-case locations are then used for all).
 - Relative paths are counted from the EXE folder. Absolute paths can also be written.
@@ -104,6 +108,26 @@ PreviewFolder=
 | Closed the last tab | The URL is decided via `OnNewTabRequest` (`AReason = ntrLastTabClosed`); if the closed tab is already showing that URL, nothing happens. Otherwise the tab is closed and a new tab is created with that URL (the number of tabs never becomes 0) |
 | A page tried to open a new window | No window is opened; it is opened in a new tab at the end |
 | F5 | Reloads the visible page |
+
+### 2.2 Screen Language (Japanese/English)
+
+The text this component shows on screen (tab headers, context menu, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini (2.1).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (such as "Tab n" and "Close") is the English text. With `ja`, it is shown in Japanese (such as 「タブ n」 and 「閉じる」).
+- The page content and the standard items of the context menu provided by WebView2 are shown in the language of Windows and WebView2.
 
 ## 3. Properties
 

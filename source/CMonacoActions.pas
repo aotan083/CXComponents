@@ -264,6 +264,7 @@ type
 implementation
 
 uses
+  uCXLang,
   Dialogs, Clipbrd, LCLIntf;   { 【2.18】Clipbrd・LCLIntf は貼り付けの判定（クリップボードに文字があるか）に使う }
 
 { ---------- TCMEditorAction ---------- }
@@ -318,8 +319,8 @@ end;
 constructor TCMEditorNew.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '新規(&N)';
-  Hint := '新しい文書';
+  Caption := CXT(sActNewCap);
+  Hint := CXT(sActNewHint);
   ShortCut := Menus.ShortCut(VK_N, [ssCtrl]);
 end;
 
@@ -331,8 +332,8 @@ end;
 constructor TCMEditorOpen.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '開く(&O)...';
-  Hint := 'ファイルを開く';
+  Caption := CXT(sActOpenCap);
+  Hint := CXT(sActOpenHint);
   ShortCut := Menus.ShortCut(VK_O, [ssCtrl]);
 end;
 
@@ -348,7 +349,7 @@ begin
   begin
     Dlg := TOpenDialog.Create(nil);
     Dlg.Filter := 'Markdown (*.md;*.markdown)|*.md;*.markdown|' +
-      'テキスト (*.txt)|*.txt|すべてのファイル (*.*)|*.*';
+      CXT(sFilterText);
     Dlg.FilterIndex := 3;
     Dlg.InitialDir := ExtractFilePath(AEditor.FileName);
     if AEditor.MultiDocument then Dlg.Options := Dlg.Options + [ofAllowMultiSelect];
@@ -369,8 +370,8 @@ end;
 constructor TCMEditorSave.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '上書き保存(&S)';
-  Hint := '上書き保存';
+  Caption := CXT(sActSaveCap);
+  Hint := CXT(sActSaveHint);
   ShortCut := Menus.ShortCut(VK_S, [ssCtrl]);
 end;
 
@@ -382,8 +383,8 @@ end;
 constructor TCMEditorSaveAs.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '名前を付けて保存(&A)...';
-  Hint := '名前を付けて保存';
+  Caption := CXT(sActSaveAsCap);
+  Hint := CXT(sActSaveAsHint);
 end;
 
 procedure TCMEditorSaveAs.Run(AEditor: TCMonacoEditor);
@@ -394,8 +395,8 @@ end;
 constructor TCMEditorClose.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '閉じる(&C)';
-  Hint := '文書を閉じる';
+  Caption := CXT(sActCloseCap);
+  Hint := CXT(sActCloseHint);
   ShortCut := Menus.ShortCut(VK_W, [ssCtrl]);
 end;
 
@@ -408,8 +409,8 @@ end;
 constructor TCMEditorPrint.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '印刷(&P)...';
-  Hint := 'プレビューを印刷（PDF として保存もできる）';
+  Caption := CXT(sActPrintCap);
+  Hint := CXT(sActPrintHint);
   ShortCut := Menus.ShortCut(VK_P, [ssCtrl]);
 end;
 
@@ -429,8 +430,8 @@ end;
 constructor TCMEditorSaveAll.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'すべて保存(&L)';
-  Hint := '変更のあるタブをすべて保存';
+  Caption := CXT(sActSaveAllCap);
+  Hint := CXT(sActSaveAllHint);
   ShortCut := Menus.ShortCut(VK_S, [ssCtrl, ssShift]);
 end;
 
@@ -454,8 +455,8 @@ end;
 constructor TCMEditorCloseAll.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'すべて閉じる(&E)';
-  Hint := 'すべての文書を閉じる';
+  Caption := CXT(sActCloseAllCap);
+  Hint := CXT(sActCloseAllHint);
 end;
 
 procedure TCMEditorCloseAll.Run(AEditor: TCMonacoEditor);
@@ -467,8 +468,8 @@ end;
 constructor TCMEditorUndo.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '元に戻す(&U)';
-  Hint := '元に戻す';
+  Caption := CXT(sActUndoCap);
+  Hint := CXT(sActUndoHint);
   ShortCut := Menus.ShortCut(VK_Z, [ssCtrl]);
 end;
 
@@ -486,8 +487,8 @@ end;
 constructor TCMEditorRedo.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'やり直し(&R)';
-  Hint := 'やり直し';
+  Caption := CXT(sActRedoCap);
+  Hint := CXT(sActRedoHint);
   ShortCut := Menus.ShortCut(VK_Y, [ssCtrl]);
 end;
 
@@ -505,8 +506,8 @@ end;
 constructor TCMEditorCut.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '切り取り(&T)';
-  Hint := '切り取り';
+  Caption := CXT(sActCutCap);
+  Hint := CXT(sActCutHint);
   ShortCut := Menus.ShortCut(VK_X, [ssCtrl]);
 end;
 
@@ -524,8 +525,8 @@ end;
 constructor TCMEditorCopy.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'コピー(&C)';
-  Hint := 'コピー';
+  Caption := CXT(sActCopyCap);
+  Hint := CXT(sActCopyHint);
   ShortCut := Menus.ShortCut(VK_C, [ssCtrl]);
 end;
 
@@ -543,8 +544,8 @@ end;
 constructor TCMEditorPaste.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '貼り付け(&P)';
-  Hint := '貼り付け';
+  Caption := CXT(sActPasteCap);
+  Hint := CXT(sActPasteHint);
   ShortCut := Menus.ShortCut(VK_V, [ssCtrl]);
 end;
 
@@ -564,8 +565,8 @@ end;
 constructor TCMEditorSelectAll.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'すべて選択(&A)';
-  Hint := 'すべて選択';
+  Caption := CXT(sActSelectAllCap);
+  Hint := CXT(sActSelectAllHint);
   ShortCut := Menus.ShortCut(VK_A, [ssCtrl]);
 end;
 
@@ -578,8 +579,8 @@ end;
 constructor TCMEditorDuplicateLine.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '行の複製(&D)';
-  Hint := 'カーソル行を複製して下へ';
+  Caption := CXT(sActDupLineCap);
+  Hint := CXT(sActDupLineHint);
   ShortCut := Menus.ShortCut(VK_F10, [ssShift]);
 end;
 
@@ -597,8 +598,8 @@ end;
 constructor TCMEditorDeleteToEnd.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '末尾まで削除';
-  Hint := 'カーソル位置から文書の末尾まで削除';
+  Caption := CXT(sActDelToEndCap);
+  Hint := CXT(sActDelToEndHint);
 end;
 
 function TCMEditorDeleteToEnd.CanRun(AEditor: TCMonacoEditor): Boolean;
@@ -615,8 +616,8 @@ end;
 constructor TCMEditorDeleteToStart.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '先頭まで削除';
-  Hint := 'カーソル位置から文書の先頭まで削除';
+  Caption := CXT(sActDelToStartCap);
+  Hint := CXT(sActDelToStartHint);
 end;
 
 function TCMEditorDeleteToStart.CanRun(AEditor: TCMonacoEditor): Boolean;
@@ -633,8 +634,8 @@ end;
 constructor TCMEditorFind.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '検索・置換(&F)...';
-  Hint := '検索・置換ダイアログを開く';
+  Caption := CXT(sActFindCap);
+  Hint := CXT(sActFindHint);
   ShortCut := Menus.ShortCut(VK_F, [ssCtrl]);
 end;
 
@@ -647,8 +648,8 @@ end;
 constructor TCMEditorFindNext.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '次を検索(&N)';
-  Hint := '直前の検索語で次を検索';
+  Caption := CXT(sActFindNextCap);
+  Hint := CXT(sActFindNextHint);
   ShortCut := Menus.ShortCut(VK_F5, []);
 end;
 
@@ -661,8 +662,8 @@ end;
 constructor TCMEditorFindPrev.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '前を検索(&V)';
-  Hint := '直前の検索語で前を検索';
+  Caption := CXT(sActFindPrevCap);
+  Hint := CXT(sActFindPrevHint);
   ShortCut := Menus.ShortCut(VK_F5, [ssShift]);
 end;
 
@@ -692,8 +693,8 @@ end;
 constructor TCMEditorMinimap.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'ミニマップ(&M)';
-  Hint := 'ミニマップの表示・非表示';
+  Caption := CXT(sActMinimapCap);
+  Hint := CXT(sActMinimapHint);
   ShortCut := Menus.ShortCut(VK_M, [ssCtrl, ssShift]);
 end;
 
@@ -711,8 +712,8 @@ end;
 constructor TCMEditorPreview.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'プレビュー(&V)';
-  Hint := 'プレビューの表示・非表示';
+  Caption := CXT(sActPreviewCap);
+  Hint := CXT(sActPreviewHint);
   ShortCut := Menus.ShortCut(VK_V, [ssCtrl, ssShift]);
 end;
 
@@ -730,8 +731,8 @@ end;
 constructor TCMEditorLineNumbers.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '行番号(&L)';
-  Hint := '行番号の表示・非表示';
+  Caption := CXT(sActLineNumbersCap);
+  Hint := CXT(sActLineNumbersHint);
   ShortCut := Menus.ShortCut(VK_F11, []);
 end;
 
@@ -749,8 +750,8 @@ end;
 constructor TCMEditorWordWrap.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '折り返し(&W)';
-  Hint := '折り返し表示の切り替え';
+  Caption := CXT(sActWordWrapCap);
+  Hint := CXT(sActWordWrapHint);
 end;
 
 function TCMEditorWordWrap.GetValue(AEditor: TCMonacoEditor): Boolean;
@@ -767,8 +768,8 @@ end;
 constructor TCMEditorRemoteImages.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'ネットの画像を表示(&I)';
-  Hint := 'プレビューで、ネット（http）の画像を表示するか';
+  Caption := CXT(sActRemoteImagesCap);
+  Hint := CXT(sActRemoteImagesHint);
 end;
 
 function TCMEditorRemoteImages.GetValue(AEditor: TCMonacoEditor): Boolean;

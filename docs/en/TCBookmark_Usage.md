@@ -1,8 +1,8 @@
 # TCBookmark User Manual
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -65,6 +65,26 @@ A bookmark management component like Firefox's bookmark screen. Place it on a fo
 
 - To change the storage location, set `BookmarkFolder` and `BookmarkFile` (chapter 7).
 - When using TCTabBrowser and TCMonacoEditor, the preparation in their respective user manuals (WebView2.ini, etc.) is also required.
+
+### 2.1 Screen Language (Japanese/English)
+
+The text this component shows on screen (context menu, edit dialog, messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (such as "Edit Bookmark" in the context menu) is the English text. With `ja`, it is shown in Japanese (such as 「ブックマークを編集」).
+- The file dialogs for import/export and the buttons of confirmation messages are shown in the language of Windows and the LCL.
 
 ## 3. Properties
 

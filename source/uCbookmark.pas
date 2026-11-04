@@ -355,45 +355,8 @@ function CBHostOf(const AUrl: string): string;
 implementation
 
 uses
+  uCXLang,
   ShellApi, ShlObj, Clipbrd, IniFiles, fpjson, jsonparser, base64, DateUtils, Math, LazUTF8;
-
-resourcestring
-  rsMenuTextOpen = 'Text開く';
-  rsMenuTextOpenNew = 'Text新しいタブで開く';
-  rsMenuBrowserOpen = 'Browserで開く';
-  rsMenuBrowserOpenNew = 'Browserで新しいタブで開く';
-  rsMenuEdit = 'ブックマークを編集';
-  rsMenuDelete = 'ブックマークを削除';
-  rsMenuCut = '切取り';
-  rsMenuCopy = 'コピー';
-  rsMenuPaste = '貼り付け';
-  rsMenuAddBookmark = 'ブックマークを追加';
-  rsMenuAddFolder = 'フォルダーを追加';
-  rsMenuAddSeparator = '区切り線';
-  rsMenuImport = 'インポート...';
-  rsMenuExport = 'エクスポート...';
-  rsSearchHint = 'ブックマークを検索';
-  rsFileMissing = 'ファイルがありません：%s';
-  rsUnsaved = '保存されていない変更があります。新しいタブで開きますか？';
-  rsDeleteFolder = 'フォルダー「%s」と中の %d 件を削除しますか？';
-  rsTooMany = '%d 件を登録しますか？';
-  rsSaveError = 'ブックマークを保存できません：%s';
-  rsLoadError = 'ブックマークを読み込めませんでした。元のファイルは %s に残しました。';
-  rsDlgAdd = 'ブックマークを追加';
-  rsDlgEdit = 'ブックマークを編集';
-  rsDlgAddFolder = 'フォルダーを追加';
-  rsDlgEditFolder = 'フォルダー名を編集';
-  rsDlgName = '名前';
-  rsDlgLocation = 'URL またはファイルパス';
-  rsNewFolder = '新しいフォルダー';
-  rsOK = 'OK';
-  rsCancel = 'キャンセル';
-  rsImportFolder = 'インポート %s';
-  rsImportNone = 'ブックマークが見つかりませんでした。';
-  rsImportError = 'インポートできません：%s';
-  rsExportError = 'エクスポートできません：%s';
-  rsOpenError = '開けません：%s';
-  rsHtmlFilter = 'ブックマーク HTML (*.html;*.htm)|*.html;*.htm|すべてのファイル (*.*)|*.*';
 
 const
   CBMaxFetch = 4;                 { 同時に取りに行く数 }
@@ -1643,7 +1606,7 @@ begin
   FSearch.ControlStyle := FSearch.ControlStyle + [csNoDesignSelectable];
   FSearch.Parent := Self;
   FSearch.Align := alTop;
-  FSearch.TextHint := rsSearchHint;
+  FSearch.TextHint := CXT(sBmSearchHint);
   FSearch.OnChange := @SearchChange;
   FSearch.OnKeyDown := @SearchKeyDown;
 
@@ -1675,25 +1638,25 @@ begin
   { 右クリックメニュー。Tag は MenuClick で使う番号 }
   FMenu := TPopupMenu.Create(Self);
   FMenu.OnPopup := @MenuPopup;
-  FMiTextOpen := AddMI(rsMenuTextOpen, 1);
-  FMiTextOpenNew := AddMI(rsMenuTextOpenNew, 2);
+  FMiTextOpen := AddMI(CXT(sBmMenuTextOpen), 1);
+  FMiTextOpenNew := AddMI(CXT(sBmMenuTextOpenNew), 2);
   AddMI('-', 0);
-  FMiBrOpen := AddMI(rsMenuBrowserOpen, 3);
-  FMiBrOpenNew := AddMI(rsMenuBrowserOpenNew, 4);
+  FMiBrOpen := AddMI(CXT(sBmMenuBrowserOpen), 3);
+  FMiBrOpenNew := AddMI(CXT(sBmMenuBrowserOpenNew), 4);
   AddMI('-', 0);
-  FMiEdit := AddMI(rsMenuEdit, 5);
-  FMiDelete := AddMI(rsMenuDelete, 6);
+  FMiEdit := AddMI(CXT(sBmMenuEdit), 5);
+  FMiDelete := AddMI(CXT(sBmMenuDelete), 6);
   AddMI('-', 0);
-  FMiCut := AddMI(rsMenuCut, 7);
-  FMiCopy := AddMI(rsMenuCopy, 8);
-  FMiPaste := AddMI(rsMenuPaste, 9);
+  FMiCut := AddMI(CXT(sBmMenuCut), 7);
+  FMiCopy := AddMI(CXT(sBmMenuCopy), 8);
+  FMiPaste := AddMI(CXT(sBmMenuPaste), 9);
   AddMI('-', 0);
-  FMiAddBookmark := AddMI(rsMenuAddBookmark, 10);
-  FMiAddFolder := AddMI(rsMenuAddFolder, 11);
-  FMiAddSeparator := AddMI(rsMenuAddSeparator, 12);
+  FMiAddBookmark := AddMI(CXT(sBmMenuAddBookmark), 10);
+  FMiAddFolder := AddMI(CXT(sBmMenuAddFolder), 11);
+  FMiAddSeparator := AddMI(CXT(sBmMenuAddSeparator), 12);
   AddMI('-', 0);
-  FMiImport := AddMI(rsMenuImport, 13);
-  FMiExport := AddMI(rsMenuExport, 14);
+  FMiImport := AddMI(CXT(sBmMenuImport), 13);
+  FMiExport := AddMI(CXT(sBmMenuExport), 14);
   FTree.PopupMenu := FMenu;
 
   FSearchTimer := TTimer.Create(Self);
@@ -1946,7 +1909,7 @@ begin
     FRoot.FExpanded := True;
     B := F + '.broken-' + FormatDateTime('yyyymmddhhnnss', Now);
     RenameFile(F, B);
-    MessageDlg(Format(rsLoadError, [B]), mtWarning, [mbOK], 0);
+    MessageDlg(Format(CXT(sBmLoadError), [B]), mtWarning, [mbOK], 0);
   end;
   RefreshMissing(FRoot, True);
 end;
@@ -1981,7 +1944,7 @@ begin
       if not FSaveErrorShown then
       begin
         FSaveErrorShown := True;     { 同じ起動中は1回だけ }
-        MessageDlg(Format(rsSaveError, [E.Message]), mtError, [mbOK], 0);
+        MessageDlg(Format(CXT(sBmSaveError), [E.Message]), mtError, [mbOK], 0);
       end;
   end;
 end;
@@ -2725,7 +2688,7 @@ begin
     FTree.Invalidate;
     if AItem.FFileMissing then
     begin
-      MessageDlg(Format(rsFileMissing, [AItem.FLocation]), mtWarning, [mbOK], 0);
+      MessageDlg(Format(CXT(sBmFileMissing), [AItem.FLocation]), mtWarning, [mbOK], 0);
       Exit;
     end;
   end;
@@ -2769,14 +2732,14 @@ begin
     { 2. 表示中のタブが未保存なら聞く。はい＝新しいタブ、いいえ＝開かない }
     if Ed.Modified then
     begin
-      if MessageDlg(rsUnsaved, mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+      if MessageDlg(CXT(sBmUnsaved), mtConfirmation, [mbYes, mbNo], 0) = mrYes then
         if Ed.OpenFile(APath) >= 0 then Ed.SetFocus;
       Exit;
     end;
     { 3. 表示中のタブに読み込む }
     if Ed.LoadFromFile(APath) then Ed.SetFocus;
   except
-    on E: Exception do MessageDlg(Format(rsOpenError, [APath + ' : ' + E.Message]), mtError, [mbOK], 0);
+    on E: Exception do MessageDlg(Format(CXT(sBmOpenError), [APath + ' : ' + E.Message]), mtError, [mbOK], 0);
   end;
 end;
 
@@ -2789,7 +2752,7 @@ begin
     else
       FTargetBrowser.Navigate(AUrl);
   except
-    on E: Exception do MessageDlg(Format(rsOpenError, [AUrl + ' : ' + E.Message]), mtError, [mbOK], 0);
+    on E: Exception do MessageDlg(Format(CXT(sBmOpenError), [AUrl + ' : ' + E.Message]), mtError, [mbOK], 0);
   end;
 end;
 
@@ -2832,7 +2795,7 @@ begin
 
     L1 := TLabel.Create(F);
     L1.Parent := F;
-    L1.Caption := rsDlgName;
+    L1.Caption := CXT(sBmDlgName);
     L1.SetBounds(S(12), Y, S(416), S(18));
     Inc(Y, S(20));
     FDlgName := TEdit.Create(F);
@@ -2848,7 +2811,7 @@ begin
     begin
       L2 := TLabel.Create(F);
       L2.Parent := F;
-      L2.Caption := rsDlgLocation;
+      L2.Caption := CXT(sBmDlgLocation);
       L2.SetBounds(S(12), Y, S(416), S(18));
       Inc(Y, S(20));
       FDlgLoc := TEdit.Create(F);
@@ -2861,13 +2824,13 @@ begin
 
     FDlgOk := TButton.Create(F);
     FDlgOk.Parent := F;
-    FDlgOk.Caption := rsOK;
+    FDlgOk.Caption := CXT(sBmOK);
     FDlgOk.ModalResult := mrOk;
     FDlgOk.Default := True;
     FDlgOk.SetBounds(S(440 - 12 - 88 - 8 - 88), Y + S(4), S(88), S(28));
     BCancel := TButton.Create(F);
     BCancel.Parent := F;
-    BCancel.Caption := rsCancel;
+    BCancel.Caption := CXT(sBmCancel);
     BCancel.ModalResult := mrCancel;
     BCancel.Cancel := True;
     BCancel.SetBounds(S(440 - 12 - 88), Y + S(4), S(88), S(28));
@@ -3110,14 +3073,14 @@ begin
   except
     on E: Exception do
     begin
-      MessageDlg(Format(rsImportError, [E.Message]), mtError, [mbOK], 0);
+      MessageDlg(Format(CXT(sBmImportError), [E.Message]), mtError, [mbOK], 0);
       Exit;
     end;
   end;
   { 一番下に「インポート yyyy-mm-dd」フォルダーを作り、その中に入れる }
   F := TCBookmarkItem.Create(bkFolder);
   F.FExpanded := True;
-  F.FName := Format(rsImportFolder, [FormatDateTime('yyyy"-"mm"-"dd', Now)]);
+  F.FName := Format(CXT(sBmImportFolder), [FormatDateTime('yyyy"-"mm"-"dd', Now)]);
   if ParseHtml(S, F) = 0 then
   begin
     F.Free;
@@ -3200,7 +3163,7 @@ begin
       CBWriteFileText(AFileName, SL.Text);
       Result := True;
     except
-      on E: Exception do MessageDlg(Format(rsExportError, [E.Message]), mtError, [mbOK], 0);
+      on E: Exception do MessageDlg(Format(CXT(sBmExportError), [E.Message]), mtError, [mbOK], 0);
     end;
   finally
     SL.Free;
@@ -3213,11 +3176,11 @@ var
 begin
   D := TOpenDialog.Create(nil);
   try
-    D.Filter := rsHtmlFilter;
+    D.Filter := CXT(sBmHtmlFilter);
     D.Options := D.Options + [ofFileMustExist];
     if not D.Execute then Exit;
     if not ImportFromFile(D.FileName) then
-      if FileExists(D.FileName) then MessageDlg(rsImportNone, mtInformation, [mbOK], 0);
+      if FileExists(D.FileName) then MessageDlg(CXT(sBmImportNone), mtInformation, [mbOK], 0);
   finally
     D.Free;
   end;
@@ -3229,7 +3192,7 @@ var
 begin
   D := TSaveDialog.Create(nil);
   try
-    D.Filter := rsHtmlFilter;
+    D.Filter := CXT(sBmHtmlFilter);
     D.DefaultExt := 'html';
     D.FileName := 'bookmarks.html';
     D.Options := D.Options + [ofOverwritePrompt];
@@ -3498,12 +3461,12 @@ begin
   L := AItem.FLocation;
   if AItem.FKind = bkFolder then
   begin
-    if not EditDialog(rsDlgEditFolder, N, L, False) then Exit;
+    if not EditDialog(CXT(sBmDlgEditFolder), N, L, False) then Exit;
     AItem.FName := N;
   end
   else
   begin
-    if not EditDialog(rsDlgEdit, N, L, True) then Exit;
+    if not EditDialog(CXT(sBmDlgEdit), N, L, True) then Exit;
     if not CBClassifyLocation(L, K, L2) then Exit;
     OldHost := '';
     if AItem.FKind = bkUrl then OldHost := CBHostOf(AItem.FLocation);
@@ -3526,7 +3489,7 @@ begin
   if (AItem = nil) or not IsInTree(AItem) then Exit;
   { フォルダーだけ確認する }
   if AItem.FKind = bkFolder then
-    if MessageDlg(Format(rsDeleteFolder, [AItem.FName, AItem.DescendantCount]), mtConfirmation,
+    if MessageDlg(Format(CXT(sBmDeleteFolder), [AItem.FName, AItem.DescendantCount]), mtConfirmation,
       [mbYes, mbNo], 0) <> mrYes then Exit;
   DeleteItem(AItem);
 end;
@@ -3618,7 +3581,7 @@ begin
   if FSearching then Exit;
   N := '';
   L := '';
-  if not EditDialog(rsDlgAdd, N, L, True) then Exit;
+  if not EditDialog(CXT(sBmDlgAdd), N, L, True) then Exit;
   It := NewLink(N, L);
   if It = nil then Exit;
   InsertPos(AItem, P, I);
@@ -3633,9 +3596,9 @@ var
   I: Integer;
 begin
   if FSearching then Exit;
-  N := rsNewFolder;
+  N := CXT(sBmNewFolder);
   L := '';
-  if not EditDialog(rsDlgAddFolder, N, L, False) then Exit;
+  if not EditDialog(CXT(sBmDlgAddFolder), N, L, False) then Exit;
   It := TCBookmarkItem.Create(bkFolder);
   It.FName := N;
   InsertPos(AItem, P, I);
@@ -3686,7 +3649,7 @@ begin
     if DirectoryExists(F) then Inc(Total, CountDirEntries(F, MaxInt div 2));
   end;
   if Total > CBFolderConfirm then
-    if MessageDlg(Format(rsTooMany, [Total]), mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+    if MessageDlg(Format(CXT(sBmTooMany), [Total]), mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
 
   DropDest(ATarget, APos, P, Idx);
   Last := nil;

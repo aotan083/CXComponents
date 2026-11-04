@@ -10,7 +10,7 @@ interface
 uses
   CTreeView, CListView, CShellNotify, CShellMenu, CShellDragDrop,
   CShellOleDrop, CShellOleDrag, csynedit, CCheckListBox, uCGroupBox,
-  uCCheckGroupBox, uCSideBar, uCTitleBar, uCPageControl, uCXRuntime,
+  uCCheckGroupBox, uCSideBar, uCTitleBar, uCPageControl, uCXRuntime, uCXLang,
   uCTabBrowser, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview,
   CMonacoFindDlg, uCmonacos, CMonacoActions, uCbookmark, uCPreview, uCsEditor;
 

@@ -394,6 +394,7 @@ function CMToZenkakuHiragana(const S: string): string;     { カタカナ・半�
 implementation
 
 uses
+  uCXLang,
   uCXRuntime;   { monaco フォルダの場所を決める（WebView2.ini の MonacoFolder）・WebView2 の準備 }
 
 const
@@ -584,7 +585,7 @@ begin
       begin
         T := ConvertEncoding(S, 'utf8', 'cp932');
         if ConvertEncoding(T, 'cp932', 'utf8') <> S then
-          raise Exception.Create('CP932(Shift_JIS)で表現できない文字が含まれています。Encoding を UTF-8 に変更してください。');
+          raise Exception.Create(CXT(sErrCp932));
         SetLength(Result, Length(T));
         if Length(T) > 0 then Move(T[1], Result[0], Length(T));
       end;
@@ -945,18 +946,18 @@ begin
   Dir := GetResourceDir;
   if not FileExists(Dir + PathDelim + 'editor.html') then
   begin
-    DoError('editor.html が見つかりません: ' + Dir);
+    DoError(CXT(sErrEditorHtml) + Dir);
     Exit;
   end;
   if not FileExists(Dir + PathDelim + 'vs' + PathDelim + 'loader.js') then
   begin
-    DoError('Monaco の vs\loader.js が見つかりません: ' + Dir);
+    DoError(CXT(sErrMonacoLoader) + Dir);
     Exit;
   end;
   FBrowser.SetVirtualHostNameToFolderMapping(WVStr(VHOST), WVStr(Dir),
     COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
   Url := 'https://' + VHOST + '/editor.html';
-  if FJapaneseUI then Url := Url + '?lang=ja';
+  if FJapaneseUI and (CXLanguage = cxlJa) then Url := Url + '?lang=ja';   { cx の言語が日本語のときだけ Monaco も日本語 }
   FBrowser.Navigate(WVStr(Url));
 end;
 
@@ -1174,7 +1175,7 @@ var
 begin
   Doc := DocAt(AIndex);
   if Doc = nil then Exit('');
-  if Doc.FileName = '' then Result := '無題' else Result := ExtractFileName(Doc.FileName);
+  if Doc.FileName = '' then Result := CXT(sUntitled) else Result := ExtractFileName(Doc.FileName);
 end;
 
 function TCMMonacoView.AddDocument(const AFileName: string): Integer;
@@ -2030,32 +2031,32 @@ begin
   FPopup := TPopupMenu.Create(Self);
   FPopup.OnPopup := @PopupMenuPopup;
 
-  AddMenuItem('切り抜き', mcCut, 1, True);
-  AddMenuItem('コピー', mcCopy, 1, False);
-  AddMenuItem('貼り付け', mcPaste, 2, True);
+  AddMenuItem(CXT(sMnCut), mcCut, 1, True);
+  AddMenuItem(CXT(sMnCopy), mcCopy, 1, False);
+  AddMenuItem(CXT(sMnPaste), mcPaste, 2, True);
   AddMenuItem('-', mcCut, 1, False);
   AddMenuItem('-', mcCut, 3, False);
-  AddMenuItem('すべて選択', mcSelectAll, 3, False);
-  AddMenuItem('元に戻す', mcUndo, 3, True);
-  AddMenuItem('やり直し', mcRedo, 3, True);
-  AddMenuItem('引用付きコピー', mcQuoteCopy, 1, False);
-  AddMenuItem('追加切り抜き', mcAppendCut, 1, True);
-  AddMenuItem('追加コピー', mcAppendCopy, 1, False);
+  AddMenuItem(CXT(sMnSelectAll), mcSelectAll, 3, False);
+  AddMenuItem(CXT(sMnUndo), mcUndo, 3, True);
+  AddMenuItem(CXT(sMnRedo), mcRedo, 3, True);
+  AddMenuItem(CXT(sMnQuoteCopy), mcQuoteCopy, 1, False);
+  AddMenuItem(CXT(sMnAppendCut), mcAppendCut, 1, True);
+  AddMenuItem(CXT(sMnAppendCopy), mcAppendCopy, 1, False);
   AddMenuItem('-', mcCut, 1, False);
-  AddMenuItem('削除', mcDelete, 1, True);
+  AddMenuItem(CXT(sMnDelete), mcDelete, 1, True);
   AddMenuItem('-', mcCut, 1, False);
   AddMenuItem('TO UPPER CASE', mcUpper, 1, True);
   AddMenuItem('to lower case', mcLower, 1, True);
   AddMenuItem('-', mcCut, 1, False);
-  AddMenuItem('ﾊﾝｶｸに変換', mcHankaku, 1, True);
-  AddMenuItem('全角ひらがなに変換', mcHiragana, 1, True);
-  AddMenuItem('全角カタカナに変換', mcKatakana, 1, True);
+  AddMenuItem(CXT(sMnToHalfKana), mcHankaku, 1, True);
+  AddMenuItem(CXT(sMnToHiragana), mcHiragana, 1, True);
+  AddMenuItem(CXT(sMnToKatakana), mcKatakana, 1, True);
   AddMenuItem('-', mcCut, 1, False);
-  AddMenuItem('TAB -> 空白', mcDetab, 1, True);
-  AddMenuItem('空白 -> TAB', mcEntab, 1, True);
+  AddMenuItem(CXT(sMnTabToSpace), mcDetab, 1, True);
+  AddMenuItem(CXT(sMnSpaceToTab), mcEntab, 1, True);
   AddMenuItem('-', mcCut, 1, False);
-  AddMenuItem('インデント', mcIndent, 1, True);
-  AddMenuItem('逆インデント', mcOutdent, 1, True);
+  AddMenuItem(CXT(sMnIndent), mcIndent, 1, True);
+  AddMenuItem(CXT(sMnOutdent), mcOutdent, 1, True);
 end;
 
 procedure TCMMonacoView.PopupMenuPopup(Sender: TObject);

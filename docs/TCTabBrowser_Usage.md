@@ -1,8 +1,8 @@
 # TCTabBrowser 取扱説明書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-04
+版: 1.1
 
 ---
 
@@ -80,6 +80,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | キー | 中身 | 空・書かないとき |
@@ -88,6 +91,7 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 のユーザーデータのフォルダー（TCMonacoEditor が使う。TCTabBrowser は使わない。7章） | EXE のフォルダー\WebView2Data |
 | `MonacoFolder` | TCMonacoEditor の `editor.html` と `vs` があるフォルダー。TCTabBrowser の設定ファイル（7章）もここに置く | EXE のフォルダー\monaco |
 | `PreviewFolder` | TCMonacoEditor の `preview.html` と `lib` があるフォルダー | EXE のフォルダー\preview |
+| `Language`（`[CX]`） | 画面の言語 `ja`・`en`（2.2） | Windows の表示言語 |
 
 - ファイルは必ず置く。キーの値はすべて空でもよい（すべて、空のときの場所を使う）。
 - 相対パスは、EXE のフォルダーから数える。絶対パスも書ける。
@@ -104,6 +108,26 @@ PreviewFolder=
 | 最後のタブを閉じた | `OnNewTabRequest`（`AReason = ntrLastTabClosed`）で URL を決め、閉じたタブがその URL を表示していれば何もしない。それ以外は、タブを閉じて、その URL で新しいタブを作る（タブは0枚にならない） |
 | ページが新しいウィンドウを開こうとした | ウィンドウを開かず、末尾の新しいタブで開く |
 | F5 | 表示中のページを再読み込み |
+
+### 2.2 画面の言語（日本語・English）
+
+この部品が画面に出す文字（タブの見出し・右クリックメニューなど）は、日本語か英語で出る。言語は cx の部品すべてで 1 つで、部品ごとには決めない。
+
+WebView2.ini（2.1）に、次のように書く。
+
+```ini
+[CX]
+Language=en
+```
+
+| 順 | 決め方 |
+|---|---|
+| 1 | `[CX]` の `Language` が `ja` または `en` なら、その言語（大文字・小文字は問わない） |
+| 2 | それ以外（`[CX]` が無い・空・ほかの値）は、Windows の表示言語。日本語なら `ja`、それ以外は `en` |
+
+- 最初に文字を出すときに 1 回だけ決める。実行中に書き換えても、次の起動まで効かない。
+- この取説に書いた画面の文字（「タブ n」「閉じる」など）は、日本語のときのもの。英語のときは英語（「Tab n」「Close」など）で出る。
+- ページの中身と、WebView2 が出す右クリックメニューの標準の項目は、Windows・WebView2 の言語で出る。
 
 ## 3. プロパティ
 

@@ -377,6 +377,7 @@ function CSLanguageForFile(const AFileName, ADefault: string): string;
 implementation
 
 uses
+  uCXLang,
   TypInfo,                // NumberAttri を名前で探す（7.4.3）
   StrUtils                // PosEx（Markdown の色分け）
   {$IFDEF WINDOWS}, Windows, ShellAPI{$ENDIF};
@@ -657,7 +658,7 @@ begin
   Font.Quality := fqCleartypeNatural;
 
   // 初期値の設定
-  FFileName := ExtractFilePath(ParamStr(0)) + '無題.txt';
+  FFileName := ExtractFilePath(ParamStr(0)) + CXT(sUntitledTxt);
   InsertMode := True;
   FOldInsertMode := True;
   FOldCaretX := 1;
@@ -715,7 +716,7 @@ begin
   if FFileName <> '' then
     Result := ExtractFileName(FFileName)
   else
-    Result := '無題.txt';
+    Result := CXT(sUntitledTxt);
 end;
 
 procedure TCSynEdit.OnFileNameChange(var sFileName: String);
@@ -1729,19 +1730,19 @@ begin
   FPopupMenu.OnPopup := @OnPopupMenuPopup;
 
   // --- グループ 1 ---
-  FMenuItemCut := AddItem('切り抜き', @OnMenuCutClick);
-  FMenuItemCopy := AddItem('コピー', @OnMenuCopyClick);
-  FMenuItemPaste := AddItem('貼り付け', @OnMenuPasteClick);
+  FMenuItemCut := AddItem(CXT(sMnCut), @OnMenuCutClick);
+  FMenuItemCopy := AddItem(CXT(sMnCopy), @OnMenuCopyClick);
+  FMenuItemPaste := AddItem(CXT(sMnPaste), @OnMenuPasteClick);
   AddSeparator;
 
   // --- グループ 2 ---
-  FMenuItemQuoteCopy := AddItem('引用付きコピー', @OnMenuQuoteCopyClick);
-  FMenuItemAppendCut := AddItem('追加切り抜き', @OnMenuAppendCutClick);
-  FMenuItemAppendCopy := AddItem('追加コピー', @OnMenuAppendCopyClick);
+  FMenuItemQuoteCopy := AddItem(CXT(sMnQuoteCopy), @OnMenuQuoteCopyClick);
+  FMenuItemAppendCut := AddItem(CXT(sMnAppendCut), @OnMenuAppendCutClick);
+  FMenuItemAppendCopy := AddItem(CXT(sMnAppendCopy), @OnMenuAppendCopyClick);
   AddSeparator;
 
   // --- グループ 3 ---
-  FMenuItemDelete := AddItem('削除', @OnMenuDeleteClick);
+  FMenuItemDelete := AddItem(CXT(sMnDelete), @OnMenuDeleteClick);
   AddSeparator;
 
   // --- グループ 4 ---
@@ -1750,19 +1751,19 @@ begin
   AddSeparator;
 
   // --- グループ 5 ---
-  FMenuItemToHalf := AddItem('ハンカクに変換', @OnMenuToHalfClick);
-  FMenuItemToHiragana := AddItem('全角ひらがなに変換', @OnMenuToHiraganaClick);
-  FMenuItemToKatakana := AddItem('全角カタカナに変換', @OnMenuToKatakanaClick);
+  FMenuItemToHalf := AddItem(CXT(sMnToHalfKanaSyn), @OnMenuToHalfClick);
+  FMenuItemToHiragana := AddItem(CXT(sMnToHiragana), @OnMenuToHiraganaClick);
+  FMenuItemToKatakana := AddItem(CXT(sMnToKatakana), @OnMenuToKatakanaClick);
   AddSeparator;
 
   // --- グループ 6 ---
-  FMenuItemTabToSpace := AddItem('TAB -> 空白 変換', @OnMenuTabToSpaceClick);
-  FMenuItemSpaceToTab := AddItem('空白 -> TAB 変換', @OnMenuSpaceToTabClick);
+  FMenuItemTabToSpace := AddItem(CXT(sMnTabToSpaceSyn), @OnMenuTabToSpaceClick);
+  FMenuItemSpaceToTab := AddItem(CXT(sMnSpaceToTabSyn), @OnMenuSpaceToTabClick);
   AddSeparator;
 
   // --- グループ 7 ---
-  AddItem('インデント', @OnMenuIndentClick);
-  AddItem('逆インデント', @OnMenuUnindentClick);
+  AddItem(CXT(sMnIndent), @OnMenuIndentClick);
+  AddItem(CXT(sMnOutdent), @OnMenuUnindentClick);
 end;
 
 procedure TCSynEdit.OnPopupMenuPopup(Sender: TObject);

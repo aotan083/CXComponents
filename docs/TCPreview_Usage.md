@@ -1,8 +1,8 @@
 # TCPreview 取扱説明書
 
 作者: aotan083
-日付: 2026-11-03
-版: 1.0
+日付: 2026-11-04
+版: 1.1
 
 ---
 
@@ -112,6 +112,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | キー | 中身 | 空・書かないとき |
@@ -120,6 +123,7 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 のユーザーデータのフォルダー | EXE のフォルダー\WebView2Data |
 | `MonacoFolder` | TCPreview は使わない | ― |
 | `PreviewFolder` | `preview.html` と `lib` があるフォルダー | EXE のフォルダー\preview |
+| `Language`（`[CX]`） | 画面の言語 `ja`・`en`（2.4） | Windows の表示言語 |
 
 - ファイルは必ず置く。キーの値はすべて空でもよい。
 - 相対パスは、EXE のフォルダーから数える。絶対パスも書ける。
@@ -136,6 +140,25 @@ PreviewFolder=
 | 3 | EXE のフォルダーの `preview` |
 
 - 見つからなければ `OnError`（「preview.html が見つかりません: （場所）」）。
+
+### 2.4 画面の言語（日本語・English）
+
+この部品が画面に出す文字（右クリックメニュー・図のボタン・エラーの文など）は、日本語か英語で出る。言語は cx の部品すべてで 1 つで、部品ごとには決めない。
+
+WebView2.ini（2.2）に、次のように書く。
+
+```ini
+[CX]
+Language=en
+```
+
+| 順 | 決め方 |
+|---|---|
+| 1 | `[CX]` の `Language` が `ja` または `en` なら、その言語（大文字・小文字は問わない） |
+| 2 | それ以外（`[CX]` が無い・空・ほかの値）は、Windows の表示言語。日本語なら `ja`、それ以外は `en` |
+
+- 最初に文字を出すときに 1 回だけ決める。実行中に書き換えても、次の起動まで効かない。
+- この取説に書いた画面の文字は、日本語のときのもの。英語のときは英語で出る。
 
 ## 3. 表示元
 

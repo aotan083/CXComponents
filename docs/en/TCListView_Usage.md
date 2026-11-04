@@ -1,8 +1,8 @@
 # TCListView User Manual
 
 Author: aotan083
-Date: 2026-10-31
-Version: 1.1
+Date: 2026-11-04
+Version: 1.2
 
 ---
 
@@ -59,6 +59,28 @@ sample.pas        12 kB     pas      2026/10/18 10:12
 1. Place TCTreeView and TCListView on the form.
 2. Select the TCTreeView in the `ShellTreeView` property of TCListView.
 3. Run it. When you select a folder in the tree, the list moves to that folder (moving in the list does not change the tree's selection).
+
+### 2.3 Screen Language (Japanese/English)
+
+The text this component shows on screen (column headers, context menu, messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (column headers, menus, etc.) is the English text. With `ja`, it is shown in Japanese.
+- The Type column shows the name returned by Windows. Only the folder type ("File folder" / 「ファイル フォルダー」) is replaced with the "Folder" text of the current language.
+- The names of newly created folders and files (「新しいフォルダー」, 「新規テキスト ドキュメント」) are always Japanese, regardless of the language.
+- The buttons of confirmation messages are shown in the language of Windows and the LCL.
 
 ## 3. Display
 

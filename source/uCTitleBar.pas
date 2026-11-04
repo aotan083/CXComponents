@@ -158,12 +158,10 @@ procedure CXSetSymbolFont(ACanvas: TCanvas; const AName: string; AHeightPx: Inte
   （.lfm の読み込み中など）ときは、画面の倍率を使う（Scale96ToForm はそのとき例外になるため）。 }
 function CXScale96(AControl: TControl; ASize: Integer): Integer;
 
-resourcestring
-  rsCTitleBarOnlyOne = 'TCTitleBar は1つのフォームに1つだけ置けます';
-
 implementation
 
 uses
+  uCXLang,
   {$IFDEF WINDOWS}ShellApi,{$ENDIF}
   LazUTF8;
 
@@ -1312,7 +1310,7 @@ begin
     F := GetParentForm(NewParent);
     if (F <> nil) and not (csLoading in F.ComponentState)
       and HasOtherTitleBar(F, Self) then
-      raise EInvalidOperation.Create(rsCTitleBarOnlyOne);
+      raise EInvalidOperation.Create(CXT(sTitleErrOnlyOne));
   end;
   inherited SetParent(NewParent);
 end;

@@ -1,8 +1,8 @@
 # TCPageControl User Manual
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -100,6 +100,26 @@ A component for building a screen like a browser (Firefox, Edge, etc.), with tab
 
 - If `Align` is left at `alNone`, depending on where it is placed, it may overlap the minimize, maximize and close buttons.
 - With `Flat = True`, a TSpeedButton shows a border only while the mouse is over it. If it is hard to distinguish, set `Flat` to `False`, or add an icon or a `Caption`.
+
+### 2.5 Screen Language (Japanese/English)
+
+The text this component shows on screen (tab context menu, name of new tabs, messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (the tab context menu, the default value 'New Tab' of `NewPageCaption`, etc.) is the English text. With `ja`, it is shown in Japanese (such as '新しいタブ').
+- The items shown in the form designer's right-click menu in the IDE (such as "New Page") are always Japanese (such as 「新しいページ」).
 
 ## 3. TCPageControl
 

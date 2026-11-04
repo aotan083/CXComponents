@@ -167,6 +167,7 @@ type
 implementation
 
 uses
+  uCXLang,
   uCXRuntime;   { preview フォルダの場所を決める（WebView2.ini の PreviewFolder）・WebView2 の準備 }
 
 { 設計時かどうか（複合部品の中に入れた場合も、親をたどって判定する） }
@@ -251,18 +252,18 @@ begin
 
   FPopup := TPopupMenu.Create(Self);
   MI := TMenuItem.Create(FPopup);
-  MI.Caption := 'コピー';
+  MI.Caption := CXT(sMnCopy);
   MI.OnClick := @MenuCopyClick;
   FPopup.Items.Add(MI);
   MI := TMenuItem.Create(FPopup);
-  MI.Caption := 'すべて選択';
+  MI.Caption := CXT(sMnSelectAll);
   MI.OnClick := @MenuSelectAllClick;
   FPopup.Items.Add(MI);
   MI := TMenuItem.Create(FPopup);
   MI.Caption := '-';
   FPopup.Items.Add(MI);
   MI := TMenuItem.Create(FPopup);
-  MI.Caption := '印刷...';
+  MI.Caption := CXT(sMnPrint);
   MI.OnClick := @MenuPrintClick;
   FPopup.Items.Add(MI);
   PopupMenu := FPopup;
@@ -363,7 +364,7 @@ begin
   Dir := GetResourceDir;
   if not FileExists(Dir + PathDelim + 'preview.html') then
   begin
-    DoError('preview.html が見つかりません: ' + Dir);
+    DoError(CXT(sErrPreviewHtml) + Dir);
     Exit;
   end;
   FBrowser.SetVirtualHostNameToFolderMapping(WVStr(VHOST), WVStr(Dir),
@@ -510,6 +511,7 @@ end;
 
 procedure TCMMarkdownPreview.SendOptions;
 begin
+  SendCmd('opt' + SEP + 'lang' + SEP + CXLangCode);     { preview.html の表示言語（render・code より前に届く） }
   SendColors;
   SendLayout;
   SendCmd('opt' + SEP + 'theme' + SEP + FTheme);
@@ -726,7 +728,7 @@ begin
   if not FBrowser.ShowPrintUI(False) then   { False = Edge と同じ印刷ダイアログ }
   begin
     SendCmd('printdone');
-    DoError('印刷ダイアログを表示できませんでした');
+    DoError(CXT(sErrPrintDialog));
   end;
 end;
 

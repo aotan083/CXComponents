@@ -215,6 +215,7 @@ function IsDriveRootPath(const APath: string): Boolean;
 implementation
 
 uses
+  uCXLang,
   CListView, ComObj, Variants, Registry;
 
 // エクスプローラーと同じ自然順の比較（リスト表示と同じ）
@@ -882,9 +883,9 @@ begin
       if Names.Count > 0 then
       begin
         if FirstDrive <> nil then
-          QA := Items.Insert(FirstDrive, 'クイックアクセス')
+          QA := Items.Insert(FirstDrive, CXT(sTvQuickAccess))
         else
-          QA := Items.Add(nil, 'クイックアクセス');
+          QA := Items.Add(nil, CXT(sTvQuickAccess));
         TCTreeNode(QA).InitSpecial(nkGroup, gkQuickAccess, '');
         QA.HasChildren := True;
         for i := 0 to Names.Count - 1 do
@@ -919,7 +920,7 @@ begin
     // 5. ネットワーク（登録した共有フォルダー）
     if FShowNetwork and (FNetworkFolders.Count > 0) then
     begin
-      N := AddGroupNode('ネットワーク', gkNetwork);
+      N := AddGroupNode(CXT(sTvNetwork), gkNetwork);
       for i := 0 to FNetworkFolders.Count - 1 do
       begin
         P := Trim(FNetworkFolders[i]);
@@ -1715,7 +1716,7 @@ begin
   // 1. 禁則文字チェック
   if ContainsInvalidChar(S) then
   begin
-    ShowMessage('フォルダ名に以下の文字は使用できません:' + sLineBreak + '\ / : * ? " < > |');
+    ShowMessage(CXT(sTvErrBadChars) + sLineBreak + '\ / : * ? " < > |');
     S := Node.Text;
     Exit;
   end;

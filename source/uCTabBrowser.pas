@@ -370,6 +370,7 @@ type
 implementation
 
 uses
+  uCXLang,
   uCXRuntime;   { WebView2 の準備（CXStartWebView2）と、tabbrowser.json の場所（WebView2.ini の MonacoFolder） }
 
 { TCTabDownloadItem }
@@ -431,7 +432,7 @@ begin
   FContextMenuTabIndex := -1;
   FTabPopupMenu := TPopupMenu.Create(Self);
   FCloseMenuItem := TMenuItem.Create(FTabPopupMenu);
-  FCloseMenuItem.Caption := '閉じる';
+  FCloseMenuItem.Caption := CXT(sTbClose);
   FCloseMenuItem.OnClick := CloseMenuItemClick;
   FTabPopupMenu.Items.Add(FCloseMenuItem);
   Self.PopupMenu := FTabPopupMenu;
@@ -745,7 +746,7 @@ begin
   NewWindowParent.Browser := NewBrowser;
 
   Result := NewTabSheet.PageIndex;
-  NewTabSheet.Caption := Format('タブ %d', [Result + 1]);
+  NewTabSheet.Caption := Format(CXT(sTbTabTitle), [Result + 1]);
 
   // 4. アクティブ化
   ActivePageIndex := Result;
@@ -2005,8 +2006,8 @@ begin
 
     // 部品の項目
     AddPageMenuItem(MenuList, Browser, '', COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_SEPARATOR, pmaNone, nil, True, False);
-    AddPageMenuItem(MenuList, Browser, '新規作成', COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaNew, nil, True, False);
-    AddPageMenuItem(MenuList, Browser, '閉じる', COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaClose, nil, True, False);
+    AddPageMenuItem(MenuList, Browser, CXT(sTbNew), COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaNew, nil, True, False);
+    AddPageMenuItem(MenuList, Browser, CXT(sTbClose), COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaClose, nil, True, False);
 
     // アプリの項目（アプリが項目の状態を合わせられるよう、先に OnPopup を呼ぶ）
     if Assigned(FPagePopupMenu) then

@@ -773,6 +773,7 @@ function CsOsIsDark: Boolean;
 implementation
 
 uses
+  uCXLang,
   LazUTF8, LConvEncoding, StrUtils, Math, SynEditHighlighter;
 
 { ================================================================== }
@@ -785,9 +786,6 @@ const
     (TColor($00784F26), TColor($009E5A0E), TColor($00004E6B), TColor($00822D5A), clNone);
   SelStyleLight: array[TCMSelectionColorStyle] of TColor =
     (TColor($00FFD6AD), TColor($00FFB67F), TColor($004FD5FF), TColor($00FFA3C5), clNone);
-  { 内蔵の開く・保存ダイアログのフィルター（TCMonacoEditor と同じ） }
-  InnerFilter = 'Markdown (*.md;*.markdown)|*.md;*.markdown|' +
-    'テキスト (*.txt)|*.txt|すべてのファイル (*.*)|*.*';
   MAX_HISTORY = 30;
 
   { 右クリックの項目の番号（Cmd） }
@@ -795,6 +793,13 @@ const
   mcQuoteCopy = 7; mcAppendCut = 8; mcAppendCopy = 9; mcDelete = 10;
   mcUpper = 11; mcLower = 12; mcHankaku = 13; mcHiragana = 14; mcKatakana = 15;
   mcDetab = 16; mcEntab = 17; mcIndent = 18; mcOutdent = 19; mcSep = 0;
+
+{ 内蔵の開く・保存ダイアログのフィルター（TCMonacoEditor と同じ）。
+  「テキスト・すべてのファイル」の部分は今の言語の文字列（CXT）なので、定数ではなく関数で返す }
+function InnerFilter: string;
+begin
+  Result := 'Markdown (*.md;*.markdown)|*.md;*.markdown|' + CXT(sFilterText);
+end;
 
 function BytesToStr(const B: TBytes; AStart: Integer): string;
 var
@@ -896,7 +901,7 @@ begin
       begin
         T := ConvertEncoding(S, 'utf8', 'cp932');
         if ConvertEncoding(T, 'cp932', 'utf8') <> S then
-          raise Exception.Create('CP932(Shift_JIS)で表現できない文字が含まれています。Encoding を UTF-8 に変更してください。');
+          raise Exception.Create(CXT(sErrCp932));
         SetLength(Result, Length(T));
         if Length(T) > 0 then Move(T[1], Result[0], Length(T));
       end;
@@ -1284,7 +1289,7 @@ end;
 function TCsPage.GetCaption: string;
 begin
   if FSyn = nil then Exit('');
-  if FFileName = '' then Result := '無題' else Result := ExtractFileName(FFileName);
+  if FFileName = '' then Result := CXT(sUntitled) else Result := ExtractFileName(FFileName);
 end;
 
 function TCsPage.GetFileName: string;
@@ -1615,32 +1620,32 @@ constructor TCsFindForm.CreateFor(ADlg: TCsFindDialog);
 begin
   inherited CreateNew(ADlg);
   FDlg := ADlg;
-  Caption := '検索・置換';
+  Caption := CXT(sFindTitle);
   BorderStyle := bsDialog;
   ClientWidth := 470;
   ClientHeight := 190;
   Position := poDesigned;
 
-  AddLabel('検索(&F):', 12, 16);
+  AddLabel(CXT(sFindLblFind), 12, 16);
   FCmbFind := TComboBox.Create(Self);
   FCmbFind.Parent := Self;
   FCmbFind.SetBounds(80, 12, 250, 24);
 
-  AddLabel('置換(&R):', 12, 52);
+  AddLabel(CXT(sFindLblRepl), 12, 52);
   FCmbReplace := TComboBox.Create(Self);
   FCmbReplace.Parent := Self;
   FCmbReplace.SetBounds(80, 48, 250, 24);
 
-  FChkCase := AddCheck('大文字小文字を区別する(&C)', 88);
-  FChkWord := AddCheck('単語単位で検索(&W)', 112);
-  FChkLoop := AddCheck('ループ検索(&L)', 136);
+  FChkCase := AddCheck(CXT(sFindChkCase), 88);
+  FChkWord := AddCheck(CXT(sFindChkWord), 112);
+  FChkLoop := AddCheck(CXT(sFindChkLoop), 136);
   SetOptions(FDlg.Options);
 
-  AddButton('次を検索(&N)', 10, @NextClick).Default := True;
-  AddButton('前を検索(&P)', 42, @PrevClick);
-  AddButton('置換(&E)', 74, @ReplaceClick);
-  AddButton('すべて置換(&A)', 106, @ReplaceAllClick);
-  AddButton('閉じる', 146, @CloseClick).Cancel := True;
+  AddButton(CXT(sActFindNextCap), 10, @NextClick).Default := True;
+  AddButton(CXT(sFindBtnPrev), 42, @PrevClick);
+  AddButton(CXT(sFindBtnReplace), 74, @ReplaceClick);
+  AddButton(CXT(sFindBtnReplaceAll), 106, @ReplaceAllClick);
+  AddButton(CXT(sFindBtnClose), 146, @CloseClick).Cancel := True;
 
   FLblStatus := AddLabel('', 80, 166);
 end;
@@ -1801,7 +1806,7 @@ var
   S: string;
 begin
   if FForm = nil then Exit;
-  S := '検索・置換';
+  S := CXT(sFindTitle);
   if (FTarget <> nil) and (FTarget.FCur <> nil) then S := S + ' - ' + FTarget.Caption;
   FForm.Caption := S;
 end;
@@ -1858,13 +1863,13 @@ end;
 procedure TCsFindDialog.NotifyFindDone(AEditor: TCsEditor; Found: Boolean);
 begin
   if (FForm = nil) or (AEditor <> FTarget) then Exit;
-  if Found then FForm.FLblStatus.Caption := '' else FForm.FLblStatus.Caption := '見つかりません';
+  if Found then FForm.FLblStatus.Caption := '' else FForm.FLblStatus.Caption := CXT(sFindNotFound);
 end;
 
 procedure TCsFindDialog.NotifyReplaceAllDone(AEditor: TCsEditor; Count: Integer);
 begin
   if (FForm = nil) or (AEditor <> FTarget) then Exit;
-  FForm.FLblStatus.Caption := Format('%d 件置換しました', [Count]);
+  FForm.FLblStatus.Caption := Format(CXT(sFindReplaced), [Count]);
 end;
 
 { ================================================================== }
@@ -2724,12 +2729,12 @@ begin
   N := ExpandFileName(AFileName);
   if not FileExists(N) then
   begin
-    DoError('ファイルが見つかりません: ' + N);
+    DoError(CXT(sErrFileNotFound) + N);
     Exit;
   end;
   if OpenedElsewhere(P, N) then
   begin
-    DoError('そのファイルは別のタブで開いています: ' + N);
+    DoError(CXT(sErrAlreadyOpen) + N);
     Exit;
   end;
   try
@@ -2840,7 +2845,7 @@ begin
   N := ExpandFileName(N);
   if OpenedElsewhere(P, N) then
   begin
-    DoError('そのファイルは別のタブで開いています: ' + N);
+    DoError(CXT(sErrAlreadyOpen) + N);
     Exit;
   end;
   Result := WriteCore(P, N);
@@ -2879,9 +2884,9 @@ begin
   else if FConfirmOnFormClose then
   begin
     P := TCsPage(FPages[AIndex]);
-    case MessageDlg('未保存の変更',
-        P.Caption + ' は変更されています。' + LineEnding +
-        '保存しますか？（いいえ = 保存せずに閉じる）',
+    case MessageDlg(CXT(sUnsavedTitle),
+        Format(CXT(sUnsavedLine1), [P.Caption]) + LineEnding +
+        CXT(sUnsavedLine2),
         mtConfirmation, [mbYes, mbNo, mbCancel], 0) of
       mrYes:
         begin
@@ -3824,7 +3829,7 @@ var
 begin
   if FCur = nil then Exit;
   S := '';
-  if not InputQuery('行へ移動', Format('行番号（1〜%d）', [LineCount]), S) then Exit;
+  if not InputQuery(CXT(sGoToLineTitle), Format(CXT(sGoToLinePrompt), [LineCount]), S) then Exit;
   if TryStrToInt(Trim(S), N) then SetCursorPos(N, 1);
 end;
 
@@ -4418,43 +4423,43 @@ begin
   FMenu := TPopupMenu.Create(Self);
   FMenu.OnPopup := @MenuPopup;
   { TCMonacoEditor の取説 9.7 と同じ項目・同じ並び }
-  AddMenuItem('切り抜き', mcCut, 1, True);
-  AddMenuItem('コピー', mcCopy, 1, False);
-  AddMenuItem('貼り付け', mcPaste, 2, True);
+  AddMenuItem(CXT(sMnCut), mcCut, 1, True);
+  AddMenuItem(CXT(sActCopyHint), mcCopy, 1, False);
+  AddMenuItem(CXT(sActPasteHint), mcPaste, 2, True);
   AddMenuItem('-', mcSep, 1, False);
   AddMenuItem('-', mcSep, 3, False);
-  AddMenuItem('すべて選択', mcSelectAll, 3, False);
-  AddMenuItem('元に戻す', mcUndo, 3, True);
-  AddMenuItem('やり直し', mcRedo, 3, True);
-  AddMenuItem('引用付きコピー', mcQuoteCopy, 1, False);
-  AddMenuItem('追加切り抜き', mcAppendCut, 1, True);
-  AddMenuItem('追加コピー', mcAppendCopy, 1, False);
+  AddMenuItem(CXT(sActSelectAllHint), mcSelectAll, 3, False);
+  AddMenuItem(CXT(sActUndoHint), mcUndo, 3, True);
+  AddMenuItem(CXT(sActRedoHint), mcRedo, 3, True);
+  AddMenuItem(CXT(sMnQuoteCopy), mcQuoteCopy, 1, False);
+  AddMenuItem(CXT(sMnAppendCut), mcAppendCut, 1, True);
+  AddMenuItem(CXT(sMnAppendCopy), mcAppendCopy, 1, False);
   AddMenuItem('-', mcSep, 1, False);
-  AddMenuItem('削除', mcDelete, 1, True);
+  AddMenuItem(CXT(sMnDelete), mcDelete, 1, True);
   AddMenuItem('-', mcSep, 1, False);
   AddMenuItem('TO UPPER CASE', mcUpper, 1, True);
   AddMenuItem('to lower case', mcLower, 1, True);
   AddMenuItem('-', mcSep, 1, False);
-  AddMenuItem('ﾊﾝｶｸに変換', mcHankaku, 1, True);
-  AddMenuItem('全角ひらがなに変換', mcHiragana, 1, True);
-  AddMenuItem('全角カタカナに変換', mcKatakana, 1, True);
+  AddMenuItem(CXT(sMnToHalfKana), mcHankaku, 1, True);
+  AddMenuItem(CXT(sMnToHiragana), mcHiragana, 1, True);
+  AddMenuItem(CXT(sMnToKatakana), mcKatakana, 1, True);
   AddMenuItem('-', mcSep, 1, False);
-  AddMenuItem('TAB -> 空白', mcDetab, 1, True);
-  AddMenuItem('空白 -> TAB', mcEntab, 1, True);
+  AddMenuItem(CXT(sMnTabToSpace), mcDetab, 1, True);
+  AddMenuItem(CXT(sMnSpaceToTab), mcEntab, 1, True);
   AddMenuItem('-', mcSep, 1, False);
-  AddMenuItem('インデント', mcIndent, 1, True);
-  AddMenuItem('逆インデント', mcOutdent, 1, True);
+  AddMenuItem(CXT(sMnIndent), mcIndent, 1, True);
+  AddMenuItem(CXT(sMnOutdent), mcOutdent, 1, True);
   { 選択の有無で変わらない項目（いつも出す） }
   MI := TMenuItem.Create(FMenu);
   MI.Caption := '-';
   FMenu.Items.Add(MI);
   FMnuMinimap := TMenuItem.Create(FMenu);
-  FMnuMinimap.Caption := 'ミニマップ';
+  FMnuMinimap.Caption := CXT(sMnMinimap);
   FMnuMinimap.ShortCut := ShortCut(VK_M, [ssCtrl, ssShift]);   { 表示用。キーは HandleKey }
   FMnuMinimap.OnClick := @MenuMinimapClick;
   FMenu.Items.Add(FMnuMinimap);
   FMnuPreview := TMenuItem.Create(FMenu);
-  FMnuPreview.Caption := 'プレビュー';
+  FMnuPreview.Caption := CXT(sMnPreview);
   FMnuPreview.ShortCut := ShortCut(VK_V, [ssCtrl, ssShift]);
   FMnuPreview.OnClick := @MenuPreviewClick;
   FMenu.Items.Add(FMnuPreview);
@@ -5432,7 +5437,7 @@ begin
       on E: Exception do
       begin
         DeleteFile(AFile);
-        DoError('別のウィンドウで開けませんでした: ' + E.Message);
+        DoError(CXT(sErrOpenOtherWindow) + E.Message);
       end;
     end;
   finally
@@ -5465,7 +5470,7 @@ begin
        CS_MERGE_TIMEOUT, @Res) = 0 then
   begin
     DeleteFile(FN);
-    DoError('ほかのウィンドウへ移せませんでした');
+    DoError(CXT(sErrMoveOtherWindow));
     Exit;
   end;
   case Res of
@@ -5516,7 +5521,7 @@ begin
   begin
     Err := Windows.GetLastError;
     DeleteFile(FN);
-    DoError('別のウィンドウで開けませんでした: ' + SysErrorMessage(Err));
+    DoError(CXT(sErrOpenOtherWindow) + SysErrorMessage(Err));
     Exit;
   end;
   Windows.CloseHandle(ProcInfo.hThread);
@@ -5731,8 +5736,8 @@ end;
 constructor TCsEditorNew.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '新規(&N)';
-  Hint := '新しい文書';
+  Caption := CXT(sActNewCap);
+  Hint := CXT(sActNewHint);
   ShortCut := Menus.ShortCut(VK_N, [ssCtrl]);
 end;
 
@@ -5744,8 +5749,8 @@ end;
 constructor TCsEditorOpen.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '開く(&O)...';
-  Hint := 'ファイルを開く';
+  Caption := CXT(sActOpenCap);
+  Hint := CXT(sActOpenHint);
   ShortCut := Menus.ShortCut(VK_O, [ssCtrl]);
 end;
 
@@ -5757,8 +5762,8 @@ end;
 constructor TCsEditorSave.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '上書き保存(&S)';
-  Hint := '上書き保存';
+  Caption := CXT(sActSaveCap);
+  Hint := CXT(sActSaveHint);
   ShortCut := Menus.ShortCut(VK_S, [ssCtrl]);
 end;
 
@@ -5770,8 +5775,8 @@ end;
 constructor TCsEditorSaveAs.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '名前を付けて保存(&A)...';
-  Hint := '名前を付けて保存';
+  Caption := CXT(sActSaveAsCap);
+  Hint := CXT(sActSaveAsHint);
 end;
 
 procedure TCsEditorSaveAs.Run(AEditor: TCsEditor);
@@ -5782,8 +5787,8 @@ end;
 constructor TCsEditorClose.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '閉じる(&C)';
-  Hint := '文書を閉じる';
+  Caption := CXT(sActCloseCap);
+  Hint := CXT(sActCloseHint);
   ShortCut := Menus.ShortCut(VK_W, [ssCtrl]);
 end;
 
@@ -5795,8 +5800,8 @@ end;
 constructor TCsEditorPrint.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '印刷(&P)...';
-  Hint := 'プレビューを印刷（PDF として保存もできる）';
+  Caption := CXT(sActPrintCap);
+  Hint := CXT(sActPrintHint);
   ShortCut := Menus.ShortCut(VK_P, [ssCtrl]);
 end;
 
@@ -5813,8 +5818,8 @@ end;
 constructor TCsEditorSaveAll.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'すべて保存(&L)';
-  Hint := '変更のあるタブをすべて保存';
+  Caption := CXT(sActSaveAllCap);
+  Hint := CXT(sActSaveAllHint);
   ShortCut := Menus.ShortCut(VK_S, [ssCtrl, ssShift]);
 end;
 
@@ -5836,8 +5841,8 @@ end;
 constructor TCsEditorCloseAll.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'すべて閉じる(&E)';
-  Hint := 'すべての文書を閉じる';
+  Caption := CXT(sActCloseAllCap);
+  Hint := CXT(sActCloseAllHint);
 end;
 
 procedure TCsEditorCloseAll.Run(AEditor: TCsEditor);
@@ -5848,8 +5853,8 @@ end;
 constructor TCsEditorUndo.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '元に戻す(&U)';
-  Hint := '元に戻す';
+  Caption := CXT(sActUndoCap);
+  Hint := CXT(sActUndoHint);
   ShortCut := Menus.ShortCut(VK_Z, [ssCtrl]);
 end;
 
@@ -5866,8 +5871,8 @@ end;
 constructor TCsEditorRedo.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'やり直し(&R)';
-  Hint := 'やり直し';
+  Caption := CXT(sActRedoCap);
+  Hint := CXT(sActRedoHint);
   ShortCut := Menus.ShortCut(VK_Y, [ssCtrl]);
 end;
 
@@ -5884,8 +5889,8 @@ end;
 constructor TCsEditorCut.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '切り取り(&T)';
-  Hint := '切り取り';
+  Caption := CXT(sActCutCap);
+  Hint := CXT(sActCutHint);
   ShortCut := Menus.ShortCut(VK_X, [ssCtrl]);
 end;
 
@@ -5902,8 +5907,8 @@ end;
 constructor TCsEditorCopy.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'コピー(&C)';
-  Hint := 'コピー';
+  Caption := CXT(sActCopyCap);
+  Hint := CXT(sActCopyHint);
   ShortCut := Menus.ShortCut(VK_C, [ssCtrl]);
 end;
 
@@ -5920,8 +5925,8 @@ end;
 constructor TCsEditorPaste.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '貼り付け(&P)';
-  Hint := '貼り付け';
+  Caption := CXT(sActPasteCap);
+  Hint := CXT(sActPasteHint);
   ShortCut := Menus.ShortCut(VK_V, [ssCtrl]);
 end;
 
@@ -5939,8 +5944,8 @@ end;
 constructor TCsEditorSelectAll.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'すべて選択(&A)';
-  Hint := 'すべて選択';
+  Caption := CXT(sActSelectAllCap);
+  Hint := CXT(sActSelectAllHint);
   ShortCut := Menus.ShortCut(VK_A, [ssCtrl]);
 end;
 
@@ -5952,8 +5957,8 @@ end;
 constructor TCsEditorDuplicateLine.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '行の複製(&D)';
-  Hint := 'カーソル行を複製して下へ';
+  Caption := CXT(sActDupLineCap);
+  Hint := CXT(sActDupLineHint);
   ShortCut := Menus.ShortCut(VK_F10, [ssShift]);
 end;
 
@@ -5970,8 +5975,8 @@ end;
 constructor TCsEditorDeleteToEnd.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '末尾まで削除';
-  Hint := 'カーソル位置から文書の末尾まで削除';
+  Caption := CXT(sActDelToEndCap);
+  Hint := CXT(sActDelToEndHint);
 end;
 
 function TCsEditorDeleteToEnd.CanRun(AEditor: TCsEditor): Boolean;
@@ -5987,8 +5992,8 @@ end;
 constructor TCsEditorDeleteToStart.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '先頭まで削除';
-  Hint := 'カーソル位置から文書の先頭まで削除';
+  Caption := CXT(sActDelToStartCap);
+  Hint := CXT(sActDelToStartHint);
 end;
 
 function TCsEditorDeleteToStart.CanRun(AEditor: TCsEditor): Boolean;
@@ -6004,8 +6009,8 @@ end;
 constructor TCsEditorFind.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '検索・置換(&F)...';
-  Hint := '検索・置換ダイアログを開く';
+  Caption := CXT(sActFindCap);
+  Hint := CXT(sActFindHint);
   ShortCut := Menus.ShortCut(VK_F, [ssCtrl]);
 end;
 
@@ -6017,8 +6022,8 @@ end;
 constructor TCsEditorFindNext.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '次を検索(&N)';
-  Hint := '直前の検索語で次を検索';
+  Caption := CXT(sActFindNextCap);
+  Hint := CXT(sActFindNextHint);
   ShortCut := Menus.ShortCut(VK_F5, []);
 end;
 
@@ -6030,8 +6035,8 @@ end;
 constructor TCsEditorFindPrev.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '前を検索(&V)';
-  Hint := '直前の検索語で前を検索';
+  Caption := CXT(sActFindPrevCap);
+  Hint := CXT(sActFindPrevHint);
   ShortCut := Menus.ShortCut(VK_F5, [ssShift]);
 end;
 
@@ -6043,8 +6048,8 @@ end;
 constructor TCsEditorMinimap.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'ミニマップ(&M)';
-  Hint := 'ミニマップの表示・非表示';
+  Caption := CXT(sActMinimapCap);
+  Hint := CXT(sActMinimapHint);
   ShortCut := Menus.ShortCut(VK_M, [ssCtrl, ssShift]);
 end;
 
@@ -6061,8 +6066,8 @@ end;
 constructor TCsEditorPreview.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'プレビュー(&V)';
-  Hint := 'プレビューの表示・非表示';
+  Caption := CXT(sActPreviewCap);
+  Hint := CXT(sActPreviewHint);
   ShortCut := Menus.ShortCut(VK_V, [ssCtrl, ssShift]);
 end;
 
@@ -6084,8 +6089,8 @@ end;
 constructor TCsEditorLineNumbers.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '行番号(&L)';
-  Hint := '行番号の表示・非表示';
+  Caption := CXT(sActLineNumbersCap);
+  Hint := CXT(sActLineNumbersHint);
   ShortCut := Menus.ShortCut(VK_F11, []);
 end;
 
@@ -6102,8 +6107,8 @@ end;
 constructor TCsEditorWordWrap.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := '折り返し(&W)';
-  Hint := '折り返し表示の切り替え';
+  Caption := CXT(sActWordWrapCap);
+  Hint := CXT(sActWordWrapHint);
 end;
 
 function TCsEditorWordWrap.GetValue(AEditor: TCsEditor): Boolean;
@@ -6119,8 +6124,8 @@ end;
 constructor TCsEditorRemoteImages.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  Caption := 'ネットの画像を表示(&I)';
-  Hint := 'プレビューで、ネット（http）の画像を表示するか';
+  Caption := CXT(sActRemoteImagesCap);
+  Hint := CXT(sActRemoteImagesHint);
 end;
 
 function TCsEditorRemoteImages.CanRun(AEditor: TCsEditor): Boolean;

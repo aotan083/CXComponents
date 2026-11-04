@@ -404,14 +404,10 @@ type
     property OnStartDrag;
   end;
 
-resourcestring
-  rsCTabNew = '新しいタブ';
-  rsCTabClose = 'タブを閉じる';
-  rsCTabRename = 'タブ名の変更';
-  rsCTabNewPageCaption = '新しいタブ';
-  rsCTabCannotHaveParent = '%s の親にできるのは TCPageControl だけです（%s は指定できません）';
-
 implementation
+
+uses
+  uCXLang;
 
 const
   // 96dpi 時の大きさ
@@ -613,7 +609,7 @@ begin
   if NewParent = Parent then
     Exit;
   if (NewParent <> nil) and not (NewParent is TCPageControl) then
-    raise EInvalidOperation.CreateFmt(rsCTabCannotHaveParent, [ClassName, NewParent.ClassName]);
+    raise EInvalidOperation.CreateFmt(CXT(sPcErrParent), [ClassName, NewParent.ClassName]);
   OldParent := Parent;
   if OldParent is TCPageControl then
     TCPageControl(OldParent).RemovePage(Self);
@@ -2091,7 +2087,7 @@ begin
   FTabShape := tsRectangle;
   FOptions := [nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch];
   FShowTabListButton := True;
-  FNewPageCaption := rsCTabNewPageCaption;
+  FNewPageCaption := CXT(sPcNewPage);
   FTabMenuItems := [tmiNew, tmiClose, tmiRename];
   FImageChangeLink := TChangeLink.Create;
   FImageChangeLink.OnChange := @ImageListChange;
@@ -2184,7 +2180,7 @@ end;
 
 function TCPageControl.IsNewPageCaptionStored: Boolean;
 begin
-  Result := FNewPageCaption <> rsCTabNewPageCaption;
+  Result := FNewPageCaption <> CXT(sPcNewPage);
 end;
 
 function TCPageControl.TabHeightIsStored: Boolean;
@@ -2924,7 +2920,7 @@ begin
   if tmiNew in FTabMenuItems then
   begin
     Item := TMenuItem.Create(FMenu);
-    Item.Caption := rsCTabNew;
+    Item.Caption := CXT(sPcNew);
     Item.OnClick := @MenuNewClick;
     FMenu.Items.Add(Item);
     HasStd := True;
@@ -2934,7 +2930,7 @@ begin
     if tmiClose in FTabMenuItems then
     begin
       Item := TMenuItem.Create(FMenu);
-      Item.Caption := rsCTabClose;
+      Item.Caption := CXT(sPcClose);
       Item.OnClick := @MenuCloseClick;
       FMenu.Items.Add(Item);
       HasStd := True;
@@ -2942,7 +2938,7 @@ begin
     if tmiRename in FTabMenuItems then
     begin
       Item := TMenuItem.Create(FMenu);
-      Item.Caption := rsCTabRename;
+      Item.Caption := CXT(sPcRename);
       Item.OnClick := @MenuRenameClick;
       FMenu.Items.Add(Item);
       HasStd := True;

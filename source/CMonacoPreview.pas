@@ -63,6 +63,9 @@ type
 
 implementation
 
+uses
+  uCXLang;
+
 constructor TCMPreviewBinder.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -96,7 +99,7 @@ end;
 procedure TCMPreviewBinder.Attach(AEditor: TCMMonacoView; APreview: TCMMarkdownPreview);
 begin
   if (AEditor = nil) or (APreview = nil) then
-    raise Exception.Create('TCMPreviewBinder.Attach: エディタまたはプレビューが nil です');
+    raise Exception.Create(CXT(sErrPreviewBinder));
   FEditor := AEditor;
   FPreview := APreview;
 

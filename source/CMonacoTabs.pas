@@ -95,6 +95,7 @@ type
 implementation
 
 uses
+  uCXLang,
   Windows;
 
 const
@@ -158,7 +159,7 @@ end;
 procedure TCMTabBinder.Attach(AEditor: TCMMonacoView; ATabs: TATTabs);
 begin
   if AEditor = nil then
-    raise Exception.Create('TCMTabBinder.Attach: エディタが nil です');
+    raise Exception.Create(CXT(sErrTabBinder));
   FEditor := AEditor;
   if ATabs = nil then
   begin
@@ -303,9 +304,9 @@ end;
 
 procedure TCMTabBinder.EditorQueryClose(Sender: TObject; Index: Integer; var CanClose: Boolean);
 begin
-  case MessageDlg('未保存の変更',
-      FEditor.DocumentTitle[Index] + ' は変更されています。' + LineEnding +
-      '保存しますか？（いいえ = 保存せずに閉じる）',
+  case MessageDlg(CXT(sUnsavedTitle),
+      Format(CXT(sUnsavedLine1), [FEditor.DocumentTitle[Index]]) + LineEnding +
+      CXT(sUnsavedLine2),
       mtConfirmation, [mbYes, mbNo, mbCancel], 0) of
     mrYes:
       begin

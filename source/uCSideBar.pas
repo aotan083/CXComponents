@@ -223,6 +223,9 @@ var
 
 implementation
 
+uses
+  uCXLang;
+
 const
   // 100% のときの大きさ。描画のたびに Scale96ToFont で拡大する
   cHeaderHeight96 = 32;
@@ -230,9 +233,6 @@ const
   cIconInset96 = 4;       // アイコンの枠とハイライトの間の余白
   cIconRadius96 = 6;      // ハイライトの角の丸み
   cTextPadding96 = 8;     // ヘッダーの文字の左右の余白
-
-resourcestring
-  rsCSideBarPageParent = 'TCSideBarPage は TCSideBar の上にだけ置けます';
 
 { TCSideBarPage }
 
@@ -329,7 +329,7 @@ var
 begin
   if NewParent = Parent then Exit;
   if (NewParent <> nil) and not (NewParent is TCSideBar) then
-    raise EInvalidOperation.Create(rsCSideBarPageParent);
+    raise EInvalidOperation.Create(CXT(sSbErrParent));
   OldParent := Parent;
   if OldParent is TCSideBar then
     TCSideBar(OldParent).RemovePage(Self);

@@ -1,8 +1,8 @@
 # TCSynEdit User Manual
 
 Author: aotan083
-Date: 2026-11-03
-Version: 1.1
+Date: 2026-11-04
+Version: 1.2
 
 ---
 
@@ -76,6 +76,25 @@ A text editor component based on SynEdit. All TSynEdit features remain available
 | Right-click menu | The component's own menu (8.3) |
 
 - The initial font is BIZ UDGothic. In an environment where it is not installed, set `Font`.
+
+### 2.1 Screen Language (Japanese/English)
+
+The text this component shows on screen (context menu, initial file name, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The initial file name is 「無題.txt」 with `ja` and "Untitled.txt" with `en`. The context menu is also shown in the same language.
 
 ## 3. Color scheme (EditStyle)
 

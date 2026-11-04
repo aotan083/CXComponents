@@ -75,6 +75,10 @@
         <UnitName Value="uCXRuntime"/>
       </Item>
       <Item>
+        <Filename Value="../source/uCXLang.pas"/>
+        <UnitName Value="uCXLang"/>
+      </Item>
+      <Item>
         <Filename Value="../source/uCTabBrowser.pas"/>
         <UnitName Value="uCTabBrowser"/>
       </Item>

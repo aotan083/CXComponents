@@ -1,8 +1,8 @@
 # TCsEditor User Manual
 
 Author: aotan083
-Date: 2026-11-03
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -87,6 +87,27 @@ A tabbed text editor that works simply by dropping it on a form. Each tab holds 
 | Line numbers | Off (show with `F11`) |
 
 - The initial font is BIZ UDGothic. In environments where it is not installed, set `Font`.
+
+### 2.1 Screen Language (Japanese/English)
+
+The text this component shows on screen (context menu, find/replace dialog, messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (such as "Untitled", the context menu, and the find/replace dialog) is the English text. With `ja`, it is shown in Japanese (such as 「無題」).
+- The open/save file dialogs and the buttons of confirmation messages are shown in the language of Windows and the LCL.
+- The `Caption` and `Hint` of standard actions (chapter 12) placed on a form in the IDE are set in the display language of the Windows the IDE runs on, and are saved to the .lfm as they are.
 
 ## 3. Concepts
 

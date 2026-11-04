@@ -1,8 +1,8 @@
 # TCPreview User Manual
 
 Author: aotan083
-Date: 2026-11-03
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -112,6 +112,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | Key | Content | When empty or omitted |
@@ -120,6 +123,7 @@ PreviewFolder=
 | `UserDataFolder` | Folder for WebView2 user data | EXE folder\WebView2Data |
 | `MonacoFolder` | Not used by TCPreview | - |
 | `PreviewFolder` | Folder containing `preview.html` and `lib` | EXE folder\preview |
+| `Language` (`[CX]`) | Screen language, `ja` or `en` (2.4) | Windows display language |
 
 - Always place the file. All key values may be empty.
 - Relative paths are counted from the EXE folder. Absolute paths can also be written.
@@ -136,6 +140,25 @@ The first one decided, in order from the top, is used.
 | 3 | `preview` in the EXE folder |
 
 - If it is not found, `OnError` is raised ("preview.html not found: (location)").
+
+### 2.4 Screen Language (Japanese/English)
+
+The text this component shows on screen (context menu, diagram buttons, error messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini (2.2).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual is the English text. With `ja`, it is shown in Japanese.
 
 ## 3. Source
 

@@ -84,6 +84,9 @@ type
 
 implementation
 
+uses
+  uCXLang;
+
 const
   MAX_HISTORY = 30;
 
@@ -94,32 +97,32 @@ begin
   inherited CreateNew(ADlg);
   FDlg := ADlg;
 
-  Caption := '検索・置換';
+  Caption := CXT(sFindTitle);
   BorderStyle := bsDialog;
   ClientWidth := 470;
   ClientHeight := 190;
   Position := poDesigned;
 
-  AddLabel('検索(&F):', 12, 16);
+  AddLabel(CXT(sFindLblFind), 12, 16);
   FCmbFind := TComboBox.Create(Self);
   FCmbFind.Parent := Self;
   FCmbFind.SetBounds(80, 12, 250, 24);
 
-  AddLabel('置換(&R):', 12, 52);
+  AddLabel(CXT(sFindLblRepl), 12, 52);
   FCmbReplace := TComboBox.Create(Self);
   FCmbReplace.Parent := Self;
   FCmbReplace.SetBounds(80, 48, 250, 24);
 
-  FChkCase := AddCheck('大文字小文字を区別する(&C)', 88);
-  FChkWord := AddCheck('単語単位で検索(&W)', 112);
-  FChkLoop := AddCheck('ループ検索(&L)', 136);
+  FChkCase := AddCheck(CXT(sFindChkCase), 88);
+  FChkWord := AddCheck(CXT(sFindChkWord), 112);
+  FChkLoop := AddCheck(CXT(sFindChkLoop), 136);
   SetOptions(FDlg.Options);
 
-  AddButton('次を検索(&N)', 10, @NextClick).Default := True;
-  AddButton('前を検索(&P)', 42, @PrevClick);
-  AddButton('置換(&E)', 74, @ReplaceClick);
-  AddButton('すべて置換(&A)', 106, @ReplaceAllClick);
-  AddButton('閉じる', 146, @CloseClick).Cancel := True;
+  AddButton(CXT(sFindBtnNext), 10, @NextClick).Default := True;
+  AddButton(CXT(sFindBtnPrev), 42, @PrevClick);
+  AddButton(CXT(sFindBtnReplace), 74, @ReplaceClick);
+  AddButton(CXT(sFindBtnReplaceAll), 106, @ReplaceAllClick);
+  AddButton(CXT(sFindBtnClose), 146, @CloseClick).Cancel := True;
 
   FLblStatus := AddLabel('', 80, 166);
 end;
@@ -282,7 +285,7 @@ var
   S: string;
 begin
   if FForm = nil then Exit;
-  S := '検索・置換';
+  S := CXT(sFindTitle);
   if (FTarget <> nil) and (FTarget.DocumentCount > 0) and (FTarget.ActiveIndex >= 0) then
     S := S + ' - ' + FTarget.DocumentTitle[FTarget.ActiveIndex];
   FForm.Caption := S;
@@ -344,13 +347,13 @@ begin
   if Found then
     FForm.FLblStatus.Caption := ''
   else
-    FForm.FLblStatus.Caption := '見つかりません';
+    FForm.FLblStatus.Caption := CXT(sFindNotFound);
 end;
 
 procedure TCMFindDialog.NotifyReplaceAllDone(AEditor: TCMMonacoView; Count: Integer);
 begin
   if (FForm = nil) or (AEditor <> FTarget) then Exit;
-  FForm.FLblStatus.Caption := Format('%d 件置換しました', [Count]);
+  FForm.FLblStatus.Caption := Format(CXT(sFindReplaced), [Count]);
 end;
 
 end.

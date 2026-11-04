@@ -1,8 +1,8 @@
 # TCSideBar User Manual
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -64,6 +64,25 @@ A component that combines an Edge-style sidebar ("icon bar + collapsible panel +
 - In the form designer, clicking an icon opens that page so that you can edit it.
 - To change the order of pages, use "Move Up" / "Move Down" in the right-click menu.
 - The page that was open at design time is also open at startup. To start in the closed state, click the icon at design time to close it, or clear `ActivePage`.
+
+### 2.1 Screen Language (Japanese/English)
+
+The text this component shows on screen (messages) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The items shown in the form designer's right-click menu in the IDE (such as "Add Page" and "Move Up") are always Japanese (such as 「ページの追加」 and 「上へ移動」).
 
 ## 3. TCSideBar
 

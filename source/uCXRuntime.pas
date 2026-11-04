@@ -52,6 +52,7 @@ function CXStartWebView2(out AError: string): Boolean;
 implementation
 
 uses
+  uCXLang,
   Classes, SysUtils, IniFiles, uWVLoader;
 
 const
@@ -167,7 +168,7 @@ begin
   IniName := ExeDir + INI_NAME;
   if not FileExists(IniName) then
   begin
-    AError := 'WebView2.ini が見つかりません: ' + IniName;
+    AError := CXT(sErrIniMissing) + IniName;
     Exit(False);
   end;
 
@@ -184,7 +185,7 @@ begin
   if not GlobalWebView2Loader.StartWebView2 then
   begin
     AError := UTF8Encode(UnicodeString(GlobalWebView2Loader.ErrorMessage));
-    if AError = '' then AError := 'WebView2 を起動できません';
+    if AError = '' then AError := CXT(sErrWebView2Start);
     Exit(False);
   end;
   Result := True;

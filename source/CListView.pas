@@ -219,6 +219,9 @@ function BuildRenamedPath(const AOldPath, ADisplayName, ANewName: string): strin
 
 implementation
 
+uses
+  uCXLang;
+
 // Windows エクスプローラーと同等の自然順ソートを行う API 宣言
 function StrCmpLogicalW(psz1, psz2: PWideChar): Integer; stdcall; external 'shlwapi.dll';
 
@@ -280,13 +283,13 @@ begin
   // --------------------------------------------------
   // ヘッダー列名をすべて日本語表記に揃える
   // --------------------------------------------------
-  if Columns.Count >= 1 then Columns[0].Caption := '名前';
-  if Columns.Count >= 2 then Columns[1].Caption := 'サイズ';
-  if Columns.Count >= 3 then Columns[2].Caption := '種類';
+  if Columns.Count >= 1 then Columns[0].Caption := CXT(sLvColName);
+  if Columns.Count >= 2 then Columns[1].Caption := CXT(sLvColSize);
+  if Columns.Count >= 3 then Columns[2].Caption := CXT(sLvColType);
 
   // 4番目の列（Index 3）として「更新日時」を追加
   NewCol := Columns.Add;
-  NewCol.Caption := '更新日時';
+  NewCol.Caption := CXT(sLvColDate);
   NewCol.Width := 140;
   NewCol.Alignment := taLeftJustify;
 
@@ -1162,9 +1165,9 @@ begin
 
       if Info = nil then Continue;
 
-      // フォルダーかつ種類が空欄（または既定の表記）なら "フォルダ" にする
-      if Info.IsDir and ((Item.SubItems[1] = '') or (Item.SubItems[1] = 'ファイル フォルダー')) then
-        Item.SubItems[1] := 'フォルダ';
+      // フォルダーかつ種類が空欄（または Windows が返す既定の表記：日本語 "ファイル フォルダー"・英語 "File folder"）なら、今の言語の "フォルダ" にする
+      if Info.IsDir and ((Item.SubItems[1] = '') or (Item.SubItems[1] = 'ファイル フォルダー') or (Item.SubItems[1] = 'File folder')) then
+        Item.SubItems[1] := CXT(sLvFolderType);
 
       if Item.SubItems[2] <> Info.DateStr then
         Item.SubItems[2] := Info.DateStr;
@@ -1437,7 +1440,7 @@ begin
         Res := PtrInt(ShellExecuteW(0, 'open', PWideChar(UnicodeString(Path)), nil, nil, SW_SHOWNORMAL));
         if Res <= 32 then
         begin
-          ShowMessage('ファイルを開けませんでした。エラーコード: ' + IntToStr(Res));
+          ShowMessage(CXT(sLvErrOpen) + IntToStr(Res));
         end;
       end;
     end;
@@ -1469,7 +1472,7 @@ begin
 
   if ContainsInvalidChar(S) then
   begin
-    ShowMessage('ファイル名に以下の文字は使用できません:' + sLineBreak + '\ / : * ? " < > |');
+    ShowMessage(CXT(sLvErrBadChars) + sLineBreak + '\ / : * ? " < > |');
     S := Item.Caption;
     Exit;
   end;
@@ -1498,14 +1501,21 @@ const
 
 procedure TCListView.AddViewSortMenus(AMenu: HMENU; ABaseID: UINT);
 const
-  ViewCaptions: array[0..3] of string = ('大アイコン(&R)', '小アイコン(&N)', '一覧(&L)', '詳細(&D)');
   ViewStyles: array[0..3] of TViewStyle = (vsIcon, vsSmallIcon, vsList, vsReport);
-  SortCaptions: array[0..3] of string = ('名前(&N)', 'サイズ(&S)', '種類(&T)', '更新日時(&D)');
 var
+  ViewCaptions, SortCaptions: array[0..3] of string;   { 言語に合わせた表示名（実行時に CXT で埋める） }
   SubView, SubSort: HMENU;
   i: Integer;
   Flags: UINT;
 begin
+  ViewCaptions[0] := CXT(sLvViewLarge);
+  ViewCaptions[1] := CXT(sLvViewSmall);
+  ViewCaptions[2] := CXT(sLvViewList);
+  ViewCaptions[3] := CXT(sLvViewDetail);
+  SortCaptions[0] := CXT(sLvSortName);
+  SortCaptions[1] := CXT(sLvSortSize);
+  SortCaptions[2] := CXT(sLvSortType);
+  SortCaptions[3] := CXT(sLvSortDate);
   SubView := CreatePopupMenu;
   for i := 0 to 3 do
   begin
@@ -1524,14 +1534,14 @@ begin
   AppendMenuW(SubSort, MF_SEPARATOR, 0, nil);
   Flags := MF_STRING;
   if FSortAscending then Flags := Flags or MF_CHECKED;
-  AppendMenuW(SubSort, Flags, ABaseID + 8, PWideChar(UTF8ToUTF16('昇順(&A)')));
+  AppendMenuW(SubSort, Flags, ABaseID + 8, PWideChar(UTF8ToUTF16(CXT(sLvSortAsc))));
   Flags := MF_STRING;
   if not FSortAscending then Flags := Flags or MF_CHECKED;
-  AppendMenuW(SubSort, Flags, ABaseID + 9, PWideChar(UTF8ToUTF16('降順(&E)')));
+  AppendMenuW(SubSort, Flags, ABaseID + 9, PWideChar(UTF8ToUTF16(CXT(sLvSortDesc))));
 
   // 先頭に挿入：表示、並べ替え、区切り線
-  InsertMenuW(AMenu, 0, MF_BYPOSITION or MF_POPUP, PtrUInt(SubView), PWideChar(UTF8ToUTF16('表示(&V)')));
-  InsertMenuW(AMenu, 1, MF_BYPOSITION or MF_POPUP, PtrUInt(SubSort), PWideChar(UTF8ToUTF16('並べ替え(&O)')));
+  InsertMenuW(AMenu, 0, MF_BYPOSITION or MF_POPUP, PtrUInt(SubView), PWideChar(UTF8ToUTF16(CXT(sLvMenuView))));
+  InsertMenuW(AMenu, 1, MF_BYPOSITION or MF_POPUP, PtrUInt(SubSort), PWideChar(UTF8ToUTF16(CXT(sLvMenuSort))));
   InsertMenuW(AMenu, 2, MF_BYPOSITION or MF_SEPARATOR, 0, nil);
 end;
 
@@ -1615,13 +1625,13 @@ begin
                 begin
                   CanPaste := IsClipboardFormatAvailable(CF_HDROP);
 
-                  InsertMenuW(HMenuPopup, 0, MF_BYPOSITION or MF_STRING, CmdNewFolder, PWideChar(UTF8ToUTF16('新規フォルダー(&N)')));
-                  InsertMenuW(HMenuPopup, 1, MF_BYPOSITION or MF_STRING, CmdNewFile, PWideChar(UTF8ToUTF16('新規テキスト ドキュメント(&T)')));
+                  InsertMenuW(HMenuPopup, 0, MF_BYPOSITION or MF_STRING, CmdNewFolder, PWideChar(UTF8ToUTF16(CXT(sLvMenuNewFolder))));
+                  InsertMenuW(HMenuPopup, 1, MF_BYPOSITION or MF_STRING, CmdNewFile, PWideChar(UTF8ToUTF16(CXT(sLvMenuNewText))));
 
                   if CanPaste then
-                    InsertMenuW(HMenuPopup, 2, MF_BYPOSITION or MF_STRING, CmdPaste, PWideChar(UTF8ToUTF16('貼り付け(&P)')))
+                    InsertMenuW(HMenuPopup, 2, MF_BYPOSITION or MF_STRING, CmdPaste, PWideChar(UTF8ToUTF16(CXT(sLvMenuPaste))))
                   else
-                    InsertMenuW(HMenuPopup, 2, MF_BYPOSITION or MF_STRING or MF_GRAYED, CmdPaste, PWideChar(UTF8ToUTF16('貼り付け(&P)')));
+                    InsertMenuW(HMenuPopup, 2, MF_BYPOSITION or MF_STRING or MF_GRAYED, CmdPaste, PWideChar(UTF8ToUTF16(CXT(sLvMenuPaste))));
 
                   InsertMenuW(HMenuPopup, 3, MF_BYPOSITION or MF_SEPARATOR, 0, nil);
                   // 先頭に「表示」「並べ替え」（エクスプローラーと同じ位置）

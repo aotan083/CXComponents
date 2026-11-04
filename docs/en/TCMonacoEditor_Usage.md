@@ -1,8 +1,8 @@
 # TCMonacoEditor User Manual
 
 Author: aotan083
-Date: 2026-10-30
-Version: 1.2
+Date: 2026-11-04
+Version: 1.3
 
 ---
 
@@ -124,6 +124,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | Key | Description | When empty or omitted |
@@ -132,6 +135,7 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 user data folder | EXE folder\WebView2Data |
 | `MonacoFolder` | Folder containing `editor.html` and `vs` | EXE folder\monaco |
 | `PreviewFolder` | Folder containing `preview.html` and `lib` | EXE folder\preview |
+| `Language` (`[CX]`) | Screen language, `ja` or `en` (2.4) | Windows display language |
 
 - The file must always be present. All key values may be empty (in that case, the locations used for empty values apply).
 - Relative paths are counted from the EXE folder. Absolute paths can also be written.
@@ -149,6 +153,29 @@ For each editor, the first one that is determined, in the order below, is used.
 | 3 | `monaco` / `preview` in the EXE folder |
 
 - If it is not found, `OnError` is raised ("editor.html not found: (location)", "preview.html not found: (location)"). The location shown is the absolute path determined above (with `..` removed).
+
+### 2.4 Screen Language (Japanese/English)
+
+The text this component shows on screen (menus, buttons, messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini (2.2).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (such as "Untitled") is the English text. With `ja`, it is shown in Japanese (such as 「無題」).
+- Monaco's built-in UI is Japanese only when `JapaneseUI = True` and the language is `ja`. Otherwise it is English.
+- The preview (diagram buttons, error messages, etc.) is also shown in the same language.
+- The open/save file dialogs and the buttons of confirmation messages are shown in the language of Windows and the LCL.
+- The `Caption` and `Hint` of standard actions (chapter 12) placed on a form in the IDE are set in the display language of the Windows the IDE runs on, and are saved to the .lfm as they are.
 
 ## 3. Concepts
 
@@ -361,7 +388,7 @@ All of these target the visible tab.
 | `Minimap` | `Boolean` | `False` | Minimap. Also toggled with `Ctrl+Shift+M` |
 | `Theme` | `TCMTheme` | `ctAuto` | Color theme. `ctAuto` (follows the OS color scheme; changes immediately when the OS is switched) / `ctLight` (fixed to the light scheme) / `ctDark` (fixed to the dark scheme). The preview follows as well |
 | `ReadOnly` | `Boolean` | `False` | Read-only |
-| `JapaneseUI` | `Boolean` | `True` | Monaco's Japanese UI (set to `False` if `editor.main.nls.ja.js` is missing) |
+| `JapaneseUI` | `Boolean` | `True` | Monaco's Japanese UI. It is Japanese only when this is `True` and the screen language is `ja` (2.4). When `False`, it is always English (set to `False` if `editor.main.nls.ja.js` is missing) |
 | `DefaultLanguage` | `string` | 'pascal' | Language for new documents and for documents whose extension is unknown |
 | `AutoLanguage` | `Boolean` | `True` | Determines the language from the file name extension |
 | `OpenDroppedFiles` | `Boolean` | `True` | Opens dropped files |

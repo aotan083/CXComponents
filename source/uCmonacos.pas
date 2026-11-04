@@ -620,7 +620,7 @@ function CMColorToHex(AColor, ADefault: TColor): string;
 
 implementation
 
-uses LazUTF8, StrUtils;
+uses uCXLang, LazUTF8, StrUtils;
 
 const
   { 【2.13】選択範囲の色の組（暗い配色・明るい配色）。【2.15】TColor（$00BBGGRR）にした。scCustom は使わない }
@@ -1320,9 +1320,9 @@ begin
   if Assigned(FOnQueryClose) then
     FOnQueryClose(Self, AIndex, CanClose)
   else if FConfirmOnFormClose then
-    case MessageDlg('未保存の変更',
-        FMonaco.DocumentTitle[AIndex] + ' は変更されています。' + LineEnding +
-        '保存しますか？（いいえ = 保存せずに閉じる）',
+    case MessageDlg(CXT(sUnsavedTitle),
+        Format(CXT(sUnsavedLine1), [FMonaco.DocumentTitle[AIndex]]) + LineEnding +
+        CXT(sUnsavedLine2),
         mtConfirmation, [mbYes, mbNo, mbCancel], 0) of
       mrYes:
         begin
@@ -1401,7 +1401,7 @@ begin
     begin
       FInnerSaveDlg := TSaveDialog.Create(Self);
       FInnerSaveDlg.Filter := 'Markdown (*.md;*.markdown)|*.md;*.markdown|' +
-        'テキスト (*.txt)|*.txt|すべてのファイル (*.*)|*.*';
+        CXT(sFilterText);
       FInnerSaveDlg.Options := FInnerSaveDlg.Options + [ofOverwritePrompt, ofPathMustExist];
     end;
     Dlg := FInnerSaveDlg;
@@ -1487,7 +1487,7 @@ begin
     begin
       FInnerOpenDlg := TOpenDialog.Create(Self);
       FInnerOpenDlg.Filter := 'Markdown (*.md;*.markdown)|*.md;*.markdown|' +
-        'テキスト (*.txt)|*.txt|すべてのファイル (*.*)|*.*';
+        CXT(sFilterText);
       FInnerOpenDlg.Options := FInnerOpenDlg.Options + [ofFileMustExist, ofPathMustExist];
     end;
     Dlg := FInnerOpenDlg;
@@ -1571,7 +1571,7 @@ var
   I, Id: Integer;
 begin
   if (AIndex < 0) or (AIndex >= FMonaco.DocumentCount) then
-    raise EListError.CreateFmt('Pages[%d]: ページの番号が範囲外です（ページの数 %d）',
+    raise EListError.CreateFmt(CXT(sErrPageRange),
       [AIndex, FMonaco.DocumentCount]);
   Id := FMonaco.DocumentId(AIndex);
   for I := 0 to FPages.Count - 1 do
@@ -1642,7 +1642,7 @@ begin
   I := FMonaco.FindDocument(N);
   if (I >= 0) and (I <> AIndex) then
   begin
-    DoError('そのファイルは別のタブで開いています: ' + N);
+    DoError(CXT(sErrAlreadyOpen) + N);
     Exit;
   end;
   try
@@ -1660,14 +1660,14 @@ begin
   Result := False;
   if not FileExists(AFileName) then
   begin
-    DoError('ファイルが見つかりません: ' + AFileName);   { 何も変えない }
+    DoError(CXT(sErrFileNotFound) + AFileName);   { 何も変えない }
     Exit;
   end;
   { 別のページで開いていれば、読み込まない（同じファイルを 2 つのタブで開かない。表示も切り替えない） }
   I := FMonaco.FindDocument(AFileName);
   if (I >= 0) and (I <> AIndex) then
   begin
-    DoError('そのファイルは別のタブで開いています: ' + AFileName);
+    DoError(CXT(sErrAlreadyOpen) + AFileName);
     Exit;
   end;
   try
@@ -2151,7 +2151,7 @@ begin
       on E: Exception do
       begin
         DeleteFile(AFile);
-        DoError('別のウィンドウで開けませんでした: ' + E.Message);
+        DoError(CXT(sErrOpenOtherWindow) + E.Message);
       end;
     end;
   finally
@@ -2187,7 +2187,7 @@ begin
   begin
     { 送れない（相手が管理者として動いている）・3 秒で返事が無い：元のタブは残す }
     DeleteFile(FN);
-    DoError('ほかのウィンドウへ移せませんでした');
+    DoError(CXT(sErrMoveOtherWindow));
     Exit;
   end;
   case Res of
@@ -2314,7 +2314,7 @@ begin
   begin
     Err := Windows.GetLastError;
     DeleteFile(FN);
-    DoError('別のウィンドウで開けませんでした: ' + SysErrorMessage(Err));
+    DoError(CXT(sErrOpenOtherWindow) + SysErrorMessage(Err));
     Exit;                                 { タブは閉じずに残す }
   end;
   Windows.CloseHandle(ProcInfo.hThread);
@@ -2492,7 +2492,7 @@ procedure TCMonacoEditor.Print;
 begin
   if not CanPrint then
   begin
-    DoError('印刷するページがありません');
+    DoError(CXT(sErrNoPrintPage));
     Exit;
   end;
   { 【段階5】プレビューを出していなければ、印刷の間だけ表示する（印刷ダイアログが閉じたら隠す） }
@@ -2847,13 +2847,13 @@ begin
   PM.Items.Add(MI);
 
   FMnuMinimap := TMenuItem.Create(PM);
-  FMnuMinimap.Caption := 'ミニマップ';
+  FMnuMinimap.Caption := CXT(sMnMinimap);
   FMnuMinimap.ShortCut := ShortCut(VK_M, [ssCtrl, ssShift]);   { 表示用。キーの処理は MonacoAccelKeyDown }
   FMnuMinimap.OnClick := @MenuMinimapClick;
   PM.Items.Add(FMnuMinimap);
 
   FMnuPreview := TMenuItem.Create(PM);
-  FMnuPreview.Caption := 'プレビュー';
+  FMnuPreview.Caption := CXT(sMnPreview);
   FMnuPreview.ShortCut := ShortCut(VK_V, [ssCtrl, ssShift]);   { 表示用。キーの処理は editor.html }
   FMnuPreview.OnClick := @MenuPreviewClick;
   PM.Items.Add(FMnuPreview);

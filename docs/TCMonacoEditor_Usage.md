@@ -1,8 +1,8 @@
 # TCMonacoEditor 取扱説明書
 
 作者: aotan083
-日付: 2026-10-30
-版: 1.2
+日付: 2026-11-04
+版: 1.3
 
 ---
 
@@ -124,6 +124,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | キー | 中身 | 空・書かないとき |
@@ -132,6 +135,7 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 のユーザーデータのフォルダー | EXE のフォルダー\WebView2Data |
 | `MonacoFolder` | `editor.html` と `vs` があるフォルダー | EXE のフォルダー\monaco |
 | `PreviewFolder` | `preview.html` と `lib` があるフォルダー | EXE のフォルダー\preview |
+| `Language`（`[CX]`） | 画面の言語 `ja`・`en`（2.4） | Windows の表示言語 |
 
 - ファイルは必ず置く。キーの値はすべて空でもよい（すべて、空のときの場所を使う）。
 - 相対パスは、EXE のフォルダーから数える。絶対パスも書ける。
@@ -149,6 +153,29 @@ PreviewFolder=
 | 3 | EXE のフォルダーの `monaco`・`preview` |
 
 - 見つからなければ `OnError`（「editor.html が見つかりません: （場所）」「preview.html が見つかりません: （場所）」）。場所は、上で決めた絶対パス（`..` を取り除いたもの）を出す。
+
+### 2.4 画面の言語（日本語・English）
+
+この部品が画面に出す文字（メニュー・ボタン・メッセージなど）は、日本語か英語で出る。言語は cx の部品すべてで 1 つで、部品ごとには決めない。
+
+WebView2.ini（2.2）に、次のように書く。
+
+```ini
+[CX]
+Language=en
+```
+
+| 順 | 決め方 |
+|---|---|
+| 1 | `[CX]` の `Language` が `ja` または `en` なら、その言語（大文字・小文字は問わない） |
+| 2 | それ以外（`[CX]` が無い・空・ほかの値）は、Windows の表示言語。日本語なら `ja`、それ以外は `en` |
+
+- 最初に文字を出すときに 1 回だけ決める。実行中に書き換えても、次の起動まで効かない。
+- この取説に書いた画面の文字（「無題」など）は、日本語のときのもの。英語のときは英語（「Untitled」など）で出る。
+- Monaco 内蔵の表示は、`JapaneseUI = True` かつ言語が `ja` のときだけ日本語。それ以外は英語。
+- プレビュー（図のボタン・エラーの文など）も、同じ言語で出る。
+- ファイルを開く・保存のダイアログ、確認のボタンは、Windows・LCL の言語で出る。
+- IDE でフォームに置いた標準アクション（12章）の `Caption`・`Hint` は、IDE が動く Windows の表示言語で入り、そのまま .lfm に保存される。
 
 ## 3. 考え方
 
@@ -361,7 +388,7 @@ PreviewFolder=
 | `Minimap` | `Boolean` | `False` | ミニマップ。`Ctrl+Shift+M` でも切り替わる |
 | `Theme` | `TCMTheme` | `ctAuto` | 配色。`ctAuto`（OS の配色に合わせる。OS を切り替えるとその場で変わる）／`ctLight`（明るい配色で固定）／`ctDark`（暗い配色で固定）。プレビューも合わせる |
 | `ReadOnly` | `Boolean` | `False` | 読み取り専用 |
-| `JapaneseUI` | `Boolean` | `True` | Monaco の日本語表示（`editor.main.nls.ja.js` が無いときは `False` にする） |
+| `JapaneseUI` | `Boolean` | `True` | Monaco の日本語表示。`True` かつ画面の言語が `ja`（2.4）のときだけ日本語になる。`False` ならいつも英語（`editor.main.nls.ja.js` が無いときは `False` にする） |
 | `DefaultLanguage` | `string` | 'pascal' | 新しい文書と、拡張子が分からない文書の言語 |
 | `AutoLanguage` | `Boolean` | `True` | ファイル名の拡張子から言語を決める |
 | `OpenDroppedFiles` | `Boolean` | `True` | ドロップしたファイルを開く |

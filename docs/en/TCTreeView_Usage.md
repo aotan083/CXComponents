@@ -1,8 +1,8 @@
 # TCTreeView User Manual
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-04
+Version: 1.1
 
 ---
 
@@ -67,6 +67,26 @@ v Network
 
 1. In the Object Inspector, use `ShowQuickAccess`, `ShowOneDrive`, `ShowNetwork`, and `ShowLinux` to decide what is shown or hidden (PC is always shown).
 2. To list shared folders under "Network", write them in `NetworkFolders` in the form `\\server\sharename`, one per line.
+
+### 2.4 Screen Language (Japanese/English)
+
+The text this component shows on screen (group names, messages, etc.) appears in Japanese or English. There is one language for all cx components; it is not set per component.
+
+Write the following in WebView2.ini in the same folder as the EXE. Place this ini even in an application that does not use WebView2 (writing only `[CX]` is enough).
+
+```ini
+[CX]
+Language=en
+```
+
+| Order | How it is decided |
+|---|---|
+| 1 | If `Language` in `[CX]` is `ja` or `en`, that language (case-insensitive) |
+| 2 | Otherwise (no ini, no `[CX]`, empty, or another value), the Windows display language: `ja` if it is Japanese, `en` otherwise |
+
+- It is decided only once, the first time text is shown. Rewriting it while running has no effect until the next startup.
+- The screen text quoted in this manual (such as "Quick Access" and "Network") is the English text. With `ja`, it is shown in Japanese (such as 「クイックアクセス」 and 「ネットワーク」).
+- Folder and drive names are shown as returned by Windows.
 
 ## 3. Tree Structure
 

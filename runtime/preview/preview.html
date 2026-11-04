@@ -98,9 +98,23 @@
   var state = {
     theme: 'auto', fontSize: 16, breaks: false, remote: false, base: '', line: 1,
     maxw: 0, pad: 26,    // 本文の最大幅（0=幅いっぱい）と、左右の余白（px）
+    lang: 'ja',          // 画面に出す文字列の言語（'ja' / 'en'）。Pascal から opt lang で受け取る
     scheme: 'editor',    // 'editor' = エディタ(Monaco)と同じ配色 / 'github' = GitHub 風
     c: { bgL: '#fffffe', fgL: '#000000', lkL: '#006ab1', bgD: '#1e1e1e', fgD: '#d4d4d4', lkD: '#3794ff' }
   };
+  // ---------- 画面に出す文字列（日本語・English）。Pascal から opt lang を受けて切り替える ----------
+  var I18N = {
+    ja: { untitled: '無題', extImg: '外部画像は表示しません', imgFail: '画像を取得できませんでした',
+          mmLoadFail: 'mermaid.js を読み込めません', mmNotFound: 'lib/mermaid.min.js が見つかりません',
+          mmDrawFail: 'Mermaid の図を描けません:',
+          tbPan: '移動', tbZoomOut: '縮小', tbZoomIn: '拡大', tbFit: '枠に合わせる' },
+    en: { untitled: 'Untitled', extImg: 'External image not shown', imgFail: 'Could not fetch the image',
+          mmLoadFail: 'Cannot load mermaid.js', mmNotFound: 'lib/mermaid.min.js not found',
+          mmDrawFail: 'Cannot draw the Mermaid diagram:',
+          tbPan: 'Pan', tbZoomOut: 'Zoom out', tbZoomIn: 'Zoom in', tbFit: 'Fit to frame' }
+  };
+  function t(key) { return (I18N[state.lang] || I18N.ja)[key]; }
+  var titleSet = false;  // Pascal から title を受けたか（受けていなければ、言語に合う「無題」を使う）
   var marks = [];        // 行番号と要素の対応 [{ls, le, el}]（同期スクロール用）
   var slugs = {};
 
@@ -356,7 +370,7 @@
         if (!state.remote) {
           var sp = document.createElement('span');
           sp.className = 'cm-blocked-img';
-          sp.textContent = '[外部画像は表示しません' + (img.alt ? ': ' + img.alt : '') + ']';
+          sp.textContent = '[' + t('extImg') + (img.alt ? ': ' + img.alt : '') + ']';
           img.parentNode.replaceChild(sp, img);
         }
         return;
@@ -397,8 +411,8 @@
       mmLoad = new Promise(function (ok, ng) {
         var sc = document.createElement('script');
         sc.src = 'lib/mermaid.min.js';
-        sc.onload = function () { window.mermaid ? ok(window.mermaid) : ng(new Error('mermaid.js を読み込めません')); };
-        sc.onerror = function () { mmLoad = null; ng(new Error('lib/mermaid.min.js が見つかりません')); };
+        sc.onload = function () { window.mermaid ? ok(window.mermaid) : ng(new Error(t('mmLoadFail'))); };
+        sc.onerror = function () { mmLoad = null; ng(new Error(t('mmNotFound'))); };
         document.head.appendChild(sc);
       });
     }
@@ -487,10 +501,10 @@
       b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fn(b); });
       tools.appendChild(b); return b;
     }
-    var panBtn = btn(ICON.pan, '移動', function (b) { b.classList.toggle('on'); view.classList.toggle('cm-mm-panning', b.classList.contains('on')); });
-    btn(ICON.out, '縮小', function () { zoom(0.8); });
-    btn(ICON.inn, '拡大', function () { zoom(1.25); });
-    btn(ICON.fit, '枠に合わせる', function () { fit(); });
+    var panBtn = btn(ICON.pan, t('tbPan'), function (b) { b.classList.toggle('on'); view.classList.toggle('cm-mm-panning', b.classList.contains('on')); });
+    btn(ICON.out, t('tbZoomOut'), function () { zoom(0.8); });
+    btn(ICON.inn, t('tbZoomIn'), function () { zoom(1.25); });
+    btn(ICON.fit, t('tbFit'), function () { fit(); });
     view.appendChild(tools);
     var drag = null;
     view.addEventListener('mousedown', function (e) {
@@ -547,7 +561,7 @@
             cleanup();
             if (gen === mmGen && box.isConnected) {
               clear();
-              box.insertAdjacentHTML('beforeend', '<div class="cm-mermaid-err">' + esc('Mermaid の図を描けません:\n' + msg) + '</div>');
+              box.insertAdjacentHTML('beforeend', '<div class="cm-mermaid-err">' + esc(t('mmDrawFail') + '\n' + msg) + '</div>');
             }
           }
           function done(svgHtml, noteHtml) {
@@ -559,7 +573,7 @@
           if (!state.remote) {
             // 外部画像を許可していない：画像の指定を外して、アイコンなしで描く
             return mm.render('cmm' + (++mmSeq), st.src).then(function (r) {
-              done(r.svg, st.changed ? note('[外部画像は表示しません]') : '');
+              done(r.svg, st.changed ? note('[' + t('extImg') + ']') : '');
             }, fail);
           }
           return mm.render('cmm' + (++mmSeq), src).then(function (r) { done(r.svg); }, function (err) {
@@ -567,7 +581,7 @@
             // 画像を取れなかった（ネットにつながっていないなど）：画像の指定を外して描き直す
             cleanup();
             return mm.render('cmm' + (++mmSeq), st.src).then(function (r) {
-              if (gen === mmGen && box.isConnected) put(r.svg, note('[画像を取得できませんでした]'));   // 覚えない（つながったら次は画像付きで描く）
+              if (gen === mmGen && box.isConnected) put(r.svg, note('[' + t('imgFail') + ']'));   // 覚えない（つながったら次は画像付きで描く）
             }, fail);
           });
         });
@@ -813,12 +827,13 @@
         catch (err) { post('error', 'code: ' + err.message); }
         break;
       }
-      case 'title': document.title = a[0] || '無題'; break;   // 【段階5】印刷で PDF の名前になる
+      case 'title': titleSet = true; document.title = a[0] || t('untitled'); break;   // 【段階5】印刷で PDF の名前になる
       case 'prepareprint': preparePrint(); break;
       case 'printdone': endPrint(); break;
       case 'line': applyLine(parseFloat(a[0]) || 1); break;
       case 'opt':
         switch (a[0]) {
+          case 'lang':     state.lang = a[1] === 'en' ? 'en' : 'ja'; if (!titleSet) document.title = t('untitled'); break;
           case 'theme':    state.theme = a[1]; applyTheme(); break;
           case 'fontsize': state.fontSize = parseInt(a[1], 10) || 16; applyFont(); relayout(); break;
           case 'layout':   state.maxw = parseInt(a[1], 10) || 0; state.pad = parseInt(a[2], 10); if (isNaN(state.pad)) state.pad = 26; applyLayout(); relayout(); break;
