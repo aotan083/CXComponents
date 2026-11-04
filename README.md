@@ -12,7 +12,7 @@ Author: aotan083 / License: MIT
 
 ## Components
 
-| Component | Description | Manual (Japanese) | Design (Japanese) |
+| Component | Description | Manual | Design |
 |---|---|---|---|
 | TCTreeView | Folder tree that works like the left pane of Windows Explorer | [Usage](docs/en/TCTreeView_Usage.md) | [Design](docs/en/TCTreeView_Design.md) |
 | TCListView | File list that works like the right pane of Windows Explorer | [Usage](docs/en/TCListView_Usage.md) | [Design](docs/en/TCListView_Design.md) |
@@ -26,8 +26,9 @@ Author: aotan083 / License: MIT
 | TCsEditor / TCsFindDialog | Tabbed editor based on TCSynEdit, used the same way as TCMonacoEditor (search/replace dialog, minimap, tab tear-off), plus 25 standard actions | [Usage](docs/en/TCsEditor_Usage.md) | [Design](docs/en/TCsEditor_Design.md) |
 | TCPreview | Preview (Markdown / code) and printing (PDF) for TCsEditor, placed separately from the editor and shareable by several editors | [Usage](docs/en/TCPreview_Usage.md) | [Design](docs/en/TCPreview_Design.md) |
 | TCBookmark | Firefox-style bookmark manager (opens items in TCTabBrowser / TCMonacoEditor) | [Usage](docs/en/TCBookmark_Usage.md) | [Design](docs/en/TCBookmark_Design.md) |
+| CXLang (Japanese/English) | Switches the screen text of all components (menus, buttons, messages) between Japanese and English, set with `Language` in the `[CX]` section of WebView2.ini (see chapter 2 of each component's manual) | - | [Design](docs/en/CXLang_Design.md) |
 
-All components appear on the [CX] palette page. The manuals and design documents are written in Japanese.
+All components appear on the [CX] palette page. The manuals and design documents are available in English (`docs\en`) and Japanese (`docs`).
 
 ![components](demo/Lazarus/20261028-122432-コンポーネントパレット.jpg)
 
@@ -48,7 +49,7 @@ All components appear on the [CX] palette page. The manuals and design documents
 | `source` | Component sources (run-time) |
 | `source\design` | Design-time sources (palette registration, component editors) |
 | `source\res` | Palette icons (.lrs) |
-| `docs` | Manual (`*_Usage.md`) and design document (`*_Design.md`) for each component |
+| `docs` | Manual (`*_Usage.md`) and design document (`*_Design.md`) for each component, and the design document for Japanese/English switching (`CXLang_Design.md`). The English versions are in `docs\en` |
 | `runtime` | Files used at run time by the WebView2 components (`monaco`, `preview`) |
 | `demo` | Sample programs |
 
@@ -82,6 +83,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | Key | Meaning | When empty |
@@ -90,10 +94,23 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 user data folder | WebView2Data in the EXE folder |
 | `MonacoFolder` | Folder containing `editor.html` and `vs` | monaco in the EXE folder |
 | `PreviewFolder` | Folder containing `preview.html` and `lib` | preview in the EXE folder |
+| `Language` (`[CX]`) | Screen language, `ja` or `en` | Windows display language (`ja` if Japanese, `en` otherwise) |
 
 - Relative paths are relative to the EXE folder. Several applications can share one `monaco` / `preview` folder.
 - The Microsoft Edge WebView2 Runtime is required (it is preinstalled on Windows 11).
 - TCsEditor itself needs no run-time files. They are needed only when TCPreview is used.
+
+### Screen language (Japanese/English)
+
+The screen text of all components (menus, buttons, messages) is shown in Japanese or English. The language is set with `Language` in the `[CX]` section of `WebView2.ini` in the EXE folder (`ja` or `en`). If it is not set, the Windows display language is used.
+
+```ini
+[CX]
+Language=en
+```
+
+- Even an application that does not use WebView2 places `WebView2.ini` to set the language (writing only `[CX]` is enough).
+- It is read only once, the first time text is shown. See chapter 2 of each component's manual and the [CXLang design document](docs/en/CXLang_Design.md) for details.
 
 ## License
 

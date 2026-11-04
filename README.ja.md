@@ -25,6 +25,7 @@
 | TCsEditor・TCsFindDialog | TCSynEdit をタブで複数持つエディタ。使い方は TCMonacoEditor と同じ（検索・置換ダイアログ・ミニマップ・タブの分離を含む）。標準アクション 25 個 | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
 | TCPreview | TCsEditor のプレビュー（Markdown・コード）と印刷（PDF 保存）。エディタとは別の場所に置き、複数のエディタで共有できる | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
 | TCBookmark | Firefox のようなブックマーク管理（TCTabBrowser・TCMonacoEditor で開く） | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
+| CXLang（日英切り替え） | すべての部品の画面の文字（メニュー・ボタン・メッセージ）を、日本語と英語で切り替える。WebView2.ini の `[CX]` の `Language` で指定する（使い方は各部品の取扱説明書の 2章） | ― | [Design](docs/CXLang_Design.md) |
 
 ---
 すべての部品は、パレット [CX] に出ます。
@@ -47,7 +48,7 @@
 | `source` | 部品のソース（実行時） |
 | `source\design` | 設計時のソース（パレットへの登録・コンポーネントエディタ） |
 | `source\res` | パレットのアイコン（.lrs） |
-| `docs` | 部品ごとの取扱説明書（`*_Usage.md`）と設計書（`*_Design.md`） |
+| `docs` | 部品ごとの取扱説明書（`*_Usage.md`）と設計書（`*_Design.md`）、日英切り替えの設計書（`CXLang_Design.md`）。英語版は `docs\en` |
 | `runtime` | WebView2 の部品が実行時に使うファイル（`monaco`・`preview`） |
 | `demo` | 部品ごとのサンプル |
 
@@ -81,6 +82,9 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+
+[CX]
+Language=
 ```
 
 | キー | 中身 | 空のとき |
@@ -89,10 +93,23 @@ PreviewFolder=
 | `UserDataFolder` | WebView2 のユーザーデータのフォルダー | EXE のフォルダー\WebView2Data |
 | `MonacoFolder` | `editor.html` と `vs` があるフォルダー | EXE のフォルダー\monaco |
 | `PreviewFolder` | `preview.html` と `lib` があるフォルダー | EXE のフォルダー\preview |
+| `Language`（`[CX]`） | 画面の言語 `ja`・`en` | Windows の表示言語（日本語なら `ja`、それ以外は `en`） |
 
 - 相対パスは EXE のフォルダーから数える。複数のアプリで 1 か所の `monaco`・`preview` を使うこともできる（[TCMonacoEditor の取扱説明書](docs/TCMonacoEditor_Usage.md)）。
 - 実行には Microsoft Edge WebView2 ランタイム（Windows 11 には最初から入っている）が要る。
 - TCsEditor だけなら、実行時のファイルは要らない。TCPreview を使うときだけ置く。
+
+### 画面の言語（日本語・English）
+
+すべての部品の画面の文字（メニュー・ボタン・メッセージ）は、日本語か英語で出る。言語は、EXE と同じフォルダーの `WebView2.ini` の `[CX]` の `Language` で決める（`ja`・`en`）。書かないときは Windows の表示言語に合わせる。
+
+```ini
+[CX]
+Language=en
+```
+
+- WebView2 を使わないアプリでも、言語を指定するときは `WebView2.ini` を置く（`[CX]` だけを書けばよい）。
+- 起動してから最初に文字を出すときに 1 回だけ読む。くわしくは各部品の取扱説明書の 2章と [CXLang の設計書](docs/CXLang_Design.md)。
 
 ## ライセンス
 
