@@ -1,8 +1,8 @@
 # TCMonacoEditor 設計書
 
 作者: aotan083
-日付: 2026-10-30
-版: 1.3
+日付: 2026-11-05
+版: 1.4
 
 ---
 
@@ -33,7 +33,7 @@ TCMonacoEditor は、フォームに貼るだけで使える、WebView2 と Mona
 | `CMonacoPreview.pas` | cx（実行時） | `TCMPreviewBinder`（view とプレビューをつなぐ）・`TCMSyncScroll` |
 | `CMonacoFindDlg.pas` | cx（実行時） | `TCMFindDialog`（非表示の部品）・`TCMFindForm` |
 | `CMonacoActions.pas` | cx（実行時） | 標準アクション 25 個（取説 12章）と元のクラス `TCMEditorAction`・`TCMEditorToggleAction` |
-| `uCXRuntime.pas` | cx（実行時） | WebView2.ini を読む関数と `CXStartWebView2`（6章。中身は `TCTabBrowser_Design.md` 9章） |
+| `uCXRuntime.pas` | cx（実行時） | WebView2.ini を読む関数と `CXStartWebView2`（6章。中身は `TCTabBrowser_Design.md` 9章）、WebView2 を載せる窓 `TCXWVWindowParent`（6.3。中身は `TCTabBrowser_Design.md` 9.1） |
 | `uCXReg.pas` | cxdsgn（設計時） | `RegisterComponents('CX', [..., TCMonacoEditor, TCMFindDialog, ...])`、`RegisterActions('CX', [25 個], nil)` |
 | `cx_icons.lrs` | cxdsgn（設計時） | アイコン（`TCMonacoEditor`・`TCMFindDialog` と、それぞれの `_150`・`_200`） |
 | `monaco\editor.html` | 実行時のファイル | Monaco を読み込み、Pascal とやり取りする HTML/JS（5.3） |
@@ -823,6 +823,13 @@ view と preview の `InitTimerTick`（100 ミリ秒）は、同じ形で次を�
 - `CXStartWebView2` は、アプリの中で最初の 1 回だけローダーを作る。2 回目からは、できているローダーの状態を返す（TCTabBrowser・ほかのエディタと共有）。中身は `TCTabBrowser_Design.md` 9章。
 - 設計時は WebView2 を起動しない（`CreateWnd`・`InitTimerTick` で `csDesigning` を見る）。
 
+### 6.3 WebView2 を載せる窓
+
+view（`uCmmonacoview`）と preview（`uCmdpreview`）は、WebView2 を載せる窓に `TCXWVWindowParent`（`uCXRuntime`。`TWVWindowParent` を継いだもの）を使う。`Create` の中の `TWVWindowParent.Create(Self)` を `TCXWVWindowParent.Create(Self)` にするだけで、フィールド `FWindowParent` の型（`TWVWindowParent`）や、ほかの使い方は変えない。
+
+- AnchorDocking でのドック・切り離しや、Form の親の付け替えで窓が作り直されても、WebView2 を外して預け、新しい窓に付け直す。本文（開いている文書・カーソル・Undo の履歴）とプレビューの表示はそのまま残る。中身は `TCTabBrowser_Design.md` 9.1。
+- TCPreview の中身も preview（`TCMMarkdownPreview`）なので、同じく付け直される。
+
 ## 7. プレビュー
 
 ### 7.1 表示
@@ -992,6 +999,7 @@ end;
 | 症状 | 見る場所 |
 |---|---|
 | 起動しても空の枠のまま | `InitTimerTick`（6.2）。`OnError` の文。WebView2.ini、WebView2Loader.dll、WebView2 ランタイム |
+| ドック・切り離しのあと、本文・プレビューが映らない | view・preview の窓が `TCXWVWindowParent` か（6.3）、`DestroyWnd` で預けたか・`CreateWnd` で付け直したか（`TCTabBrowser_Design.md` 9.1） |
 | editor.html・preview.html が見つからない | `GetResourceDir`・`CXResolveRuntimeDir`（6.1）。`MonacoPath`・WebView2.ini の値 |
 | 見えない場所のエディタが動かない | `Showing` の待ち（5.4）。preview は `VisibleChanged` |
 | 入力した直後の `Text` が古い | 4.2 の決まりどおり（約 0.1 秒）。`OnChange` の中で読む |
@@ -1028,3 +1036,25 @@ end;
 | 8 | `uCXRuntime.pas` | 変更なし |
 | 9 | `uCXReg.pas`・`cx_icons.lrs` | 変更なし |
 | 10 | `monaco\editor.html`・`preview\preview.html` | 変更なし |
+
+## 13. この版の変更（1.4）
+
+コードを作るための手順。取説には入れない。
+
+### 13.1 今と変更後
+
+| No | 項目 | 今（1.3）の動作・問題点 | 変更後（1.4） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | 窓が作り直されたとき（AnchorDocking でのドック・切り離し、Form の親の付け替え） | 本文とプレビューの WebView2 が古い窓と一緒に閉じ、何も映らなくなる（タブの見出しなど LCL の部分は動く）。AnchorDocking の確認用アプリで、ドックの後に `Browser.ParentWindow` が 0 になることを確かめた | WebView2 を外して預け、新しい窓に付け直す。開いている文書と表示はそのまま（6.3） | AnchorDocking で機能ごとに Form を分けたアプリで使えるようにする。WebView2 が閉じると、開いていた文書の中身も画面から失われるため | 付け直す間、少しちらつくことがある。預けるのに失敗したときは 1.3 と同じ（映らない） |
+| 2 | TCPreview | 1 と同じ（中身が preview のため） | 1 と同じく付け直される | 1 と同じ | TCPreview のファイルは変えない |
+
+### 13.2 直す所
+
+| No | ファイル | 変更 |
+|---|---|---|
+| 1 | `uCmmonacoview.pas` | `Create` の `TWVWindowParent.Create(Self)` を `TCXWVWindowParent.Create(Self)` に替える（6.3）。implementation の uses に `uCXRuntime` があることを確かめる |
+| 2 | `uCmdpreview.pas` | 1 と同じ |
+| 3 | `uCXRuntime.pas` | `TCXWVWindowParent` を足す（`TCTabBrowser_Design.md` 11章） |
+| 4 | ほかのファイル（`uCmonacos.pas`・`CMonacoTabs.pas`・`CMonacoPreview.pas`・`CMonacoFindDlg.pas`・`CMonacoActions.pas`・`editor.html`・`preview.html`・`uCPreview.pas`） | 変更なし |
+
+- 公開しているプロパティ・メソッド・イベントは変えない。

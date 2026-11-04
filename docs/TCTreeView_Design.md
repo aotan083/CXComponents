@@ -1,8 +1,8 @@
 # TCTreeView 設計書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-05
+版: 1.1
 
 ---
 
@@ -13,6 +13,7 @@ TShellTreeView（LCL）を元に、Windows のエクスプローラーの左側�
 - 最上位に、クイックアクセス・OneDrive・PC（全ドライブ）・ネットワーク・Linux（WSL）を並べる。
 - ファイルの操作はシェル（Windows）に任せ、表示の更新はフォルダーの変更通知に任せる。
 - フォルダーの並びはエクスプローラーと同じ自然順にする。
+- AnchorDocking でのドック・切り離しなどで窓が作り直されても、開いているフォルダー・選択・スクロールの位置をそのまま残す（6章）。
 
 ## 2. ファイルとパッケージ
 
@@ -93,6 +94,7 @@ function IsDriveRootPath(const APath: string): Boolean;
 | `FShowQuickAccess`・`FShowOneDrive`・`FShowNetwork`・`FShowLinux` | `Boolean` | `True` | 最上位の表示 |
 | `FNetworkFolders` | `TStringList` | 空。`OnChange := NetworkFoldersChanged` | ネットワークの下に並べる共有フォルダー |
 | `FSysSmallImages` | `HIMAGELIST` | 0 | システムの小アイコンの一覧（近道・グループのアイコンを描く） |
+| `FTopLevelDirty` | `Boolean` | `False` | 窓が無い間に、最上位の表示が切り替えられた（次の `CreateWnd` で作り直す。6章・7.1） |
 
 ## 5. 宣言
 
@@ -150,7 +152,15 @@ Create：
 
 Destroy：タイマーを止める → `ShellDragAbandon(Self)` → OLE のドロップ先の登録を外す → `UnregisterFolderNotify` → `Application.RemoveAsyncCalls(Self)`（後から `DoAsyncRename` が動かないように） → `FPendingPaths` を解放 → `inherited` → `FNetworkFolders` を解放。
 
-CreateWnd：`inherited` のあと、設計時でなければ、`Root := ''`（PC 直下の全ドライブ）、`BuildTopLevel`、`RegisterFolderNotify`、`OleDropRegister(Handle, OleResolveDrop, OleDropLeave, OleDropped)`。
+CreateWnd：`inherited` のあと、設計時でなければ：
+
+1. 最上位を作る（次のどちらかのときだけ）：
+   - 項目が 1 つも無い（`Items.Count = 0`。最初に窓ができたとき）：`Root := ''`（PC 直下の全ドライブ）、`BuildTopLevel`。
+   - `FTopLevelDirty`（窓が無い間に表示が切り替えられた）：`FTopLevelDirty := False`、`RefreshKeepingState(nil, True)`（開いている状態・選択を保って作り直す。7.6）。
+2. `RegisterFolderNotify`、`OleDropRegister(Handle, OleResolveDrop, OleDropLeave, OleDropped)`（窓が作り直されるたびに登録し直す。今と同じ）。
+
+- それ以外（AnchorDocking でのドック・切り離し、Form の親の付け替えなどで窓が作り直されたとき）は、項目に手を付けない。LCL の TTreeView は項目を部品の中に持っていて、窓を作り直しても項目・開いている状態・選択はそのまま残るため。
+- 窓を作り直している間（`DestroyWnd` から `CreateWnd` まで）は変更通知が届かない。その間に変わったフォルダーは、次の通知か F5 で直る。
 
 DestroyWnd：`UnregisterFolderNotify`、`OleDropRevoke`、`inherited`。
 
@@ -177,7 +187,7 @@ DestroyWnd：`UnregisterFolderNotify`、`OleDropRevoke`、`inherited`。
 | `GetWslDistros(名前)` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss` の子キーの `DistributionName`。WSL を起動しないよう、存在は確かめない。例外なら何も足さない |
 | `AddGroupNode(文字, グループ)` | 末尾に足し、`InitSpecial(nkGroup, グループ, '')`、`HasChildren := True` |
 | `AddShortcutNode(親, 文字, パス)` | 親の子（親が nil なら最上位）に足し、`InitSpecial(nkShortcut, gkNone, パス)`、`HasChildren := True` |
-| `RebuildTopLevel` | 設計時・読み込み中・壊している途中・ハンドルなしなら何もしない。`RefreshKeepingState(nil, True)` |
+| `RebuildTopLevel` | 設計時・読み込み中・壊している途中なら何もしない。ハンドルなしなら、`FTopLevelDirty := True` にして何もしない（次の `CreateWnd` で作り直す。6章）。それ以外は `RefreshKeepingState(nil, True)` |
 | `SetShowQuickAccess`・`SetShowOneDrive`・`SetShowNetwork`・`SetShowLinux` | 変わったら入れて `RebuildTopLevel` |
 | `SetNetworkFolders` | `Assign`（`OnChange` で作り直す） |
 | `NetworkFoldersChanged` | `ShowNetwork` なら `RebuildTopLevel` |
@@ -335,8 +345,32 @@ WndProc はほかに、`WM_CSHELLNOTIFY` で `HandleShellNotify` を受ける。
 | クイックアクセス・OneDrive・Linux が出ない | `GetQuickAccessFolders`・`GetOneDrivePath`・`GetWslDistros`（7.1） |
 | 共有フォルダー・WSL で待たされる | `NodeHasChildren`・`SpecialIconIndex` でディスクに触れていないか（7.3、7.4） |
 | 更新で開いている状態・選択が消える | `RefreshKeepingState`・`NodeKey`（7.6、7.2） |
+| ドック・切り離しのあと、最初の状態に戻る | `CreateWnd` の最上位を作る条件（`Items.Count = 0`・`FTopLevelDirty`。6章） |
+| 窓が無い間に変えた `ShowNetwork` などが効かない | `RebuildTopLevel` で `FTopLevelDirty` を立てたか、`CreateWnd` で見たか（6章、7.1） |
 | `Path` に入れても選ばれない | `SetCPath` の起点の選び方、隠しフォルダー（7.2） |
 | 名前の変更が戻る | `DoAsyncRename` の失敗（7.10） |
 | エクスプローラーからドロップできない | `CreateWnd` の `OleDropRegister`、`OleResolveDrop`（6章、7.12） |
 | 戻る・進むボタンが効かない | `ShellListView` に TCListView をつないでいるか（7.8） |
 | D&D の動きを追いたい | TCListView 設計書 11章の `ShellDragTrace` |
+
+## 9. この版の変更（1.1）
+
+コードを直すための手順。取説には入れない。
+
+### 9.1 今と変更後
+
+| No | 項目 | 今（1.0）の動作・問題点 | 変更後（1.1） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | 窓が作り直されたとき（AnchorDocking でのドック・切り離し、Form の親の付け替え） | `CreateWnd` が毎回 `BuildTopLevel` で最上位を作り直し、項目を全部消すので、開いていたフォルダー・選択・スクロールの位置が最初の状態に戻る。つないだ TCListView は前のフォルダーのままなので、食い違う（AnchorDocking の確認用アプリで確認） | 最上位を作るのは、項目が無いとき（最初）と、窓が無い間に表示を切り替えたときだけ。ほかは項目に手を付けない（6章） | AnchorDocking で機能ごとに Form を分けたアプリで、ドック・切り離しのたびにツリーを開き直さなくて済むようにする | 窓を作り直している間に変わったフォルダーは、次の通知・F5 まで出ない |
+| 2 | 窓が無い間の表示の切り替え（`ShowQuickAccess`・`ShowOneDrive`・`ShowNetwork`・`ShowLinux`・`NetworkFolders`） | 作り直しを飛ばし、次の `CreateWnd` が必ず作り直すので反映される | `FTopLevelDirty` を立て、次の `CreateWnd` で `RefreshKeepingState(nil, True)` する（7.1） | 1 で `CreateWnd` が作り直さなくなっても、切り替えを反映するため | なし |
+
+### 9.2 直す所
+
+| No | ファイル | 変更 |
+|---|---|---|
+| 1 | `CTreeView.pas` | フィールド `FTopLevelDirty` を足す（4章） |
+| 2 | `CTreeView.pas` | `CreateWnd` を 6章のとおりに直す |
+| 3 | `CTreeView.pas` | `RebuildTopLevel` で、ハンドルなしのとき `FTopLevelDirty := True` にする（7.1） |
+| 4 | ほかのファイル | 変更なし |
+
+- 公開しているプロパティ・メソッド・イベントは変えない。

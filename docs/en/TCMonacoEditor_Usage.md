@@ -1,8 +1,8 @@
 # TCMonacoEditor User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.3
+Date: 2026-11-05
+Version: 1.4
 
 ---
 
@@ -973,6 +973,7 @@ When operating from the form's menus and buttons, use the standard actions witho
 | Before it is ready | Body text and the like written before `Ready` is held by the component and sent to Monaco when it is ready |
 | Synchronized scrolling | Within long paragraphs with much wrapping, it drifts somewhat |
 | Math formulas / export to HTML | Not available |
+| Docking / undocking | Even when the component's window is recreated, for example by docking or undocking with AnchorDocking, the editor body (the open documents, cursor and Undo history) and the preview display remain as they are |
 ## 15. Usage Examples
 
 ### 15.1 Making a Text Editor Without Writing Code

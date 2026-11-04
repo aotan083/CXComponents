@@ -1,8 +1,8 @@
 # TCPreview User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.1
+Date: 2026-11-05
+Version: 1.2
 
 ---
 
@@ -271,6 +271,7 @@ What TCPreview displays is the visible tab of the "source" TCsEditor. The source
 | Font | Monospaced (`Consolas`, `BIZ UDゴシック`, `MS ゴシック`, in that order) |
 
 - The color-coding of code blocks and code is made close to the editor's colors, but the editor (SynEdit) and the preview (highlight.js) use different color-coding mechanisms, so they do not become completely identical.
+- Even when the component's window is recreated, for example by docking or undocking with AnchorDocking, the display remains as it is.
 
 ### 6.2 Mermaid Diagrams
 

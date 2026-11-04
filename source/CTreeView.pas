@@ -123,6 +123,7 @@ type
     FShowLinux: Boolean;
     FNetworkFolders: TStringList;
     FSysSmallImages: HIMAGELIST;   // システムの小アイコン一覧（近道・グループのアイコン描画用）
+    FTopLevelDirty: Boolean;       // 窓が無い間に最上位の表示が切り替えられた（次の CreateWnd で作り直す。設計書 6章）
     // ツリーの最上位（近道・グループ・ドライブ）を作り直す
     procedure BuildTopLevel;
     // 最上位の作り直し＋展開・選択の復元（プロパティ変更時）
@@ -456,10 +457,21 @@ begin
   inherited CreateWnd;
   if not (csDesigning in ComponentState) then
   begin
-    // 空文字を指定することで、PC 直下の全物理ドライブ（C:, D:, J:等）がルートに列挙されます
-    Root := '';
-    // 最上位（クイックアクセス、OneDrive、PC とドライブ、ネットワーク、Linux）を作る
-    BuildTopLevel;
+    // 最上位（クイックアクセス、OneDrive、PC とドライブ、ネットワーク、Linux）を作るのは、次のときだけ（設計書 6章）。
+    // LCL の TTreeView は項目を部品の中に持っていて、窓を作り直しても項目・開いている状態・選択は残る。
+    // そのため、ドック・切り離しなどで窓が作り直されただけのときは、項目に手を付けない
+    if Items.Count = 0 then
+    begin
+      // 最初に窓ができたとき：空文字を指定することで、PC 直下の全物理ドライブ（C:, D:, J:等）がルートに列挙される
+      Root := '';
+      BuildTopLevel;
+    end
+    else if FTopLevelDirty then
+    begin
+      // 窓が無い間に表示が切り替えられた：開いている状態・選択を保って作り直す
+      FTopLevelDirty := False;
+      RefreshKeepingState(nil, True);
+    end;
     // ハンドルが作り直されたら登録し直す（通知・ドロップの宛先がハンドルのため）
     RegisterFolderNotify;
     FOleTarget := OleDropRegister(Handle, @OleResolveDrop, @OleDropLeave, @OleDropped);
@@ -956,7 +968,12 @@ end;
 procedure TCTreeView.RebuildTopLevel;
 begin
   if [csDesigning, csLoading, csDestroying] * ComponentState <> [] then Exit;
-  if not HandleAllocated then Exit;
+  if not HandleAllocated then
+  begin
+    // 窓が無い：作り直しは次の CreateWnd に任せる（印を付けておく）
+    FTopLevelDirty := True;
+    Exit;
+  end;
   RefreshKeepingState(nil, True);
 end;
 

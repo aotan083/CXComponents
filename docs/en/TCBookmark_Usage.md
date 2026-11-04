@@ -2,7 +2,7 @@
 
 Author: aotan083
 Date: 2026-11-05
-Version: 1.2
+Version: 1.3
 
 ---
 
@@ -28,7 +28,7 @@ A bookmark management component like Firefox's bookmark screen. Place it on a fo
 - You can search names and URLs/file paths.
 - You can register by dropping files, folders, .url files and shortcuts (.lnk) from Explorer, and URLs from a browser.
 - Dragging to the desktop or Explorer creates "name.url" for a URL and a shortcut for a file (the same behavior as browsers).
-- Dragging a file bookmark onto a TCSynEdit, TCsEditor or TCMonacoEditor in the same application opens it in that editor. No code is needed (6.6).
+- Dragging a file bookmark onto a TCSynEdit, TCsEditor or TCMonacoEditor in the same application opens it in that editor. Dragging a URL or file bookmark onto a TCTabBrowser in the same application opens it in a new tab. No code is needed (6.6).
 - You can import and export Chrome, Edge and Firefox bookmarks, and HTML files.
 - It saves automatically after every operation. On the next start, it is displayed as it was, including the expanded/collapsed state of folders.
 - URLs are shown with the site's icon (favicon), and files with the Windows icon.
@@ -290,9 +290,10 @@ Items in the tree can be dragged outside the tree. The behavior changes dependin
 |---|---|---|---|
 | Desktop, Explorer | An Internet shortcut "name.url" is created | A shortcut (.lnk) to the original file is created (the original file is not copied or moved) | Cannot be dropped |
 | Apps that accept text, such as Notepad | The URL text is entered | Depends on the receiving app | Cannot be dropped |
-| Browser | Opens that URL | Depends on the receiving browser | Cannot be dropped |
+| A browser in another application (such as Edge) | Opens that URL | Depends on the receiving browser | Cannot be dropped |
+| TCTabBrowser in the same application (without `OnDragOver`) | Opened in a new tab | Converted to `file:///…` and opened in a new tab | Cannot be dropped |
 | TCSynEdit, TCsEditor, TCMonacoEditor in the same application (without `OnDragOver`) | Cannot be dropped | Opened in that editor (table below) | Cannot be dropped |
-| Another component in the same application (a component with `OnDragOver`, including the three editors above) | If that component's `OnDragOver` answers that it accepts, `OnDragDrop` is called (10.9) | Same | Same |
+| Another component in the same application (a component with `OnDragOver`, including the TCTabBrowser and the three editors above) | If that component's `OnDragOver` answers that it accepts, `OnDragDrop` is called (10.9) | Same | Same |
 
 Behavior when the file is opened in an editor (the same as when that file is dropped from Explorer):
 
@@ -305,7 +306,9 @@ Behavior when the file is opened in an editor (the same as when that file is dro
 - Dropping onto an editor is for editing the file the bookmark points to. To change the name or location of a bookmark, use "Edit Bookmark" in the right-click menu (6.2).
 - For a shortcut (.lnk) item imported with a folder, the link target file is opened. If the link target is a folder or cannot be read, it cannot be dropped.
 - A file whose link target does not exist cannot be dropped onto an editor either.
-- The area over a TCMonacoEditor is not treated as outside the application (even inside the WebView2, it is opened as an editor of the same application).
+- Opening in a TCTabBrowser is the same as "Open in Browser in New Tab" in the right-click menu (a new tab is added at the end, opened and shown).
+- The area over a TCTabBrowser or TCMonacoEditor is not treated as outside the application (even inside the WebView2, it is opened as a component of the same application).
+- It is opened in the component it was dropped on, regardless of the components selected in `TargetBrowser` and `TargetEditor`.
 - Even if you drag outside, TCBookmark's bookmarks do not change (nothing is moved or deleted).
 - A file whose link target does not exist cannot be taken outside the application.
 - The "name" of "name.url" is the bookmark's name with characters unusable in file names replaced by "_" (leading/trailing whitespace and a trailing "." are removed; up to 200 characters; the host name if empty).
@@ -507,7 +510,7 @@ end;
 
 Write it in `OnDragOver` and `OnDragDrop` of the receiving component (example: TCCheckListBox, TListBox). `Source` is the TCBookmark.
 
-- To just open a file in a TCSynEdit, TCsEditor or TCMonacoEditor, no code is needed (6.6).
+- To just open a file in a TCSynEdit, TCsEditor or TCMonacoEditor, or open a URL or file in a new tab of a TCTabBrowser, no code is needed (6.6).
 - If you write `OnDragOver` on a TCSynEdit, this code is used instead of opening the file in the editor. The same applies when you write it on a page editor inside a TCsEditor (`Pages[n].SynEdit`).
 
 ```pascal

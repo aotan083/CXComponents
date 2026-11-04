@@ -1,8 +1,8 @@
 # TCTreeView User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.1
+Date: 2026-11-05
+Version: 1.2
 
 ---
 
@@ -342,6 +342,7 @@ The following properties are used inside the component. Changing their values wi
 - Only real folders are shown as shortcuts. Home, Gallery, Recycle Bin, and so on are not shown.
 - Quick Access also includes "Frequent folders" depending on Explorer's settings. Changes made to pinning are reflected when the tree is rebuilt (drive insertion/removal, toggling the display, restarting the app).
 - Moving within the list does not change the tree's selection.
+- Even when the tree's window is recreated, for example by docking or undocking with AnchorDocking, the expanded folders, selection and scroll position are kept as they are.
 ## 10. Usage Examples
 
 ### 10.1 Show the Selected Folder in the Form Title

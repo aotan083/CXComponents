@@ -1,8 +1,8 @@
 # TCMonacoEditor Design Document
 
 Author: aotan083
-Date: 2026-10-30
-Version: 1.3
+Date: 2026-11-05
+Version: 1.4
 
 ---
 
@@ -33,7 +33,7 @@ TCMonacoEditor is a fully offline editor component built on WebView2 and Monaco 
 | `CMonacoPreview.pas` | cx (runtime) | `TCMPreviewBinder` (connects the view and the preview) and `TCMSyncScroll` |
 | `CMonacoFindDlg.pas` | cx (runtime) | `TCMFindDialog` (invisible component) and `TCMFindForm` |
 | `CMonacoActions.pas` | cx (runtime) | 25 standard actions (manual Chapter 12) and the base classes `TCMEditorAction` and `TCMEditorToggleAction` |
-| `uCXRuntime.pas` | cx (runtime) | Function that reads WebView2.ini and `CXStartWebView2` (Chapter 6. For details see `TCTabBrowser_Design.md` Chapter 9) |
+| `uCXRuntime.pas` | cx (runtime) | Function that reads WebView2.ini and `CXStartWebView2` (Chapter 6. For details see `TCTabBrowser_Design.md` Chapter 9), and `TCXWVWindowParent`, the window that holds WebView2 (6.3. For details see `TCTabBrowser_Design.md` 9.1) |
 | `uCXReg.pas` | cxdsgn (design time) | `RegisterComponents('CX', [..., TCMonacoEditor, TCMFindDialog, ...])`, `RegisterActions('CX', [25 items], nil)` |
 | `cx_icons.lrs` | cxdsgn (design time) | Icons (`TCMonacoEditor` and `TCMFindDialog`, and their respective `_150` and `_200`) |
 | `monaco\editor.html` | Runtime file | HTML/JS that loads Monaco and communicates with Pascal (5.3) |
@@ -823,6 +823,13 @@ Received by WebView2's `AcceleratorKeyPressed` (WebView4Delphi's `OnAcceleratorK
 - `CXStartWebView2` creates the loader only the first time in the application. From the second time on, it returns the state of the existing loader (shared with TCTabBrowser and other editors). For details see `TCTabBrowser_Design.md` Chapter 9.
 - WebView2 is not started at design time (`csDesigning` is checked in `CreateWnd` and `InitTimerTick`).
 
+### 6.3 The Window That Holds WebView2
+
+The view (`uCmmonacoview`) and the preview (`uCmdpreview`) use `TCXWVWindowParent` (`uCXRuntime`; a descendant of `TWVWindowParent`) as the window that holds WebView2. Only `TWVWindowParent.Create(Self)` in `Create` is replaced with `TCXWVWindowParent.Create(Self)`; the type of the field `FWindowParent` (`TWVWindowParent`) and other usage are not changed.
+
+- Even when the window is recreated by docking or undocking with AnchorDocking, or by changing the parent of a form, WebView2 is detached, parked and reattached to the new window. The editor body (the open documents, cursor and Undo history) and the preview display remain as they are. For details see `TCTabBrowser_Design.md` 9.1.
+- The content of TCPreview is also the preview (`TCMMarkdownPreview`), so it is reattached in the same way.
+
 ## 7. Preview
 
 ### 7.1 Display
@@ -992,6 +999,7 @@ end;
 | Symptom | Where to look |
 |---|---|
 | Stays an empty frame even after startup | `InitTimerTick` (6.2). The message of `OnError`. WebView2.ini, WebView2Loader.dll, the WebView2 runtime |
+| The editor body or preview is not shown after docking/undocking | Whether the windows of the view and preview are `TCXWVWindowParent` (6.3), whether it was parked in `DestroyWnd` and reattached in `CreateWnd` (`TCTabBrowser_Design.md` 9.1) |
 | editor.html / preview.html not found | `GetResourceDir`, `CXResolveRuntimeDir` (6.1). `MonacoPath`, the values in WebView2.ini |
 | An editor in an invisible place does not work | The `Showing` wait (5.4). The preview uses `VisibleChanged` |
 | `Text` is stale right after typing | As per the rule in 4.2 (about 0.1 second). Read it inside `OnChange` |
@@ -1028,3 +1036,25 @@ Steps for creating the code. Not included in the manual.
 | 8 | `uCXRuntime.pas` | No change |
 | 9 | `uCXReg.pas`, `cx_icons.lrs` | No change |
 | 10 | `monaco\editor.html`, `preview\preview.html` | No change |
+
+## 13. Changes in This Version (1.4)
+
+Steps for creating the code. Not included in the user manual.
+
+### 13.1 Now and After the Change
+
+| No | Item | Current (1.3) behavior / problem | After the change (1.4) | Reason for the change | Risk |
+|---|---|---|---|---|---|
+| 1 | When the window is recreated (docking/undocking with AnchorDocking, changing the parent of a form) | The WebView2 of the editor body and preview closes together with the old window and nothing is shown (the LCL parts such as tab headers still work). Confirmed with the AnchorDocking test application that `Browser.ParentWindow` becomes 0 after docking | WebView2 is detached, parked and reattached to the new window. The open documents and display remain as they are (6.3) | To make it usable in an application whose functions are split into forms with AnchorDocking. Also because when WebView2 closes, the content of the open documents is lost from the screen | There may be a little flicker while reattaching. If parking fails, the behavior is the same as 1.3 (nothing is shown) |
+| 2 | TCPreview | Same as 1 (because its content is the preview) | Reattached as in 1 | Same as 1 | The TCPreview files are not changed |
+
+### 13.2 What to Change
+
+| No | File | Change |
+|---|---|---|
+| 1 | `uCmmonacoview.pas` | Replace `TWVWindowParent.Create(Self)` in `Create` with `TCXWVWindowParent.Create(Self)` (6.3). Make sure `uCXRuntime` is in the implementation uses |
+| 2 | `uCmdpreview.pas` | Same as 1 |
+| 3 | `uCXRuntime.pas` | Add `TCXWVWindowParent` (`TCTabBrowser_Design.md` Chapter 11) |
+| 4 | Other files (`uCmonacos.pas`, `CMonacoTabs.pas`, `CMonacoPreview.pas`, `CMonacoFindDlg.pas`, `CMonacoActions.pas`, `editor.html`, `preview.html`, `uCPreview.pas`) | No change |
+
+- The published properties, methods and events are not changed.

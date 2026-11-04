@@ -1,8 +1,8 @@
 # TCTabBrowser Design Document
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-05
+Version: 1.1
 
 ---
 
@@ -10,7 +10,8 @@ Version: 1.0
 
 Based on TPageControl, build a tabbed Web browser using WebView2 (`TWVBrowser` and `TWVWindowParent` from WebView4Delphi).
 
-- 1 tab = one `TTabSheet` + one `TWVWindowParent` + one `TWVBrowser`. All three are owned (Owner) by the `TTabSheet`, so calling `Free` on a tab removes them together.
+- 1 tab = one `TTabSheet` + one `TCXWVWindowParent` (a descendant of `TWVWindowParent`; 9.1) + one `TWVBrowser`. All three are owned (Owner) by the `TTabSheet`, so calling `Free` on a tab removes them together.
+- Even when the window holding WebView2 is recreated, for example by docking or undocking with AnchorDocking, WebView2 is reattached and the open page keeps being shown (9.1).
 - The number of tabs never becomes 0. When the last tab is closed, the component creates a new tab.
 - A new window that a page tries to open is always blocked and opened in a new tab instead.
 - All tabs use a dedicated data folder (EXE\TabBrowserData). A different data folder means a separate browser process, so this browser does not stall even while TCMonacoEditor or similar is blocked processing key input.
@@ -22,7 +23,7 @@ Based on TPageControl, build a tabbed Web browser using WebView2 (`TWVBrowser` a
 | File | Package | Contents |
 |---|---|---|
 | `uCTabBrowser.pas` | cx (runtime) | `TCTabBrowser`, `TCTabPanel`, and 3 internal classes (chapter 3) |
-| `uCXRuntime.pas` | cx (runtime) | Function that reads WebView2.ini and `CXStartWebView2` (chapter 9). Shared with TCMonacoEditor |
+| `uCXRuntime.pas` | cx (runtime) | Function that reads WebView2.ini and `CXStartWebView2` (chapter 9), `TCXWVWindowParent` (9.1). Shared with TCMonacoEditor |
 | `uCXReg.pas` | cxdsgn (design time) | Registration on the [CX] palette (`RegisterComponents('CX', [..., TCTabBrowser, ...])`) |
 | `cx_icons.lrs` | cxdsgn (design time) | Icons (`TCTabBrowser`, `TCTabBrowser_150`, `TCTabBrowser_200`) |
 
@@ -201,7 +202,7 @@ Destroy:
 1. `if not CXStartWebView2(Err) then raise Exception.Create(Err)` (chapter 9).
 2. Clamp `i` to 0 .. `PageCount`.
 3. Create a `TTabSheet` (owner is Self), `PageControl := Self`, `PageIndex := i`.
-4. Create a `TWVWindowParent` (owner is the tab), `Parent` is the tab, `Align := alClient`.
+4. Create a `TCXWVWindowParent` (9.1) (owner is the tab), `Parent` is the tab, `Align := alClient`. The type of variables and fields stays `TWVWindowParent` (`TCXWVWindowParent` is its descendant, so it fits as is).
 5. Create a `TWVBrowser` (owner is the tab) and connect the following events.
 
    | Browser event | Connected to |
@@ -428,6 +429,33 @@ function CXStartWebView2(out AError: string): Boolean;
 - `StartWebView2` performs up to library loading and runtime version checking on the spot, and creates the default environment asynchronously. TCTabBrowser does not use the default environment; it creates the `TabBrowserData` environment per tab with `CreateBrowser(…, False)` (this can be created as long as the library is loaded).
 - `GlobalWebView2Loader` is not freed (the finalization of `uWVLoader` frees it).
 - A failed loader is also kept (step 2 keeps returning the same error. It is not recreated).
+- uses of `uCXRuntime`: `uCXLang, Classes, SysUtils, Controls, IniFiles, uWVLoader, uWVWindowParent` (`Controls` and `uWVWindowParent` are for 9.1).
+
+### 9.1 The window that holds WebView2 (TCXWVWindowParent)
+
+WebView2 is shown attached to its parent window (the window of `TWVWindowParent`). When the parent window is destroyed, WebView2 closes with it. When docking or undocking with AnchorDocking, or when the parent of a form is changed, the LCL recreates (destroys and creates) the component's window, so WebView2 closes and nothing is shown. WebView4Delphi prevents this in Delphi (VCL) with `CM_RECREATEWND`, but Lazarus has no such notification and the measure is not included. Therefore a component derived from `TWVWindowParent` detaches WebView2 and parks it before the window is recreated, and reattaches it after recreation (the same method as the VCL version of WebView4Delphi).
+
+```pascal
+type
+  TCXWVWindowParent = class(TWVWindowParent)
+  private
+    FParked: Boolean;          // WebView2 is detached and parked
+    FParkedVisible: Boolean;   // Browser.IsVisible before detaching
+  protected
+    procedure CreateWnd; override;
+    procedure DestroyWnd; override;
+  end;
+```
+
+| Procedure | Processing |
+|---|---|
+| `DestroyWnd` | Only when `Browser` exists, `Browser.Initialized`, and not `csDestroying` (not when the component is being destroyed): `FParkedVisible := Browser.IsVisible`, `Browser.IsVisible := False`, `Browser.ParentWindow := 0` (park it on the desktop; the same as the VCL version of WebView4Delphi), `FParked := True`. Then `inherited DestroyWnd` |
+| `CreateWnd` | `inherited CreateWnd`. If `FParked`: `FParked := False`. If `Browser` exists and `Browser.Initialized`, `Browser.ParentWindow := Handle`, `Browser.IsVisible := FParkedVisible`, `UpdateSize` (fit the size of WebView2 to the new window) |
+
+- When the component is destroyed (`csDestroying`), it is not parked. WebView2 closes together with the component as usual.
+- While parked (from destroying the window until it is recreated), it is hidden with `IsVisible := False`, so it does not appear on the desktop.
+- If WebView2 has not been created yet (not `Initialized`), nothing is done. Nothing is done either when the window is created for the first time (`FParked` is `False`).
+- The users (TCTabBrowser, and the editor body and preview of TCMonacoEditor) only replace `TWVWindowParent.Create` with `TCXWVWindowParent.Create`. No other usage changes.
 
 ## 10. Points to check when investigating defects
 
@@ -445,3 +473,26 @@ function CXStartWebView2(out AError: string): Boolean;
 | Recreated every time the last tab is closed | Difference in how the URL of `OnNewTabRequest` and `Source` are written (7.10) |
 | Freezes together with TCMonacoEditor | `UserDataFolder := FDataFolder` and `CreateBrowser(…, False)` (7.1) |
 | Cache limit has no effect | Location of tabbrowser.json (7.11), `AdditionalBrowserArguments` |
+| Tabs that existed before do not show after docking/undocking | Whether the tab's window is a `TCXWVWindowParent` (step 4 of 7.1), whether it was parked in `DestroyWnd` and reattached in `CreateWnd` (`FParked`; 9.1). Whether `Browser.ParentWindow` is the `Handle` of the new window |
+
+## 11. Changes in this version (1.1)
+
+Steps for changing the code. Not included in the user manual.
+
+### 11.1 Now and after the change
+
+| No | Item | Current (1.0) behavior / problem | After the change (1.1) | Reason for the change | Risk |
+|---|---|---|---|---|---|
+| 1 | When the window is recreated (docking/undocking with AnchorDocking, changing the parent of a form) | WebView2 closes together with the old window and nothing is shown in that tab (grey). Confirmed with the AnchorDocking test application that `Browser.ParentWindow` becomes 0 after docking | WebView2 is detached, parked and reattached to the new window. The open page keeps being shown (9.1) | To make it usable in an application whose functions are split into forms with AnchorDocking | There may be a little flicker while reattaching. If parking fails, the behavior is the same as 1.0 (nothing is shown) |
+| 2 | The component for the tab's window | `TWVWindowParent` | `TCXWVWindowParent` (a descendant of `TWVWindowParent`) | For 1 | The type is a descendant of `TWVWindowParent`, so `is TWVWindowParent` in `FindWindowParent` etc. still passes |
+
+### 11.2 What to change
+
+| No | File | Change |
+|---|---|---|
+| 1 | `uCXRuntime.pas` | Add `TCXWVWindowParent` to the interface (9.1). Add `Controls` and `uWVWindowParent` to uses |
+| 2 | `uCTabBrowser.pas` | Replace `TWVWindowParent.Create` in `Insert` with `TCXWVWindowParent.Create` (step 4 of 7.1) |
+| 3 | `uCmmonacoview.pas`, `uCmdpreview.pas` | Chapter 13 of `TCMonacoEditor_Design.md` |
+| 4 | WebView4Delphi | Unchanged (left untouched) |
+
+- The published properties, methods and events are not changed.

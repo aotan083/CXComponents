@@ -841,7 +841,7 @@ begin
   FOccurrencesHighlight := True;
   FMinimap := False;
 
-  FWindowParent := TWVWindowParent.Create(Self);
+  FWindowParent := TCXWVWindowParent.Create(Self);   { 窓が作り直されても WebView2 を付け直す（uCXRuntime。TCMonacoEditor_Design.md 6.3） }
   FWindowParent.Parent := Self;
   FWindowParent.Align := alClient;
 

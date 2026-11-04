@@ -717,7 +717,7 @@ begin
   NewTabSheet.PageIndex := ClampedIndex; // 指定位置へ移動
 
   // 2. 表示領域コントロール (TWVWindowParent) の生成
-  NewWindowParent := TWVWindowParent.Create(NewTabSheet);
+  NewWindowParent := TCXWVWindowParent.Create(NewTabSheet);   { 窓が作り直されても WebView2 を付け直す（uCXRuntime。設計書 9.1） }
   NewWindowParent.Parent := NewTabSheet;
   NewWindowParent.Align := alClient;
 

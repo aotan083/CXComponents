@@ -148,8 +148,8 @@ type
     FLastSel: TCBookmarkItem;     { 最後に OnSelectionChange で知らせた選択（比べるだけ。中身は触らない） }
     FAppTarget: TControl;         { ドラッグ中、マウスの下にある同じアプリの部品 }
     FAppAccept: Boolean;          { FAppTarget の OnDragOver が受けると答えたか }
-    FEditorTarget: TControl;      { ドラッグ中、マウスの下にあり、自分で開く先のエディタ（TCSynEdit・TCsEditor・TCMonacoEditor） }
-    FEditorFile: string;          { FEditorTarget で開くファイル（.lnk はリンク先にしたもの） }
+    FEditorTarget: TControl;      { ドラッグ中、マウスの下にあり、自分で開く先（TCSynEdit・TCsEditor・TCMonacoEditor・TCTabBrowser） }
+    FEditorFile: string;          { FEditorTarget で開くもの（エディタはファイル。.lnk はリンク先。TCTabBrowser は URL） }
     FOleDragging: Boolean;        { 自分で始めた OLE のドラッグ中（自分のツリーでは受けない） }
 
     FDataDir: string;             { exe のフォルダー\bookmark\ }
@@ -283,6 +283,7 @@ type
     function EditorOf(AControl: TControl): TControl;
     function AppControlOf(W: HWND): TControl;
     function DropFileOf(AItem: TCBookmarkItem): string;
+    function DropLocationOf(AEditor: TControl; AItem: TCBookmarkItem): string;
     procedure SetEditorTarget(AEditor: TControl);
     procedure OpenInDropEditor(AEditor: TControl; const APath: string);
     function CanOleDrag(AItem: TCBookmarkItem): Boolean;
@@ -3889,11 +3890,11 @@ begin
         Exit;
       end;
     end;
-    { LCL の部品ではない窓（WebView2 が作った窓）：親の LCL の部品が TCMonacoEditor なら、自分で開く先にする }
+    { LCL の部品ではない窓（WebView2 が作った窓）：親の LCL の部品が TCMonacoEditor・TCTabBrowser なら、自分で開く先にする }
     if (C = nil) and not IsOwnPart(AppControlOf(W)) then
     begin
       E := EditorOf(AppControlOf(W));
-      if E is TCMonacoEditor then
+      if (E is TCMonacoEditor) or (E is TCTabBrowser) then
       begin
         SetEditorTarget(E);
         Exit;
@@ -3918,12 +3919,12 @@ begin
   end
   else
   begin
-    { 別のプロセスの窓でも、親がこのアプリの TCMonacoEditor なら（中の WebView2）、
+    { 別のプロセスの窓でも、親がこのアプリの TCMonacoEditor・TCTabBrowser なら（中の WebView2）、
       OLE のドラッグに移さず、自分で開く先にする（設計書 11.5） }
     if W <> 0 then
     begin
       E := EditorOf(AppControlOf(W));
-      if E is TCMonacoEditor then
+      if (E is TCMonacoEditor) or (E is TCTabBrowser) then
       begin
         SetEditorTarget(E);
         Exit;
@@ -3974,8 +3975,8 @@ end;
 
 { ---- エディタへのドロップ（設計書 11.5） ---- }
 
-{ AControl か、その親の中にあるエディタを返す（無ければ nil）。
-  TCsEditor の中のページのエディタは TCSynEdit を継いでいるので、TCsEditor・TCMonacoEditor を先に探し、
+{ AControl か、その親の中にある開く先（エディタ・ブラウザ）を返す（無ければ nil）。
+  TCsEditor の中のページのエディタは TCSynEdit を継いでいるので、TCsEditor・TCMonacoEditor・TCTabBrowser を先に探し、
   見つからなかったときだけ、最初に見つけた TCSynEdit を返す（中のエディタへ直接読み込まないため） }
 function TCBookmark.EditorOf(AControl: TControl): TControl;
 var
@@ -3985,7 +3986,7 @@ begin
   P := AControl;
   while P <> nil do
   begin
-    if (P is TCsEditor) or (P is TCMonacoEditor) then Exit(P);
+    if (P is TCsEditor) or (P is TCMonacoEditor) or (P is TCTabBrowser) then Exit(P);
     if (Syn = nil) and (P is TCSynEdit) then Syn := P;
     P := P.Parent;
   end;
@@ -4029,6 +4030,29 @@ begin
   Result := P;
 end;
 
+{ 開く先 AEditor で開くもの（開けない項目なら ''）。
+  TCTabBrowser：URL の項目は URL、ファイルの項目は file:///…（右クリックの「Browserで新しいタブで開く」と同じ）。
+  エディタ：ファイル（DropFileOf。URL は受けない） }
+function TCBookmark.DropLocationOf(AEditor: TControl; AItem: TCBookmarkItem): string;
+var
+  P: string;
+begin
+  Result := '';
+  if AItem = nil then Exit;
+  if AEditor is TCTabBrowser then
+  begin
+    if AItem.FKind = bkUrl then
+      Result := AItem.FLocation
+    else
+    begin
+      P := DropFileOf(AItem);
+      if P <> '' then Result := CBPathToFileUrl(P);
+    end;
+  end
+  else
+    Result := DropFileOf(AItem);
+end;
+
 { マウスの下のエディタを、自分で開く先にする。
   前の「同じアプリの部品」（OnDragOver を持つ部品）があれば、dsDragLeave を知らせて外す。
   カーソルは、開けるファイルなら crDrag、開けない項目（URL など）なら crNoDrop }
@@ -4052,14 +4076,15 @@ begin
     if FEditorTarget <> nil then FEditorTarget.RemoveFreeNotification(Self);
     FEditorTarget := AEditor;
     if FEditorTarget <> nil then FEditorTarget.FreeNotification(Self);
-    FEditorFile := DropFileOf(FDragItem);
+    FEditorFile := DropLocationOf(AEditor, FDragItem);
   end;
   if FEditorFile <> '' then Screen.Cursor := crDrag else Screen.Cursor := crNoDrop;
 end;
 
-{ エディタにファイルを落とされたときと同じ動きで開く（それぞれの部品の公開されている API だけを使う）。
+{ 開く先で開く（それぞれの部品の公開されている API だけを使う）。エディタは、ファイルを落とされたときと同じ動き。
   TCSynEdit：OnDropFilesEvent があればそれ、無ければ LoadFromFile（今の中身を読み替える）。
-  TCsEditor・TCMonacoEditor：OnFileDrop に知らせ、Handled でなく OpenDroppedFiles なら OpenFile（新しいタブ） }
+  TCsEditor・TCMonacoEditor：OnFileDrop に知らせ、Handled でなく OpenDroppedFiles なら OpenFile（新しいタブ）。
+  TCTabBrowser：Add（新しいタブを足して開き、そのタブを表示する） }
 procedure TCBookmark.OpenInDropEditor(AEditor: TControl; const APath: string);
 var
   L: TStringList;
@@ -4101,6 +4126,11 @@ begin
       finally
         L.Free;
       end;
+    end
+    else if AEditor is TCTabBrowser then
+    begin
+      TCTabBrowser(AEditor).Add(APath);
+      if TCTabBrowser(AEditor).CanFocus then TCTabBrowser(AEditor).SetFocus;
     end;
   except
     on E: Exception do

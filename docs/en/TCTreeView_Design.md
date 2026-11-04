@@ -1,8 +1,8 @@
 # TCTreeView Design Document
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-05
+Version: 1.1
 
 ---
 
@@ -13,6 +13,7 @@ Based on TShellTreeView (LCL), build a folder tree that works like the left pane
 - At the top level, list Quick Access, OneDrive, PC (all drives), Network, and Linux (WSL).
 - File operations are left to the shell (Windows), and display updates are left to folder change notifications.
 - Folders are ordered in the same natural order as Explorer.
+- Even when the window is recreated, for example by docking or undocking with AnchorDocking, the expanded folders, selection and scroll position are kept as they are (chapter 6).
 
 ## 2. Files and Packages
 
@@ -93,6 +94,7 @@ Constants:
 | `FShowQuickAccess`, `FShowOneDrive`, `FShowNetwork`, `FShowLinux` | `Boolean` | `True` | Top-level display |
 | `FNetworkFolders` | `TStringList` | Empty. `OnChange := NetworkFoldersChanged` | Shared folders listed under Network |
 | `FSysSmallImages` | `HIMAGELIST` | 0 | System small icon list (used to draw shortcut and group icons) |
+| `FTopLevelDirty` | `Boolean` | `False` | The top-level display was switched while there was no window (rebuilt by the next `CreateWnd`; chapter 6, 7.1) |
 
 ## 5. Declarations
 
@@ -150,7 +152,15 @@ Create:
 
 Destroy: Stop the timers -> `ShellDragAbandon(Self)` -> unregister the OLE drop target -> `UnregisterFolderNotify` -> `Application.RemoveAsyncCalls(Self)` (so that `DoAsyncRename` does not run later) -> free `FPendingPaths` -> `inherited` -> free `FNetworkFolders`.
 
-CreateWnd: After `inherited`, unless at design time: `Root := ''` (all drives directly under PC), `BuildTopLevel`, `RegisterFolderNotify`, `OleDropRegister(Handle, OleResolveDrop, OleDropLeave, OleDropped)`.
+CreateWnd: After `inherited`, unless at design time:
+
+1. Build the top level (only in one of the following cases):
+   - There are no items (`Items.Count = 0`; when the window is created for the first time): `Root := ''` (all drives directly under PC), `BuildTopLevel`.
+   - `FTopLevelDirty` (the display was switched while there was no window): `FTopLevelDirty := False`, `RefreshKeepingState(nil, True)` (rebuild while keeping the expanded state and selection; 7.6).
+2. `RegisterFolderNotify`, `OleDropRegister(Handle, OleResolveDrop, OleDropLeave, OleDropped)` (registered again every time the window is recreated; same as now).
+
+- Otherwise (when the window is recreated by docking/undocking with AnchorDocking, changing the parent of a form, etc.), the items are left untouched. The LCL TTreeView holds its items inside the component, so the items, expanded state and selection remain even when the window is recreated.
+- While the window is being recreated (from `DestroyWnd` to `CreateWnd`), change notifications do not arrive. Folders that changed in that time are corrected by the next notification or F5.
 
 DestroyWnd: `UnregisterFolderNotify`, `OleDropRevoke`, `inherited`.
 
@@ -177,7 +187,7 @@ Does nothing at design time. Within `Items.BeginUpdate`:
 | `GetWslDistros(names)` | `DistributionName` of the subkeys of `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss`. Existence is not checked, so as not to start WSL. On an exception, adds nothing |
 | `AddGroupNode(text, group)` | Appends at the end, `InitSpecial(nkGroup, group, '')`, `HasChildren := True` |
 | `AddShortcutNode(parent, text, path)` | Adds as a child of the parent (top level if the parent is nil), `InitSpecial(nkShortcut, gkNone, path)`, `HasChildren := True` |
-| `RebuildTopLevel` | Does nothing at design time, while loading, while being destroyed, or without a handle. `RefreshKeepingState(nil, True)` |
+| `RebuildTopLevel` | Does nothing at design time, while loading, or while being destroyed. Without a handle, sets `FTopLevelDirty := True` and does nothing (rebuilt by the next `CreateWnd`; chapter 6). Otherwise `RefreshKeepingState(nil, True)` |
 | `SetShowQuickAccess`, `SetShowOneDrive`, `SetShowNetwork`, `SetShowLinux` | If changed, store and `RebuildTopLevel` |
 | `SetNetworkFolders` | `Assign` (rebuilt via `OnChange`) |
 | `NetworkFoldersChanged` | If `ShowNetwork`, `RebuildTopLevel` |
@@ -335,8 +345,32 @@ Target side (`OleResolveDrop`):
 | Quick Access, OneDrive, or Linux does not appear | `GetQuickAccessFolders`, `GetOneDrivePath`, `GetWslDistros` (7.1) |
 | Shared folders or WSL cause stalls | Whether `NodeHasChildren` and `SpecialIconIndex` touch the disk (7.3, 7.4) |
 | Refresh loses the expanded state or selection | `RefreshKeepingState`, `NodeKey` (7.6, 7.2) |
+| Returns to the initial state after docking/undocking | The conditions for building the top level in `CreateWnd` (`Items.Count = 0`, `FTopLevelDirty`; chapter 6) |
+| `ShowNetwork` etc. changed while there was no window has no effect | Whether `RebuildTopLevel` set `FTopLevelDirty` and whether `CreateWnd` checked it (chapter 6, 7.1) |
 | Setting `Path` does not select it | How `SetCPath` chooses the origin, hidden folders (7.2) |
 | A rename reverts | Failure in `DoAsyncRename` (7.10) |
 | Cannot drop from Explorer | `OleDropRegister` in `CreateWnd`, `OleResolveDrop` (chapter 6, 7.12) |
 | Back/Forward buttons do not work | Whether a TCListView is connected to `ShellListView` (7.8) |
 | Want to trace D&D behavior | `ShellDragTrace` in chapter 11 of the TCListView Design Document |
+
+## 9. Changes in This Version (1.1)
+
+Steps for changing the code. Not included in the user manual.
+
+### 9.1 Now and After the Change
+
+| No | Item | Current (1.0) behavior / problem | After the change (1.1) | Reason for the change | Risk |
+|---|---|---|---|---|---|
+| 1 | When the window is recreated (docking/undocking with AnchorDocking, changing the parent of a form) | `CreateWnd` rebuilds the top level with `BuildTopLevel` every time and deletes all items, so the expanded folders, selection and scroll position return to the initial state. The connected TCListView keeps showing the previous folder, so they disagree (confirmed with the AnchorDocking test application) | The top level is built only when there are no items (the first time) and when the display was switched while there was no window. Otherwise the items are left untouched (chapter 6) | So that, in an application whose functions are split into forms with AnchorDocking, the tree does not have to be expanded again after every docking/undocking | Folders that changed while the window was being recreated are not shown until the next notification or F5 |
+| 2 | Switching the display while there is no window (`ShowQuickAccess`, `ShowOneDrive`, `ShowNetwork`, `ShowLinux`, `NetworkFolders`) | The rebuild is skipped and the next `CreateWnd` always rebuilds, so it is reflected | Set `FTopLevelDirty` and do `RefreshKeepingState(nil, True)` in the next `CreateWnd` (7.1) | To reflect the switch even though `CreateWnd` no longer rebuilds because of 1 | None |
+
+### 9.2 What to Change
+
+| No | File | Change |
+|---|---|---|
+| 1 | `CTreeView.pas` | Add the field `FTopLevelDirty` (chapter 4) |
+| 2 | `CTreeView.pas` | Change `CreateWnd` as in chapter 6 |
+| 3 | `CTreeView.pas` | In `RebuildTopLevel`, set `FTopLevelDirty := True` when there is no handle (7.1) |
+| 4 | Other files | Unchanged |
+
+- The published properties, methods and events are not changed.

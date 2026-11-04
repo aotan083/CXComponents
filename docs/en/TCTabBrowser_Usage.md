@@ -1,8 +1,8 @@
 # TCTabBrowser User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.1
+Date: 2026-11-05
+Version: 1.2
 
 ---
 
@@ -376,6 +376,7 @@ The following properties are used inside the component. Changing their values wi
 - With an old WebView2 runtime, "New", "Close" and the application's items do not appear in the Web page's right-click menu, only WebView2's standard items.
 - While the Web page has focus, keys (except F5) do not reach the application. The form's `OnKeyDown` and ActionList shortcuts do not work.
 - In the IDE (design time), neither tabs nor browsers are created. Only an empty frame appears.
+- Even when the component's window is recreated, for example by docking or undocking with AnchorDocking, every tab keeps showing the page that was open.
 
 ## 9. Usage Examples
 

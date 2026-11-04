@@ -2,7 +2,7 @@
 
 Author: aotan083
 Date: 2026-11-05
-Version: 1.1
+Version: 1.2
 
 ---
 
@@ -21,7 +21,7 @@ Build a bookmark management component like Firefox's bookmark screen. Place it o
 | 7 | Dragging does not use LCL's drag mechanism (`BeginDrag`, `OnDragOver`, `OnDragDrop`, `OnEndDrag`); it is done by the component itself with mouse notifications. With LCL's mechanism, the order and presence of notifications on release were unreliable and it sometimes did not work |
 | 8 | Drops from outside are received by a small `IDropTarget` inside the unit (CShellOleDrop is not used) |
 | 9 | Mouse, key and menu operations only call protected virtual methods (chapter 14). This allows a derived class to call them directly for verification |
-| 10 | When a file item is dragged onto a TCSynEdit, TCsEditor or TCMonacoEditor in the same application, it is opened in that editor without the application writing any code (11.5). Dropping onto an editor is for "editing the file the bookmark points to", so URLs are not accepted. Changing the name or location of a bookmark is done with "Edit Bookmark" (10.2) |
+| 10 | When a file item is dragged onto a TCSynEdit, TCsEditor or TCMonacoEditor in the same application, it is opened in that editor without the application writing any code (11.5). Dropping onto an editor is for "editing the file the bookmark points to", so URLs are not accepted. When a URL or file item is dragged onto a TCTabBrowser in the same application, it is opened in a new tab (11.5). Changing the name or location of a bookmark is done with "Edit Bookmark" (10.2) |
 
 ## 2. Files and Packages
 
@@ -205,8 +205,8 @@ function CBHostOf(const AUrl: string): string;
 | `FExtDragging` | `Boolean` | `False` | D&D from outside in progress |
 | `FAppTarget` | `TControl` | nil | Component in the same application under the mouse during dragging |
 | `FAppAccept` | `Boolean` | `False` | That component's `OnDragOver` answered that it accepts |
-| `FEditorTarget` | `TControl` | nil | During dragging, the editor under the mouse that TCBookmark opens the file in by itself (TCSynEdit, TCsEditor or TCMonacoEditor; 11.5) |
-| `FEditorFile` | `string` | '' | The file to open in `FEditorTarget` (for a `.lnk`, its link target; 11.5) |
+| `FEditorTarget` | `TControl` | nil | During dragging, the open target under the mouse that TCBookmark opens the item in by itself (TCSynEdit, TCsEditor, TCMonacoEditor or TCTabBrowser; 11.5) |
+| `FEditorFile` | `string` | '' | What to open in `FEditorTarget`. For an editor, a file (for a `.lnk`, its link target); for a TCTabBrowser, a URL (a file becomes `file:///…`) (11.5) |
 | `FOleDragging` | `Boolean` | `False` | An OLE drag started by itself is in progress (not accepted by its own tree) |
 | `FPopupItem` | `TCBookmarkItem` | nil | Item that was right-clicked (nil = empty area) |
 | `FClip` | `TCBookmarkItem` | nil | Copied duplicate (owned by TCBookmark) |
@@ -565,8 +565,8 @@ Items (`Tag` is the number used by `MenuClick`): Text Open (1) / Text Open in Ne
 | Mouse position | Processing |
 |---|---|
 | Inside the tree | `LeaveAppTarget`, `UpdateInternalDrag` |
-| Same application (the process of the window from `WindowFromPoint` is its own) | `FDropOk := False`, `HideIndicator`. `C := FindDragTarget(screen position, False)` (TCBookmark and the components inside it become nil; `IsOwnPart`). If `C` exists, `TCBControlAccess(C).OnDragOver` is nil and `EditorOf(C)` (11.5) is not nil, it is "over an editor" in 11.5. If `C` is nil (a window that is not an LCL component, such as a window created by WebView2), `AppControlOf(W)` is not `IsOwnPart`, and its `EditorOf` is a TCMonacoEditor, it is likewise "over an editor". Otherwise, as follows (same as 1.0): if `FEditorTarget` exists, `LeaveAppTarget`. If `C` differs from before, `LeaveAppTarget` and `dsDragEnter`; if the same, `dsDragMove`. If `C` exists, `TCBControlAccess(C).DragOver(Self, X, Y, state, FAppAccept)`. `crDrag` if it accepts, otherwise `crNoDrop` |
-| A window of another process, with a window of its own process among its parents (such as the WebView2 inside a TCMonacoEditor) | If `EditorOf(AppControlOf(W))` (11.5) is a TCMonacoEditor, `FDropOk := False`, `HideIndicator`, and "over an editor" in 11.5. Otherwise, the same as "Outside the application" below |
+| Same application (the process of the window from `WindowFromPoint` is its own) | `FDropOk := False`, `HideIndicator`. `C := FindDragTarget(screen position, False)` (TCBookmark and the components inside it become nil; `IsOwnPart`). If `C` exists, `TCBControlAccess(C).OnDragOver` is nil and `EditorOf(C)` (11.5) is not nil, it is "over an open target" in 11.5. If `C` is nil (a window that is not an LCL component, such as a window created by WebView2), `AppControlOf(W)` is not `IsOwnPart`, and its `EditorOf` is a TCMonacoEditor or a TCTabBrowser, it is likewise "over an open target". Otherwise, as follows (same as 1.0): if `FEditorTarget` exists, `LeaveAppTarget`. If `C` differs from before, `LeaveAppTarget` and `dsDragEnter`; if the same, `dsDragMove`. If `C` exists, `TCBControlAccess(C).DragOver(Self, X, Y, state, FAppAccept)`. `crDrag` if it accepts, otherwise `crNoDrop` |
+| A window of another process, with a window of its own process among its parents (such as the WebView2 inside a TCMonacoEditor or a TCTabBrowser) | If `EditorOf(AppControlOf(W))` (11.5) is a TCMonacoEditor or a TCTabBrowser, `FDropOk := False`, `HideIndicator`, and "over an open target" in 11.5. Otherwise, the same as "Outside the application" below |
 | Outside the application | `LeaveAppTarget`. If `CanOleDrag(FDragItem)` (a URL, or a file that exists), `StartOleDrag`; otherwise `crNoDrop` (the drag continues) |
 
 `LeaveAppTarget`: if `FAppTarget` exists, detach it and notify `DragOver(…, dsDragLeave, …)`. If `FEditorTarget` exists, `RemoveFreeNotification(FEditorTarget)`, `FEditorTarget := nil`, `FEditorFile := ''` (nothing is notified to the editor).
@@ -599,31 +599,34 @@ The same-application component in `EndInternalDrag`:
 - `CBSafeFileName`: `Trim`, `\ / : * ? " < > |` and control characters become `_`, strip trailing `.` and spaces, up to 200 characters. If empty, the host's `CBHostFileKey`; if that is also empty, 'link'.
 - `CBUrlToAscii`: turns bytes of 128 or more into `%XX`.
 
-### 11.5 Dropping onto an Editor
+### 11.5 Dropping onto an Editor or Browser
 
-When a file item is dropped onto a TCSynEdit, TCsEditor or TCMonacoEditor in the same application, it is opened with the same behavior as when that file is dropped from Explorer. No application code is needed. If the application has written `OnDragOver` on the drop target, that is used instead (11.4; same as 1.0).
+When a file item is dropped onto a TCSynEdit, TCsEditor or TCMonacoEditor in the same application, it is opened with the same behavior as when that file is dropped from Explorer. When a URL or file item is dropped onto a TCTabBrowser in the same application, it is opened in a new tab (the same as "Open in Browser in New Tab" in the right-click menu). No application code is needed. If the application has written `OnDragOver` on the drop target, that is used instead (11.4; same as 1.0). These four components are together called "open targets".
 
 | Function / procedure | Processing |
 |---|---|
-| `EditorOf(C): TControl` | Follows `Parent` from `C`. If a TCsEditor or TCMonacoEditor is found on the way, returns it. Otherwise returns the first TCSynEdit found on the way. If none, nil. The page editors inside a TCsEditor inherit from TCSynEdit, so the TCsEditor is found first (the file is not loaded directly into an inner editor) |
-| `AppControlOf(W): TControl` | Follows `GetParent` from `W` and returns the component of the first window whose `GetWindowThreadProcessId` process is its own and for which `FindControl` returns a component. If none, nil. The WebView2 windows inside a TCMonacoEditor include windows of another process and windows that WebView2 created in its own process (not LCL components), so it climbs up to an LCL component |
+| `EditorOf(C): TControl` | Follows `Parent` from `C`. If a TCsEditor, TCMonacoEditor or TCTabBrowser is found on the way, returns it. Otherwise returns the first TCSynEdit found on the way. If none, nil. The page editors inside a TCsEditor inherit from TCSynEdit, so the TCsEditor is found first (the file is not loaded directly into an inner editor) |
+| `AppControlOf(W): TControl` | Follows `GetParent` from `W` and returns the component of the first window whose `GetWindowThreadProcessId` process is its own and for which `FindControl` returns a component. If none, nil. The WebView2 windows inside a TCMonacoEditor or TCTabBrowser include windows of another process and windows that WebView2 created in its own process (not LCL components), so it climbs up to an LCL component |
 | `DropFileOf(It): string` | '' if `It` is nil or its kind is not `bkFile`. `P := FLocation`. If the extension is `.lnk` (case-insensitive), `P := CBResolveLink(P)`. '' if `P` is empty, `FileExists(P)` is `False`, or `DirectoryExists(P)` is `True`. Otherwise `P` |
-| `SetEditorTarget(E)` | If `FAppTarget` exists, notify `dsDragLeave` and detach it (`FAppTarget := nil`, `FAppAccept := False`). If `E` differs from `FEditorTarget`: if there was a previous one, `RemoveFreeNotification`; `FEditorTarget := E`, `FreeNotification(E)`, `FEditorFile := DropFileOf(FDragItem)`. The cursor is `crDrag` if `FEditorFile` is not empty, `crNoDrop` if it is empty |
+| `DropLocationOf(E, It): string` | What to open in the open target `E`. If `E` is a TCTabBrowser: for a URL item, `FLocation`; for a file item, `CBPathToFileUrl(DropFileOf(It))` if `DropFileOf(It)` is not empty; otherwise ''. If `E` is an editor, `DropFileOf(It)` |
+| `SetEditorTarget(E)` | If `FAppTarget` exists, notify `dsDragLeave` and detach it (`FAppTarget := nil`, `FAppAccept := False`). If `E` differs from `FEditorTarget`: if there was a previous one, `RemoveFreeNotification`; `FEditorTarget := E`, `FreeNotification(E)`, `FEditorFile := DropLocationOf(E, FDragItem)`. The cursor is `crDrag` if `FEditorFile` is not empty, `crNoDrop` if it is empty |
 | `OpenInDropEditor(E, P)` | The table below. Exceptions are caught and "Cannot open: (P : reason)" (`mtError`; the same message as 9.3) is shown |
 
-How `OpenInDropEditor` opens the file (the same as each component's behavior when a file is dropped from Explorer):
+How `OpenInDropEditor` opens it (for editors, the same as each component's behavior when a file is dropped from Explorer):
 
 | Kind of `E` | Processing |
 |---|---|
 | TCSynEdit | If `OnDropFilesEvent` exists, `OnDropFilesEvent(E, [P])`; otherwise `LoadFromFile(P)`. Then `SetFocus` |
 | TCsEditor | `L := TStringList` (one line, `P`), `Handled := False`. If `OnFileDrop` exists, `OnFileDrop(E, L, Handled)`. If not `Handled` and `OpenDroppedFiles` is `True`, `SetFocus` when `OpenFile(P) >= 0`. `L` is freed in finally |
 | TCMonacoEditor | Same as TCsEditor |
+| TCTabBrowser | `Add(P)` (adds a new tab at the end, opens `P` and shows that tab; the same as the new tab of `OpenInBrowser` in 9.3). Then `SetFocus` |
 
-- Only the public properties and methods of each component are used (policy 6). The editor components are left untouched.
+- Only the public properties and methods of each component are used (policy 6). The open target components are left untouched.
 - It is called after the mouse button is released (inside `EndInternalDrag`; mouse capture has already been released).
-- For a URL, folder, separator or missing file, `DropFileOf` is '', so `crNoDrop`. Nothing happens when it is dropped.
+- Over an editor, for a URL, folder, separator or missing file, `DropLocationOf` is '', so `crNoDrop`. Over a TCTabBrowser, a folder, separator or missing file gives ''. Nothing happens when it is dropped.
 - TCSynEdit holds only one document, so if there is no `OnDropFilesEvent`, the current content is replaced (the same as when dropped from Explorer).
-- Over the WebView2 of a TCMonacoEditor, the drag does not switch to an OLE drag (11.4). Therefore "dropping a URL item opens a temporary `.url` file in a tab", which happened in 1.0, no longer happens.
+- Over the WebView2 of a TCMonacoEditor or TCTabBrowser, the drag does not switch to an OLE drag (11.4). Therefore "dropping a URL item onto a TCMonacoEditor opens a temporary `.url` file in a tab", which happened in 1.0, no longer happens.
+- The item is opened in the component it was dropped on, regardless of the `TargetBrowser` and `TargetEditor` settings.
 
 ## 12. Import and Export
 
@@ -717,8 +720,8 @@ Mouse, key, menu and drop operations only call the following methods.
 | Dropped but not registered | `AsyncExternalDrop`, whether `FPendingTarget` is in the tree (11.1) |
 | Cannot drag outside | `WindowFromPoint` in `DragMoveTo`, `CanOleDrag`, `CBGetShellDataObject` (11.4) |
 | Not passed to a component in the same application | `FindDragTarget` and `IsOwnPart`, the component's `OnDragOver` (11.4) |
-| Not opened when dropped onto an editor | Whether `EditorOf` finds it, whether the drop target's `OnDragOver` is nil (11.4), whether `DropFileOf` is '' (a URL, a missing file, or a `.lnk` whose link target cannot be read) (11.5) |
-| Switches to an OLE drag over a TCMonacoEditor | Whether `AppControlOf` climbs up to an LCL component, whether its `EditorOf` is a TCMonacoEditor (11.4, 11.5) |
+| Not opened when dropped onto an editor or browser | Whether `EditorOf` finds it, whether the drop target's `OnDragOver` is nil (11.4), whether `DropLocationOf` is '' (a URL onto an editor, a missing file, or a `.lnk` whose link target cannot be read) (11.5) |
+| Switches to an OLE drag over a TCMonacoEditor or a TCTabBrowser | Whether `AppControlOf` climbs up to an LCL component, whether its `EditorOf` is a TCMonacoEditor or a TCTabBrowser (11.4, 11.5) |
 | The file is loaded directly into a page inside a TCsEditor | Whether `EditorOf` looks for the TCsEditor first (11.5) |
 | A file is not opened in another tab, or an error occurs | The order in `OpenInEditor` (9.3) |
 | Import count is 0 | How `ParseHtml` reads tags, HREFs that `NewLink` cannot decide (12.1) |
@@ -747,5 +750,31 @@ Steps for changing the code. Not included in the user manual.
 | 4 | `uCbookmark.pas` | Change `DragMoveTo`, `LeaveAppTarget` and `EndInternalDrag` as in 11.4 |
 | 5 | `uCbookmark.pas` | In `Notification`, set `FEditorTarget` to nil when it is removed (6.5) |
 | 6 | `uCbookmark_reg.pas` and the files of other components | Unchanged |
+
+- The published properties, methods and events are not changed.
+
+## 17. Changes in This Version (1.2)
+
+Steps for changing the code. Not included in the user manual.
+
+### 17.1 Now and After the Change
+
+| No | Item | Current (1.1) behavior / problem | After the change (1.2) | Reason for the change | Risk |
+|---|---|---|---|---|---|
+| 1 | URL item → TCTabBrowser | The area over the WebView2 is treated as "outside the application" or as a window that is not an LCL component, and nothing happens (confirmed with the AnchorDocking test application) | Opened in a new tab (11.5) | So that bookmarks can be dragged onto a browser and opened in an application whose functions are split into forms with AnchorDocking | If identification fails, the behavior is the same as 1.1 (nothing happens, or an OLE drag) |
+| 2 | File item → TCTabBrowser | Same as 1 | Converted to `file:///…` and opened in a new tab (the same as "Open in Browser in New Tab" in the right-click menu) | Same as 1 | None |
+| 3 | Identifying open targets (`EditorOf`) | TCSynEdit, TCsEditor, TCMonacoEditor | Add TCTabBrowser | For 1 and 2 | None |
+| 4 | What to open (`FEditorFile`) | Always `DropFileOf` (a file) | `DropLocationOf`: a URL for a TCTabBrowser; a file for an editor, as before | Because a TCTabBrowser opens a URL | None |
+| 5 | Component on which the application wrote `OnDragOver` | The application code accepts it | Unchanged | Do not change a working I/F (RULES 8) | None |
+
+### 17.2 What to Change
+
+| No | File | Change |
+|---|---|---|
+| 1 | `uCbookmark.pas` | Make `EditorOf` find a TCTabBrowser as well (11.5) |
+| 2 | `uCbookmark.pas` | Add `DropLocationOf` to private and use it in `SetEditorTarget` (11.5) |
+| 3 | `uCbookmark.pas` | Add how a TCTabBrowser opens it to `OpenInDropEditor` (11.5) |
+| 4 | `uCbookmark.pas` | Add TCTabBrowser to the WebView2 identification in `DragMoveTo` (11.4) |
+| 5 | Other files | Unchanged |
 
 - The published properties, methods and events are not changed.

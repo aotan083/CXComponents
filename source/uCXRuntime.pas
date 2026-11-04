@@ -21,12 +21,33 @@
   initialization・finalization は持たない。
   理由: このユニットは cx パッケージに入り、IDE にも組み込まれる。uses に入れただけで
   ファイルを読んだり何かを作ったりしないようにするため（部品が実行時に呼んだときだけ動く）。
-  GlobalWebView2Loader は、WebView4Delphi の uWVLoader の finalization が解放する。 }
+  GlobalWebView2Loader は、WebView4Delphi の uWVLoader の finalization が解放する。
+
+  TCXWVWindowParent（TCTabBrowser_Design.md 9.1）：WebView2 を載せる窓。
+  窓が作り直されても（AnchorDocking でのドック・切り離しなど）、WebView2 を付け直す。 }
 unit uCXRuntime;
 
 {$mode objfpc}{$H+}
 
 interface
+
+uses
+  Controls, uWVWindowParent;
+
+type
+  { WebView2 を載せる窓（TWVWindowParent を継いだもの）。
+    WebView2 は親の窓に付いて表示され、親の窓が壊されると一緒に閉じる。AnchorDocking でのドック・切り離しや、
+    Form の親の付け替えでは、LCL が窓を作り直す（壊して作る）ため、そのままでは WebView2 が閉じて何も映らなくなる。
+    WebView4Delphi は Delphi（VCL）では CM_RECREATEWND で防いでいるが、Lazarus には無いので、ここで同じことをする：
+    窓を壊す前に WebView2 を隠してデスクトップに預け、作り直したあとで新しい窓に付け直す。 }
+  TCXWVWindowParent = class(TWVWindowParent)
+  private
+    FParked: Boolean;          { WebView2 を外して預けている }
+    FParkedVisible: Boolean;   { 外す前の Browser.IsVisible }
+  protected
+    procedure CreateWnd; override;
+    procedure DestroyWnd; override;
+  end;
 
 { WebView2.ini の [WebView2] セクションから、AKey の値を返す。無ければ ''（前後の空白は除く） }
 function CXRuntimeIniValue(const AKey: string): string;
@@ -189,6 +210,40 @@ begin
     Exit(False);
   end;
   Result := True;
+end;
+
+{ ================================================================== }
+{ TCXWVWindowParent（TCTabBrowser_Design.md 9.1）                   }
+{ ================================================================== }
+
+{ 窓を壊す前：WebView2 ができていて、部品を壊すとき（csDestroying）でなければ、
+  隠してデスクトップに預ける（ParentWindow := 0。WebView4Delphi の VCL 版と同じ）。
+  部品を壊すときは預けない（WebView2 は、いつもどおり部品と一緒に閉じる） }
+procedure TCXWVWindowParent.DestroyWnd;
+begin
+  if (Browser <> nil) and Browser.Initialized and not (csDestroying in ComponentState) then
+  begin
+    FParkedVisible := Browser.IsVisible;
+    Browser.IsVisible := False;
+    Browser.ParentWindow := 0;
+    FParked := True;
+  end;
+  inherited DestroyWnd;
+end;
+
+{ 窓を作り直したあと：預けていれば、新しい窓に付け直し、元の見え方に戻して、大きさを合わせる。
+  初めて窓ができるとき（預けていない）は何もしない }
+procedure TCXWVWindowParent.CreateWnd;
+begin
+  inherited CreateWnd;
+  if not FParked then Exit;
+  FParked := False;
+  if (Browser <> nil) and Browser.Initialized then
+  begin
+    Browser.ParentWindow := Handle;
+    Browser.IsVisible := FParkedVisible;
+    UpdateSize;
+  end;
 end;
 
 end.

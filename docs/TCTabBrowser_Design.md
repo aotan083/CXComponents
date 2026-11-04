@@ -1,8 +1,8 @@
 # TCTabBrowser 設計書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-05
+版: 1.1
 
 ---
 
@@ -10,7 +10,8 @@
 
 TPageControl を元に、WebView2（WebView4Delphi の `TWVBrowser`・`TWVWindowParent`）を使ったタブ付きの Web ブラウザを作る。
 
-- 1 タブ = `TTabSheet` 1 枚 ＋ `TWVWindowParent` 1 つ ＋ `TWVBrowser` 1 つ。3 つとも `TTabSheet` が持ち主（Owner）で、タブを `Free` すると一緒に消える。
+- 1 タブ = `TTabSheet` 1 枚 ＋ `TCXWVWindowParent`（`TWVWindowParent` を継いだもの。9.1）1 つ ＋ `TWVBrowser` 1 つ。3 つとも `TTabSheet` が持ち主（Owner）で、タブを `Free` すると一緒に消える。
+- AnchorDocking でのドック・切り離しなどで、WebView2 を載せる窓が作り直されても、WebView2 を付け直して、開いていたページをそのまま表示する（9.1）。
 - タブは 0 枚にしない。最後のタブを閉じると、部品が新しいタブを作る。
 - ページが開こうとした新しいウィンドウは、常に止めて、新しいタブで開く。
 - すべてのタブで、専用のデータフォルダー（EXE\TabBrowserData）を使う。データフォルダーが違うと別のブラウザのプロセスになるため、TCMonacoEditor などがキー入力の処理で止まっている間も、このブラウザは止まらない。
@@ -22,7 +23,7 @@ TPageControl を元に、WebView2（WebView4Delphi の `TWVBrowser`・`TWVWindow
 | ファイル | パッケージ | 中身 |
 |---|---|---|
 | `uCTabBrowser.pas` | cx（実行時） | `TCTabBrowser`・`TCTabPanel` と、内部用のクラス 3 つ（3章） |
-| `uCXRuntime.pas` | cx（実行時） | WebView2.ini を読む関数と `CXStartWebView2`（9章）。TCMonacoEditor と共通 |
+| `uCXRuntime.pas` | cx（実行時） | WebView2.ini を読む関数と `CXStartWebView2`（9章）、`TCXWVWindowParent`（9.1）。TCMonacoEditor と共通 |
 | `uCXReg.pas` | cxdsgn（設計時） | パレット [CX] への登録（`RegisterComponents('CX', [..., TCTabBrowser, ...])`） |
 | `cx_icons.lrs` | cxdsgn（設計時） | アイコン（`TCTabBrowser`・`TCTabBrowser_150`・`TCTabBrowser_200`） |
 
@@ -201,7 +202,7 @@ Destroy：
 1. `if not CXStartWebView2(Err) then raise Exception.Create(Err)`（9章）。
 2. `i` を 0 ～ `PageCount` に収める。
 3. `TTabSheet` を作り（持ち主は Self）、`PageControl := Self`、`PageIndex := i`。
-4. `TWVWindowParent` を作り（持ち主はタブ）、`Parent` をタブ、`Align := alClient`。
+4. `TCXWVWindowParent`（9.1）を作り（持ち主はタブ）、`Parent` をタブ、`Align := alClient`。変数・フィールドの型は `TWVWindowParent` のまま（`TCXWVWindowParent` はその子なので、そのまま入る）。
 5. `TWVBrowser` を作り（持ち主はタブ）、次のイベントをつなぐ。
 
    | Browser のイベント | つなぐ先 |
@@ -428,6 +429,33 @@ function CXStartWebView2(out AError: string): Boolean;
 - `StartWebView2` は、ライブラリの読み込みとランタイムの版の確認までをその場で行い、既定の環境は非同期で作る。TCTabBrowser は既定の環境を使わず、タブごとに `CreateBrowser(…, False)` で `TabBrowserData` の環境を作る（ライブラリが読めていれば作れる）。
 - `GlobalWebView2Loader` は解放しない（`uWVLoader` の finalization が解放する）。
 - 失敗したローダーも残す（2 で同じエラーを返し続ける。作り直さない）。
+- `uCXRuntime` の uses：`uCXLang, Classes, SysUtils, Controls, IniFiles, uWVLoader, uWVWindowParent`（`Controls`・`uWVWindowParent` は 9.1 のため）。
+
+### 9.1 WebView2 を載せる窓（TCXWVWindowParent）
+
+WebView2 は、親の窓（`TWVWindowParent` の窓）に付いて表示される。親の窓が壊されると、WebView2 も一緒に閉じる。AnchorDocking でのドック・切り離しや、Form の親の付け替えでは、LCL が部品の窓を作り直す（壊して作る）ため、WebView2 が閉じて何も映らなくなる。WebView4Delphi は Delphi（VCL）では `CM_RECREATEWND` でこれを防いでいるが、Lazarus にはこの通知が無く、手当てが入っていない。そこで、`TWVWindowParent` を継いだ部品で、窓を作り直す前に WebView2 を外して預け、作り直したあとで付け直す（WebView4Delphi の VCL 版と同じやり方）。
+
+```pascal
+type
+  TCXWVWindowParent = class(TWVWindowParent)
+  private
+    FParked: Boolean;          // WebView2 を外して預けている
+    FParkedVisible: Boolean;   // 外す前の Browser.IsVisible
+  protected
+    procedure CreateWnd; override;
+    procedure DestroyWnd; override;
+  end;
+```
+
+| 手続き | 処理 |
+|---|---|
+| `DestroyWnd` | `Browser` があり、`Browser.Initialized` で、`csDestroying` でない（部品を壊すときではない）ときだけ：`FParkedVisible := Browser.IsVisible`、`Browser.IsVisible := False`、`Browser.ParentWindow := 0`（デスクトップに預ける。WebView4Delphi の VCL 版と同じ）、`FParked := True`。そのあと `inherited DestroyWnd` |
+| `CreateWnd` | `inherited CreateWnd`。`FParked` なら：`FParked := False`。`Browser` があり `Browser.Initialized` なら、`Browser.ParentWindow := Handle`、`Browser.IsVisible := FParkedVisible`、`UpdateSize`（WebView2 の大きさを新しい窓に合わせる） |
+
+- 部品を壊すとき（`csDestroying`）は預けない。WebView2 は、いつもどおり部品と一緒に閉じる。
+- 預けている間（窓を壊してから作り直すまで）は、`IsVisible := False` で隠しておくので、デスクトップには出ない。
+- まだ WebView2 ができていない（`Initialized` でない）ときは何もしない。初めて窓ができるとき（`FParked` が `False`）も何もしない。
+- 使う側（TCTabBrowser・TCMonacoEditor の本文とプレビュー）は、`TWVWindowParent.Create` を `TCXWVWindowParent.Create` に替えるだけ。ほかの使い方は変えない。
 
 ## 10. 不具合を調べるときの見どころ
 
@@ -445,3 +473,26 @@ function CXStartWebView2(out AError: string): Boolean;
 | 最後のタブを閉じるたびに作り直される | `OnNewTabRequest` の URL と `Source` の書き方の違い（7.10） |
 | TCMonacoEditor と一緒に固まる | `UserDataFolder := FDataFolder` と `CreateBrowser(…, False)`（7.1） |
 | キャッシュの上限が効かない | tabbrowser.json の場所（7.11）、`AdditionalBrowserArguments` |
+| ドック・切り離しのあと、前からあるタブが映らない | タブの窓が `TCXWVWindowParent` か（7.1 の 4）、`DestroyWnd` で預けたか・`CreateWnd` で付け直したか（`FParked`。9.1）。`Browser.ParentWindow` が新しい窓の `Handle` になっているか |
+
+## 11. この版の変更（1.1）
+
+コードを直すための手順。取説には入れない。
+
+### 11.1 今と変更後
+
+| No | 項目 | 今（1.0）の動作・問題点 | 変更後（1.1） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | 窓が作り直されたとき（AnchorDocking でのドック・切り離し、Form の親の付け替え） | WebView2 が古い窓と一緒に閉じ、そのタブには何も映らなくなる（灰色）。AnchorDocking の確認用アプリで、ドックの後に `Browser.ParentWindow` が 0 になることを確かめた | WebView2 を外して預け、新しい窓に付け直す。開いていたページはそのまま映る（9.1） | AnchorDocking で機能ごとに Form を分けたアプリで使えるようにする | 付け直す間、少しちらつくことがある。預けるのに失敗したときは 1.0 と同じ（映らない） |
+| 2 | タブの窓の部品 | `TWVWindowParent` | `TCXWVWindowParent`（`TWVWindowParent` を継いだもの） | 1 のため | 型は `TWVWindowParent` の子なので、`FindWindowParent` などの `is TWVWindowParent` はそのまま通る |
+
+### 11.2 直す所
+
+| No | ファイル | 変更 |
+|---|---|---|
+| 1 | `uCXRuntime.pas` | interface に `TCXWVWindowParent` を足す（9.1）。uses に `Controls`・`uWVWindowParent` を足す |
+| 2 | `uCTabBrowser.pas` | `Insert` の `TWVWindowParent.Create` を `TCXWVWindowParent.Create` に替える（7.1 の 4） |
+| 3 | `uCmmonacoview.pas`・`uCmdpreview.pas` | `TCMonacoEditor_Design.md` 13章 |
+| 4 | WebView4Delphi | 変更なし（手を入れない） |
+
+- 公開しているプロパティ・メソッド・イベントは変えない。
