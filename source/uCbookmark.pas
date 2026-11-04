@@ -148,6 +148,8 @@ type
     FLastSel: TCBookmarkItem;     { 最後に OnSelectionChange で知らせた選択（比べるだけ。中身は触らない） }
     FAppTarget: TControl;         { ドラッグ中、マウスの下にある同じアプリの部品 }
     FAppAccept: Boolean;          { FAppTarget の OnDragOver が受けると答えたか }
+    FEditorTarget: TControl;      { ドラッグ中、マウスの下にあり、自分で開く先のエディタ（TCSynEdit・TCsEditor・TCMonacoEditor） }
+    FEditorFile: string;          { FEditorTarget で開くファイル（.lnk はリンク先にしたもの） }
     FOleDragging: Boolean;        { 自分で始めた OLE のドラッグ中（自分のツリーでは受けない） }
 
     FDataDir: string;             { exe のフォルダー\bookmark\ }
@@ -277,6 +279,12 @@ type
     procedure DragMoveTo(X, Y: Integer);
     procedure LeaveAppTarget;
     function IsOwnPart(AControl: TControl): Boolean;
+    { エディタへのドロップ（設計書 11.5） }
+    function EditorOf(AControl: TControl): TControl;
+    function AppControlOf(W: HWND): TControl;
+    function DropFileOf(AItem: TCBookmarkItem): string;
+    procedure SetEditorTarget(AEditor: TControl);
+    procedure OpenInDropEditor(AEditor: TControl; const APath: string);
     function CanOleDrag(AItem: TCBookmarkItem): Boolean;
     procedure StartOleDrag;
     procedure UpdateInternalDrag(X, Y: Integer);
@@ -356,7 +364,8 @@ implementation
 
 uses
   uCXLang,
-  ShellApi, ShlObj, Clipbrd, IniFiles, fpjson, jsonparser, base64, DateUtils, Math, LazUTF8;
+  ShellApi, ShlObj, Clipbrd, IniFiles, fpjson, jsonparser, base64, DateUtils, Math, LazUTF8,
+  cSynedit, uCsEditor;   { エディタへのドロップで、落とす先の型を見分けるため（設計書 11.5） }
 
 const
   CBMaxFetch = 4;                 { 同時に取りに行く数 }
@@ -1706,6 +1715,12 @@ begin
   if Operation <> opRemove then Exit;
   if AComponent = FTargetBrowser then FTargetBrowser := nil
   else if AComponent = FTargetEditor then FTargetEditor := nil;
+  { ドラッグ中に、開く先にしていたエディタが消えた }
+  if AComponent = FEditorTarget then
+  begin
+    FEditorTarget := nil;
+    FEditorFile := '';
+  end;
 end;
 
 procedure TCBookmark.SetTargetBrowser(AValue: TCTabBrowser);
@@ -3841,7 +3856,7 @@ var
   P, SP, LP: TPoint;
   W: HWND;
   Pid: DWORD;
-  C: TControl;
+  C, E: TControl;
   St: TDragState;
 begin
   if (X >= 0) and (Y >= 0) and (X < FTree.ClientWidth) and (Y < FTree.ClientHeight) then
@@ -3864,6 +3879,27 @@ begin
     { 同じアプリの部品（TCBookmark とその中の部品は除く） }
     C := FindDragTarget(SP, False);
     if (C <> nil) and IsOwnPart(C) then C := nil;
+    { アプリが OnDragOver を書いていないエディタの上：自分で開く先にする（設計書 11.5） }
+    if (C <> nil) and not Assigned(TCBControlAccess(C).OnDragOver) then
+    begin
+      E := EditorOf(C);
+      if E <> nil then
+      begin
+        SetEditorTarget(E);
+        Exit;
+      end;
+    end;
+    { LCL の部品ではない窓（WebView2 が作った窓）：親の LCL の部品が TCMonacoEditor なら、自分で開く先にする }
+    if (C = nil) and not IsOwnPart(AppControlOf(W)) then
+    begin
+      E := EditorOf(AppControlOf(W));
+      if E is TCMonacoEditor then
+      begin
+        SetEditorTarget(E);
+        Exit;
+      end;
+    end;
+    if FEditorTarget <> nil then LeaveAppTarget;   { エディタの上から、ほかの部品の上へ移った }
     if C <> FAppTarget then
     begin
       LeaveAppTarget;
@@ -3882,6 +3918,17 @@ begin
   end
   else
   begin
+    { 別のプロセスの窓でも、親がこのアプリの TCMonacoEditor なら（中の WebView2）、
+      OLE のドラッグに移さず、自分で開く先にする（設計書 11.5） }
+    if W <> 0 then
+    begin
+      E := EditorOf(AppControlOf(W));
+      if E is TCMonacoEditor then
+      begin
+        SetEditorTarget(E);
+        Exit;
+      end;
+    end;
     { アプリの外 }
     LeaveAppTarget;
     if CanOleDrag(FDragItem) then
@@ -3898,6 +3945,10 @@ var
   LP: TPoint;
   Acc: Boolean;
 begin
+  { 自分で開く先にしていたエディタを外す（エディタには何も知らせない。設計書 11.5） }
+  if FEditorTarget <> nil then FEditorTarget.RemoveFreeNotification(Self);
+  FEditorTarget := nil;
+  FEditorFile := '';
   C := FAppTarget;
   FAppTarget := nil;
   FAppAccept := False;
@@ -3918,6 +3969,142 @@ begin
   begin
     if P = Self then Exit(True);
     P := P.Parent;
+  end;
+end;
+
+{ ---- エディタへのドロップ（設計書 11.5） ---- }
+
+{ AControl か、その親の中にあるエディタを返す（無ければ nil）。
+  TCsEditor の中のページのエディタは TCSynEdit を継いでいるので、TCsEditor・TCMonacoEditor を先に探し、
+  見つからなかったときだけ、最初に見つけた TCSynEdit を返す（中のエディタへ直接読み込まないため） }
+function TCBookmark.EditorOf(AControl: TControl): TControl;
+var
+  P, Syn: TControl;
+begin
+  Syn := nil;
+  P := AControl;
+  while P <> nil do
+  begin
+    if (P is TCsEditor) or (P is TCMonacoEditor) then Exit(P);
+    if (Syn = nil) and (P is TCSynEdit) then Syn := P;
+    P := P.Parent;
+  end;
+  Result := Syn;
+end;
+
+{ W から親の窓をたどり、自分のプロセスの窓で、LCL の部品がある最初の窓の部品を返す（無ければ nil）。
+  TCMonacoEditor の中の WebView2 の窓は、別のプロセスのものや、WebView2 が自分で作った窓（LCL の部品ではない）なので、
+  その親の、このアプリの LCL の部品まで上る }
+function TCBookmark.AppControlOf(W: HWND): TControl;
+var
+  H: HWND;
+  Pid: DWORD;
+begin
+  Result := nil;
+  H := W;
+  while H <> 0 do
+  begin
+    Pid := 0;
+    GetWindowThreadProcessId(H, @Pid);
+    if Pid = GetCurrentProcessId then
+    begin
+      Result := FindControl(H);
+      if Result <> nil then Exit;
+    end;
+    H := GetParent(H);
+  end;
+end;
+
+{ エディタで開くファイル。ファイルの項目で、ファイルが本当にあるときだけ返す（それ以外は ''）。
+  フォルダーごと取り込んだ .lnk は、リンク先にする（リンク先がフォルダー・読めないときは ''） }
+function TCBookmark.DropFileOf(AItem: TCBookmarkItem): string;
+var
+  P: string;
+begin
+  Result := '';
+  if (AItem = nil) or (AItem.FKind <> bkFile) then Exit;
+  P := AItem.FLocation;
+  if LowerCase(ExtractFileExt(P)) = '.lnk' then P := CBResolveLink(P);
+  if (P = '') or not FileExists(P) or DirectoryExists(P) then Exit;
+  Result := P;
+end;
+
+{ マウスの下のエディタを、自分で開く先にする。
+  前の「同じアプリの部品」（OnDragOver を持つ部品）があれば、dsDragLeave を知らせて外す。
+  カーソルは、開けるファイルなら crDrag、開けない項目（URL など）なら crNoDrop }
+procedure TCBookmark.SetEditorTarget(AEditor: TControl);
+var
+  C: TControl;
+  LP: TPoint;
+  Acc: Boolean;
+begin
+  C := FAppTarget;
+  FAppTarget := nil;
+  FAppAccept := False;
+  if C <> nil then
+  begin
+    LP := C.ScreenToClient(Mouse.CursorPos);
+    Acc := False;
+    TCBControlAccess(C).DragOver(Self, LP.X, LP.Y, dsDragLeave, Acc);
+  end;
+  if AEditor <> FEditorTarget then
+  begin
+    if FEditorTarget <> nil then FEditorTarget.RemoveFreeNotification(Self);
+    FEditorTarget := AEditor;
+    if FEditorTarget <> nil then FEditorTarget.FreeNotification(Self);
+    FEditorFile := DropFileOf(FDragItem);
+  end;
+  if FEditorFile <> '' then Screen.Cursor := crDrag else Screen.Cursor := crNoDrop;
+end;
+
+{ エディタにファイルを落とされたときと同じ動きで開く（それぞれの部品の公開されている API だけを使う）。
+  TCSynEdit：OnDropFilesEvent があればそれ、無ければ LoadFromFile（今の中身を読み替える）。
+  TCsEditor・TCMonacoEditor：OnFileDrop に知らせ、Handled でなく OpenDroppedFiles なら OpenFile（新しいタブ） }
+procedure TCBookmark.OpenInDropEditor(AEditor: TControl; const APath: string);
+var
+  L: TStringList;
+  Handled: Boolean;
+  Syn: TCSynEdit;
+  SEd: TCsEditor;
+  Mon: TCMonacoEditor;
+begin
+  try
+    if AEditor is TCSynEdit then
+    begin
+      Syn := TCSynEdit(AEditor);
+      if Assigned(Syn.OnDropFilesEvent) then
+        Syn.OnDropFilesEvent(Syn, [APath])
+      else
+        Syn.LoadFromFile(APath);
+      if Syn.CanFocus then Syn.SetFocus;
+    end
+    else if (AEditor is TCsEditor) or (AEditor is TCMonacoEditor) then
+    begin
+      L := TStringList.Create;
+      try
+        L.Add(APath);
+        Handled := False;
+        if AEditor is TCsEditor then
+        begin
+          SEd := TCsEditor(AEditor);
+          if Assigned(SEd.OnFileDrop) then SEd.OnFileDrop(SEd, L, Handled);
+          if not Handled and SEd.OpenDroppedFiles then
+            if (SEd.OpenFile(APath) >= 0) and SEd.CanFocus then SEd.SetFocus;
+        end
+        else
+        begin
+          Mon := TCMonacoEditor(AEditor);
+          if Assigned(Mon.OnFileDrop) then Mon.OnFileDrop(Mon, L, Handled);
+          if not Handled and Mon.OpenDroppedFiles then
+            if (Mon.OpenFile(APath) >= 0) and Mon.CanFocus then Mon.SetFocus;
+        end;
+      finally
+        L.Free;
+      end;
+    end;
+  except
+    on E: Exception do
+      MessageDlg(Format(CXT(sBmOpenError), [APath + ' : ' + E.Message]), mtError, [mbOK], 0);
   end;
 end;
 
@@ -4022,12 +4209,22 @@ procedure TCBookmark.EndInternalDrag(ADrop: Boolean);
 var
   C: TControl;
   LP: TPoint;
+  P: string;
 begin
   FDragActive := False;
   FDragArmed := False;
   FTree.MouseCapture := False;
   Screen.Cursor := crDefault;
   if not ADrop then FDropOk := False;
+  { エディタの上で離した：開けるファイルなら、そのエディタで開く（設計書 11.5） }
+  if FEditorTarget <> nil then
+  begin
+    C := FEditorTarget;
+    P := FEditorFile;
+    LeaveAppTarget;
+    FDropOk := False;
+    if ADrop and (P <> '') then OpenInDropEditor(C, P);
+  end;
   { 同じアプリの部品の上で離した：受けると答えていれば OnDragDrop を呼ぶ。
     呼んでいる間も DragItem で項目を取り出せる（FinishInternalDrop の前に呼ぶ） }
   if FAppTarget <> nil then

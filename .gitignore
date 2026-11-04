@@ -15,6 +15,7 @@ backup/
 WebView2Loader.dll
 runtime/chat/
 docs/test_docs/
+test/
 THIRD_PARTY/
 RULES.md
 CLAUDE.md

@@ -1,8 +1,8 @@
 # TCBookmark 設計書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-05
+版: 1.1
 
 ---
 
@@ -17,10 +17,11 @@ Firefox のブックマーク画面のような、ブックマーク管理の部
 | 3 | データは保存先のフォルダーの JSON。変わるたびにすぐ保存する（アプリが保存のコードを書かない） |
 | 4 | インポート・エクスポートは Netscape Bookmark File Format（HTML）だけ。ブラウザの内部ファイルは読み書きしない |
 | 5 | 色はシステム色だけを使う（MetaDarkStyle がダーク用に切り替える）。部品は自分でテーマを判定しない |
-| 6 | TCTabBrowser・TCMonacoEditor には手を入れず、公開されている API だけを使う |
+| 6 | TCTabBrowser・TCMonacoEditor・TCsEditor・TCSynEdit には手を入れず、公開されている API だけを使う |
 | 7 | ドラッグは LCL のドラッグの仕組み（`BeginDrag`・`OnDragOver`・`OnDragDrop`・`OnEndDrag`）を使わず、マウスの通知で自分で行う。LCL の仕組みでは、離したときの通知の順番・有無が当てにならず、動かないことがあったため |
 | 8 | 外からの D&D の受け取りは、ユニットの中の小さな `IDropTarget` で行う（CShellOleDrop は使わない） |
 | 9 | マウス・キー・メニューの操作は、protected の virtual メソッド（14章）を呼ぶだけにする。継承したクラスから直接呼んで確かめられるようにする |
+| 10 | ファイルの項目を、同じアプリの TCSynEdit・TCsEditor・TCMonacoEditor へドラッグしたら、アプリがコードを書かなくても、そのエディタで開く（11.5）。エディタに落とすのは「ブックマークが指すファイルを編集する」ためで、URL は受けない。ブックマークの名前・場所を直すのは「ブックマークを編集」（10.2） |
 
 ## 2. ファイルとパッケージ
 
@@ -31,7 +32,7 @@ Firefox のブックマーク画面のような、ブックマーク管理の部
 | `cbookmark_icon.lrs` | cxdsgn（設計時） | アイコン（リソース名 `tcbookmark`・`tcbookmark_150`・`tcbookmark_200`（IDE は大文字小文字を区別せずに探す）。24・36・48px の PNG。白い紙に青い栞を重ねた絵） |
 
 - `uCbookmark` の uses：`Windows, Classes, SysUtils, Controls, Forms, StdCtrls, ComCtrls, ExtCtrls, Menus, Graphics, Dialogs, LCLType, ActiveX, uCmonacos, uCTabBrowser`
-- implementation の uses：`ShellApi, ShlObj, Clipbrd, IniFiles, fpjson, jsonparser, base64, DateUtils, Math, LazUTF8`
+- implementation の uses：`ShellApi, ShlObj, Clipbrd, IniFiles, fpjson, jsonparser, base64, DateUtils, Math, LazUTF8, cSynedit, uCsEditor`（`cSynedit`・`uCsEditor` は 11.5 で型を見分けるため。interface には出さない。`cSynedit`・`uCsEditor` は `uCbookmark` を使わないので、ぐるぐる参照にならない）
 - `uCbookmark_reg` の uses：`Classes, LResources, uCbookmark`
 - `{$mode objfpc}{$H+}`。
 - Windows の API（`OleInitialize`・`RegisterDragDrop`・`RevokeDragDrop`・`ReleaseStgMedium`・`DragQueryFileW`・`CreateIconFromResourceEx`・`MoveFileExW`・`SHDoDragDrop`・`SHCreateStdEnumFmtEtc`・`ILCreateFromPathW`・`SHBindToParent`・`CoCreateInstance`・`RegisterClipboardFormatW`・WinINet の `InternetOpenW`・`InternetOpenUrlW`・`InternetReadFile`・`InternetCloseHandle`・`InternetSetOptionW`・`HttpQueryInfoW`）は、FPC の宣言の違いで困らないよう、`CB` を付けた名前でユニットの中で `external` 宣言する。`IDropTarget`（`ICBDropTarget`）・`IDataObject`（`ICBDataObject`）・`IShellLinkW`（`ICBShellLinkW`）・`IPersistFile`（`ICBPersistFile`）・`FILEDESCRIPTORW`（`TCBFileDescriptorW`）も、Windows の定義どおりの並びで宣言する。
@@ -204,6 +205,8 @@ function CBHostOf(const AUrl: string): string;
 | `FExtDragging` | `Boolean` | `False` | 外からの D&D 中 |
 | `FAppTarget` | `TControl` | nil | ドラッグ中、マウスの下にある同じアプリの部品 |
 | `FAppAccept` | `Boolean` | `False` | その部品の `OnDragOver` が受けると答えた |
+| `FEditorTarget` | `TControl` | nil | ドラッグ中、マウスの下にあり、TCBookmark が自分で開く先のエディタ（TCSynEdit・TCsEditor・TCMonacoEditor。11.5） |
+| `FEditorFile` | `string` | '' | `FEditorTarget` で開くファイル（`.lnk` はリンク先にしたもの。11.5） |
 | `FOleDragging` | `Boolean` | `False` | 自分で始めた OLE のドラッグ中（自分のツリーでは受けない） |
 | `FPopupItem` | `TCBookmarkItem` | nil | 右クリックした項目（nil = 何も無い所） |
 | `FClip` | `TCBookmarkItem` | nil | コピーした写し（持ち主は TCBookmark） |
@@ -269,7 +272,7 @@ function CBHostOf(const AUrl: string): string;
 ### 6.5 Notification・開く先
 
 - `SetTargetBrowser`・`SetTargetEditor`：前の値から `RemoveFreeNotification`、新しい値に `FreeNotification`。
-- `Notification`：`opRemove` で開く先が消えたら nil にする。
+- `Notification`：`opRemove` で開く先が消えたら nil にする。`FEditorTarget` が消えたら `FEditorTarget := nil`・`FEditorFile := ''`（11.5 で `FreeNotification` を付けたもの）。
 
 ## 7. データ
 
@@ -562,12 +565,15 @@ function CBHostOf(const AUrl: string): string;
 | マウスの位置 | 処理 |
 |---|---|
 | ツリーの中 | `LeaveAppTarget`、`UpdateInternalDrag` |
-| 同じアプリ（`WindowFromPoint` のウィンドウのプロセスが自分） | `FDropOk := False`、`HideIndicator`。`FindDragTarget(画面の位置, False)` の部品（TCBookmark とその中の部品は除く。`IsOwnPart`）。前と違えば `LeaveAppTarget` して `dsDragEnter`、同じなら `dsDragMove`。部品があれば `TCBControlAccess(部品).DragOver(Self, X, Y, 状態, FAppAccept)`。受けるなら `crDrag`、でなければ `crNoDrop` |
+| 同じアプリ（`WindowFromPoint` のウィンドウのプロセスが自分） | `FDropOk := False`、`HideIndicator`。`C := FindDragTarget(画面の位置, False)`（TCBookmark とその中の部品は nil にする。`IsOwnPart`）。`C` があり、`TCBControlAccess(C).OnDragOver` が nil で、`EditorOf(C)`（11.5）が nil でなければ、11.5 の「エディタの上」。`C` が nil（LCL の部品ではない窓。WebView2 が作った窓など）で、`AppControlOf(W)` が `IsOwnPart` でなく、その `EditorOf` が TCMonacoEditor なら、同じく「エディタの上」。それ以外は次のとおり（1.0 と同じ）：`FEditorTarget` があれば `LeaveAppTarget`。`C` が前と違えば `LeaveAppTarget` して `dsDragEnter`、同じなら `dsDragMove`。`C` があれば `TCBControlAccess(C).DragOver(Self, X, Y, 状態, FAppAccept)`。受けるなら `crDrag`、でなければ `crNoDrop` |
+| 別のプロセスのウィンドウで、親をたどると自分のプロセスのウィンドウがある（TCMonacoEditor の中の WebView2 など） | `EditorOf(AppControlOf(W))`（11.5）が TCMonacoEditor なら、`FDropOk := False`、`HideIndicator`、11.5 の「エディタの上」。そうでなければ、次の「アプリの外」と同じ |
 | アプリの外 | `LeaveAppTarget`。`CanOleDrag(FDragItem)`（URL か、ある ファイル）なら `StartOleDrag`、でなければ `crNoDrop`（ドラッグは続ける） |
 
-`LeaveAppTarget`：`FAppTarget` があれば外し、`DragOver(…, dsDragLeave, …)` を知らせる。
+`LeaveAppTarget`：`FAppTarget` があれば外し、`DragOver(…, dsDragLeave, …)` を知らせる。`FEditorTarget` があれば `RemoveFreeNotification(FEditorTarget)`、`FEditorTarget := nil`、`FEditorFile := ''`（エディタには何も知らせない）。
 
-`EndInternalDrag` の同じアプリの部品：落とすときで `FAppAccept` なら、部品を外してから `DragDrop(Self, X, Y)`（例外は `Application.HandleException`）。`FinishInternalDrop` の前に呼ぶので、`OnDragDrop` の中でも `DragItem` が使える。落とさないなら `LeaveAppTarget`。
+`EndInternalDrag` の同じアプリの部品：
+- `FEditorTarget` があるとき：落とすときで `FEditorFile` が空でなければ、`E := FEditorTarget`・`P := FEditorFile` を取ってから `LeaveAppTarget`、`OpenInDropEditor(E, P)`（11.5）。落とさないなら `LeaveAppTarget`。
+- それ以外（1.0 と同じ）：落とすときで `FAppAccept` なら、部品を外してから `DragDrop(Self, X, Y)`（例外は `Application.HandleException`）。`FinishInternalDrop` の前に呼ぶので、`OnDragDrop` の中でも `DragItem` が使える。落とさないなら `LeaveAppTarget`。
 
 `StartOleDrag`：
 
@@ -592,6 +598,32 @@ function CBHostOf(const AUrl: string): string;
 - どれも `TYMED_HGLOBAL`。`GetData` で毎回 `GlobalAlloc` して渡す（受けた側が解放する）。`QueryGetData` は形式があれば `S_OK`。`EnumFormatEtc` は `DATADIR_GET` だけ `SHCreateStdEnumFmtEtc`。`GetDataHere`・`GetCanonicalFormatEtc`・`SetData` は `E_NOTIMPL`、`DAdvise` 系は `OLE_E_ADVISENOTSUPPORTED`。
 - `CBSafeFileName`：`Trim`、`\ / : * ? " < > |` と制御文字を `_`、末尾の `.`・空白を除く、200 文字まで。空ならホストの `CBHostFileKey`、それも空なら 'link'。
 - `CBUrlToAscii`：128 以上のバイトを `%XX` にする。
+
+### 11.5 エディタへのドロップ
+
+ファイルの項目を、同じアプリの TCSynEdit・TCsEditor・TCMonacoEditor へ落としたら、エクスプローラーからそのファイルを落としたときと同じ動きで開く。アプリのコードは要らない。落とす先にアプリが `OnDragOver` を書いていれば、そちらを使う（11.4。1.0 と同じ）。
+
+| 関数・手続き | 処理 |
+|---|---|
+| `EditorOf(C): TControl` | `C` から `Parent` をたどる。途中に TCsEditor か TCMonacoEditor があれば、それを返す。無ければ、たどった中で最初の TCSynEdit を返す。どれも無ければ nil。TCsEditor の中のページのエディタは TCSynEdit を継いでいるので、TCsEditor を先に見つける（中のエディタに直接読み込まない） |
+| `AppControlOf(W): TControl` | `W` から `GetParent` をたどり、`GetWindowThreadProcessId` のプロセスが自分で、`FindControl` が部品を返す最初の窓の、その部品を返す。無ければ nil。TCMonacoEditor の中の WebView2 の窓は、別のプロセスのものと、WebView2 が自分のプロセスに作った窓（LCL の部品ではない）があるため、LCL の部品まで上る |
+| `DropFileOf(It): string` | `It` が nil か、種類が `bkFile` でなければ ''。`P := FLocation`。拡張子が `.lnk`（大文字小文字を区別しない）なら `P := CBResolveLink(P)`。`P` が空、`FileExists(P)` が `False`、`DirectoryExists(P)` が `True` のどれかなら ''。それ以外は `P` |
+| `SetEditorTarget(E)` | `FAppTarget` があれば、`dsDragLeave` を知らせて外す（`FAppTarget := nil`、`FAppAccept := False`）。`E` が `FEditorTarget` と違えば：前があれば `RemoveFreeNotification`、`FEditorTarget := E`、`FreeNotification(E)`、`FEditorFile := DropFileOf(FDragItem)`。カーソルは、`FEditorFile` が空でなければ `crDrag`、空なら `crNoDrop` |
+| `OpenInDropEditor(E, P)` | 下の表。例外は受けて「開けません：（P : 理由）」（`mtError`。9.3 と同じ文） |
+
+`OpenInDropEditor` の開き方（エクスプローラーから落としたときの、それぞれの部品の動きと同じ）：
+
+| `E` の種類 | 処理 |
+|---|---|
+| TCSynEdit | `OnDropFilesEvent` があれば `OnDropFilesEvent(E, [P])`、無ければ `LoadFromFile(P)`。そのあと `SetFocus` |
+| TCsEditor | `L := TStringList`（`P` の 1 行）、`Handled := False`。`OnFileDrop` があれば `OnFileDrop(E, L, Handled)`。`Handled` でなく `OpenDroppedFiles` が `True` なら、`OpenFile(P) >= 0` のとき `SetFocus`。`L` は finally で解放 |
+| TCMonacoEditor | TCsEditor と同じ |
+
+- 使うのは、それぞれの部品の公開されているプロパティ・メソッドだけ（方針 6）。エディタの部品には手を入れない。
+- 呼ぶのは、マウスのボタンを離したあと（`EndInternalDrag` の中。マウスの捕まえは外してある）。
+- URL・フォルダー・区切り線・無いファイルは、`DropFileOf` が '' なので `crNoDrop`。落としても何もしない。
+- TCSynEdit は文書を 1 つしか持たないので、`OnDropFilesEvent` が無ければ、今の中身を読み替える（エクスプローラーから落としたときと同じ）。
+- TCMonacoEditor の WebView2 の上では、OLE のドラッグに移さない（11.4）。このため、1.0 で起きていた「URL の項目を落とすと、`.url` の仮のファイルがタブで開く」ことは起きない。
 
 ## 12. インポート・エクスポート
 
@@ -685,5 +717,35 @@ function CBHostOf(const AUrl: string): string;
 | ドロップしたのに登録されない | `AsyncExternalDrop`、`FPendingTarget` がツリーにあるか（11.1） |
 | 外へドラッグできない | `DragMoveTo` の `WindowFromPoint`、`CanOleDrag`、`CBGetShellDataObject`（11.4） |
 | 同じアプリの部品に渡らない | `FindDragTarget`・`IsOwnPart`、部品の `OnDragOver`（11.4） |
+| エディタに落としても開かない | `EditorOf` が見つけるか、落とす先の `OnDragOver` が nil か（11.4）、`DropFileOf` が ''（URL・無いファイル・.lnk のリンク先が読めない）でないか（11.5） |
+| TCMonacoEditor の上で OLE のドラッグになる | `AppControlOf` が LCL の部品まで上れているか、その `EditorOf` が TCMonacoEditor か（11.4・11.5） |
+| TCsEditor の中のページに直接読み込まれる | `EditorOf` が TCsEditor を先に探しているか（11.5） |
 | ファイルが別のタブで開かれない・エラー | `OpenInEditor` の順番（9.3） |
 | インポートで件数が 0 | `ParseHtml` のタグの読み方、`NewLink` で決められない HREF（12.1） |
+
+## 16. この版の変更（1.1）
+
+コードを直すための手順。取説には入れない。
+
+### 16.1 今と変更後
+
+| No | 項目 | 今（1.0）の動作・問題点 | 変更後（1.1） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | ファイルの項目 → TCSynEdit・TCsEditor | アプリが `OnDragOver`・`OnDragDrop` を書かないと受けない（×）。TCsEditor は、ページのエディタごとにイベントを付け直すコードまで要る | コードを書かなくても、エクスプローラーから落としたときと同じ動きで開く（11.5） | 「ブックマークが指すファイルを編集する」ために、アプリのコードを要らなくする | 今まで × だった所で開くようになる（意図した変更）。TCSynEdit は今の中身を読み替える（エクスプローラーから落としたときと同じ） |
+| 2 | ファイルの項目 → TCMonacoEditor | WebView2 の上が「アプリの外」になり、OLE のドラッグ（効果 リンクだけ）に移る。TCMonacoEditor はコピーでしか受けないので、何も起きない。アプリのコードでも直せない | 親の窓をたどって自分のアプリの TCMonacoEditor と分かれば、OLE に移さず、11.5 で開く | 1 と同じ | 見分けに失敗したときは、1.0 と同じ動き（OLE のドラッグ）になる |
+| 3 | URL の項目 → TCMonacoEditor | OLE のドラッグで、`.url` の仮のファイル（`名前.download`）がタブで開く | 受けない（×） | エディタに落とすのはファイルを編集するためで、URL は対象にしない | なし |
+| 4 | アプリが `OnDragOver` を書いた部品 | アプリのコードが受ける | 変えない（アプリのコードを先に使う） | 動いている I/F を変えない（RULES 8） | なし |
+| 5 | uses | implementation は `… LazUTF8` まで | `cSynedit, uCsEditor` を足す | 11.5 で型を見分けるため | 同じ cx パッケージの中なので、パッケージの構成は変わらない |
+
+### 16.2 直す所
+
+| No | ファイル | 変更 |
+|---|---|---|
+| 1 | `uCbookmark.pas` | implementation の uses に `cSynedit, uCsEditor` を足す（2章） |
+| 2 | `uCbookmark.pas` | フィールド `FEditorTarget`・`FEditorFile` を足す（5.2） |
+| 3 | `uCbookmark.pas` | private に `EditorOf`・`AppControlOf`・`DropFileOf`・`SetEditorTarget`・`OpenInDropEditor` を足す（11.5） |
+| 4 | `uCbookmark.pas` | `DragMoveTo`・`LeaveAppTarget`・`EndInternalDrag` を 11.4 のとおりに直す |
+| 5 | `uCbookmark.pas` | `Notification` で `FEditorTarget` が消えたら nil にする（6.5） |
+| 6 | `uCbookmark_reg.pas`・ほかの部品のファイル | 変更なし |
+
+- 公開しているプロパティ・メソッド・イベントは変えない。
