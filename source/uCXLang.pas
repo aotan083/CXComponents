@@ -50,7 +50,7 @@ type
     sErrMonacoLoader, sErrPreviewHtml, sErrPrintDialog, sErrPageRange, sErrAlreadyOpen, sErrFileNotFound,
     sErrOpenOtherWindow, sErrMoveOtherWindow, sErrNoPrintPage, sErrPreviewBinder, sErrTabBinder, sErrIniMissing,
     sErrWebView2Start, sTbClose, sTbNew, sTbTabTitle, sPcNew, sPcClose,
-    sPcRename, sPcNewPage, sPcErrParent, sSbErrParent, sTitleErrOnlyOne, sLvColName,
+    sPcRename, sPcNewPage, sPcErrParent, sSbErrParent, sTitleErrOnlyOne, sEpErrChild, sLvColName,
     sLvColSize, sLvColType, sLvColDate, sLvFolderType, sLvErrOpen, sLvErrBadChars,
     sLvViewLarge, sLvViewSmall, sLvViewList, sLvViewDetail, sLvSortName, sLvSortSize,
     sLvSortType, sLvSortDate, sLvSortAsc, sLvSortDesc, sLvMenuView, sLvMenuSort,
@@ -335,6 +335,9 @@ const
      En: 'TCSideBarPage can only be placed on a TCSideBar'),
     (Ja: 'TCTitleBar は1つのフォームに1つだけ置けます';
      En: 'Only one TCTitleBar can be placed on a form'),
+    { H2. TCExpandPanel }
+    (Ja: 'TCExpandPanel には TCRollout だけを入れられます';
+     En: 'Only a TCRollout can be placed on a TCExpandPanel'),
     { I. TCListView・TCTreeView }
     (Ja: '名前';
      En: 'Name'),

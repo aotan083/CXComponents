@@ -8,7 +8,7 @@ unit cxdsgn;
 interface
 
 uses
-  uCXReg, uCSideBarReg, uCPageControl_reg, uCbookmark_reg, LazarusPackageIntf;
+  uCXReg, uCSideBarReg, uCExpandPanelReg, uCPageControl_reg, uCbookmark_reg, LazarusPackageIntf;
 
 implementation
 
@@ -16,6 +16,7 @@ procedure Register;
 begin
   RegisterUnit('uCXReg', @uCXReg.Register);
   RegisterUnit('uCSideBarReg', @uCSideBarReg.Register);
+  RegisterUnit('uCExpandPanelReg', @uCExpandPanelReg.Register);
   RegisterUnit('uCPageControl_reg', @uCPageControl_reg.Register);
   RegisterUnit('uCbookmark_reg', @uCbookmark_reg.Register);
 end;

@@ -20,6 +20,7 @@ Author: aotan083 / License: MIT
 | TCCheckListBox | TCheckListBox that can be limited to a single check | [Usage](docs/en/TCCheckListBox_Usage.md) | [Design](docs/en/TCCheckListBox_Design.md) |
 | TCGroupBox / TCCheckGroupBox | Group box whose child controls never disappear, and a group box with a check box in its caption | [Usage](docs/en/TCGroupBox_Usage.md) | [Design](docs/en/TCGroupBox_Design.md) |
 | TCSideBar | Edge-style icon bar with a collapsible panel | [Usage](docs/en/TCSideBar_Usage.md) | [Design](docs/en/TCSideBar_Design.md) |
+| TCExpandPanel / TCRollout | VS Code Explorer-style collapsible panels with a title bar (top/bottom/left/right, several panels in a row, animation, buttons and menus on the right) | [Usage](docs/en/TCExpandPanel_Usage.md) | [Design](docs/en/TCExpandPanel_Design.md) |
 | TCPageControl / TCTitleBar | Browser-style tabs, and a title bar that can host the tabs | [Usage](docs/en/TCPageControl_Usage.md) | [Design](docs/en/TCPageControl_Design.md) |
 | TCTabBrowser | Tabbed web browser based on WebView2 | [Usage](docs/en/TCTabBrowser_Usage.md) | [Design](docs/en/TCTabBrowser_Design.md) |
 | TCMonacoEditor / TCMFindDialog | Editor based on WebView2 and Monaco Editor (tabs, preview, search and printing built in), plus 25 standard actions | [Usage](docs/en/TCMonacoEditor_Usage.md) | [Design](docs/en/TCMonacoEditor_Design.md) |
@@ -142,5 +143,7 @@ MIT License (see [LICENSE](LICENSE)). Licenses of third-party libraries are list
 ![tcPageControl](demo/Lazarus/20261029-084726-tcPageControl.jpg)
 
 ![tcBookmarks](demo/Lazarus/20261028-133312-tcBookmarks.jpg)
+
+![tcExpandPanel](demo/Lazarus/20261105-140515-tcExpandPanel.jpg)
 
 ---

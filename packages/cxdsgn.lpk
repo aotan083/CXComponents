@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
-  <Package Version="5">
+  <Package Version="6">
     <Name Value="cxdsgn"/>
     <Type Value="DesignTime"/>
     <Author Value="aotan083"/>
@@ -27,6 +27,11 @@
         <UnitName Value="uCSideBarReg"/>
       </Item>
       <Item>
+        <Filename Value="../source/design/uCExpandPanelReg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="uCExpandPanelReg"/>
+      </Item>
+      <Item>
         <Filename Value="../source/design/uCPageControl_reg.pas"/>
         <HasRegisterProc Value="True"/>
         <UnitName Value="uCPageControl_reg"/>
@@ -46,6 +51,10 @@
       </Item>
       <Item>
         <Filename Value="../source/res/cchecklistbox_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cexpandpanel_icon.lrs"/>
         <Type Value="LRS"/>
       </Item>
       <Item>

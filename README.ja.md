@@ -19,6 +19,7 @@
 | TCCheckListBox | チェックを 1 つだけにできる TCheckListBox | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
 | TCGroupBox・TCCheckGroupBox | 中の部品が消えないグループボックスと、チェック付きの見出しのグループボックス | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
 | TCSideBar | Edge のようなアイコン列と開閉するパネル | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
+| TCExpandPanel・TCRollout | VS Code のエクスプローラーのような、タイトルバー付きの伸縮するパネル（上下左右・複数並べる・アニメーション・右側にボタンとメニュー） | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
 | TCPageControl・TCTitleBar | ブラウザのようなタブと、タブを並べられるタイトルバー | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | WebView2 を使ったタブ付きの Web ブラウザ | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor・TCMFindDialog | WebView2 と Monaco Editor によるエディタ（タブ・プレビュー・検索・印刷を内蔵）と、標準アクション 25 個 | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
@@ -141,5 +142,9 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 ![tcPageControl](demo/Lazarus/20261029-084726-tcPageControl.jpg)
 
 ![tcBookmarks](demo/Lazarus/20261028-133312-tcBookmarks.jpg)
+
+![tcExpandPanel](demo/Lazarus/20261105-140515-tcExpandPanel.jpg)
+
+
 
 ---

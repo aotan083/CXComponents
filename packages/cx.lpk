@@ -10,7 +10,7 @@
         <UnitOutputDirectory Value="lib/cx/$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Description Value="CX runtime package: all CX components (TCTreeView, TCListView, TCSynEdit, TCCheckListBox, TCGroupBox, TCCheckGroupBox, TCSideBar, TCPageControl, TCTitleBar, TCTabBrowser, TCMonacoEditor, TCMFindDialog, editor actions, TCBookmark)"/>
+    <Description Value="CX runtime package: all CX components (TCTreeView, TCListView, TCSynEdit, TCCheckListBox, TCGroupBox, TCCheckGroupBox, TCSideBar, TCExpandPanel, TCRollout, TCPageControl, TCTitleBar, TCTabBrowser, TCMonacoEditor, TCMFindDialog, editor actions, TCBookmark)"/>
     <License Value="MIT License. Copyright (c) 2026 aotan083"/>
     <Version Major="1"/>
     <Files>
@@ -61,6 +61,10 @@
       <Item>
         <Filename Value="../source/uCSideBar.pas"/>
         <UnitName Value="uCSideBar"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCExpandPanel.pas"/>
+        <UnitName Value="uCExpandPanel"/>
       </Item>
       <Item>
         <Filename Value="../source/uCTitleBar.pas"/>
