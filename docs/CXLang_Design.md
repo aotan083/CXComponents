@@ -74,7 +74,7 @@ function CXT(AId: TCXStr): string;  // CXLanguage に合う文字列
 - 言語を後から変える手続きは作らない。
 - Windows 以外でコンパイルしたとき（確認用のテスト）は、Windows の表示言語の判定を行わず、`en` として扱う（`{$IFDEF MSWINDOWS}`）。
 
-## 5. 文字列の表（180 項目）
+## 5. 文字列の表（198 項目）
 
 - 「日本語」は今のソースの文字列そのまま。「English」が新しく付ける文字列。
 - メニュー・ボタンの `&` は、同じメニュー（同じダイアログ）の中で重ならないようにしてある。
@@ -310,6 +310,33 @@ function CXT(AId: TCXStr): string;  // CXLanguage に合う文字列
 | 178 | `sBmExportError` | エクスポートできません：%s | Could not export: %s | uCbookmark:394（resourcestring `rsExportError`） |
 | 179 | `sBmOpenError` | 開けません：%s | Could not open: %s | uCbookmark:395（resourcestring `rsOpenError`） |
 | 180 | `sBmHtmlFilter` | ブックマーク HTML (*.html;*.htm)\|*.html;*.htm\|すべてのファイル (*.*)\|*.* | Bookmark HTML (*.html;*.htm)\|*.html;*.htm\|All files (*.*)\|*.* | uCbookmark:396（resourcestring `rsHtmlFilter`） |
+
+**K. TCFileTree**
+
+TCFileTree（`CFileTree.pas`）は、最初から `CXT` を使う新しい部品なので、置き換えるものはない。「使っている場所」は、行番号を `CFileTree.pas` の今の行で示す。
+
+| No | ID | 日本語 | English | 使っている場所（ファイル:行） |
+|---|---|---|---|---|
+| 181 | `sFtMenuCopy` | コピー | Copy | CFileTree:1889 |
+| 182 | `sFtMenuCut` | 切取り | Cut | CFileTree:1890 |
+| 183 | `sFtMenuPaste` | 貼付け | Paste | CFileTree:1891 |
+| 184 | `sFtMenuRename` | 名前の変更 | Rename | CFileTree:1892 |
+| 185 | `sFtMenuDelete` | 削除 | Delete | CFileTree:1893 |
+| 186 | `sFtMenuShowInExplorer` | エクスプローラーで表示 | Show in Explorer | CFileTree:1895 |
+| 187 | `sFtMenuCopyPath` | パスのコピー | Copy Path | CFileTree:1896 |
+| 188 | `sFtMenuNewFolder` | フォルダ作成 | New Folder | CFileTree:1898 |
+| 189 | `sFtMenuTextOpen` | text開く | Open as Text | CFileTree:1900 |
+| 190 | `sFtMenuTextOpenNew` | text新規タブで開く | Open as Text in New Tab | CFileTree:1901 |
+| 191 | `sFtMenuSide` | 横に並べて表示 | Open Side by Side | CFileTree:1902・1906（text と Web の 2 項目で共用） |
+| 192 | `sFtMenuWebOpen` | Web開く | Open as Web | CFileTree:1904 |
+| 193 | `sFtMenuWebOpenNew` | Web新規タブで開く | Open as Web in New Tab | CFileTree:1905 |
+| 194 | `sFtMenuOpenProgram` | プログラムで開く | Open with Associated Program | CFileTree:1908 |
+| 195 | `sFtMenuShowHidden` | 隠しファイルを表示 | Show Hidden Files | CFileTree:1910 |
+| 196 | `sFtMenuWindowsMenu` | windowsメニュー | Windows Menu | CFileTree:1912 |
+| 197 | `sFtErrBadChars` | ファイル名・フォルダー名に以下の文字は使用できません: | The following characters cannot be used in a file or folder name: | CFileTree:1583 |
+| 198 | `sFtErrCreateFolder` | フォルダーを作れませんでした：%s | Could not create the folder: %s | CFileTree:1649 |
+
+TCFileTree は、このほかに、TCBookmark の `sBmUnsaved`・`sBmOpenError`・`sBmFileMissing`・`sBmNewFolder` も使う（J. の 4 項目。追加はない）。
 
 ## 6. 各ユニットの直し方
 
