@@ -1,0 +1,78 @@
+object Form1: TForm1
+  Left = 314
+  Height = 572
+  Top = 250
+  Width = 768
+  Caption = 'Form1'
+  ClientHeight = 572
+  ClientWidth = 768
+  LCLVersion = '5.0.1.0'
+  object CFileTree1: TCFileTree
+    Left = 0
+    Height = 572
+    Top = 0
+    Width = 301
+    RootPath = 'C:\app\laz\test\tcFileTree'
+    TargetEditor = CsEditor1
+    TargetBrowser = CTabBrowser1
+    Align = alLeft
+    TabOrder = 0
+  end
+  object Splitter1: TSplitter
+    Left = 301
+    Height = 572
+    Top = 0
+    Width = 5
+  end
+  object PairSplitter1: TPairSplitter
+    Cursor = crVSplit
+    Left = 306
+    Height = 572
+    Top = 0
+    Width = 462
+    Align = alClient
+    Position = 192
+    SplitterType = pstVertical
+    object PairSplitterSide1: TPairSplitterSide
+      Cursor = crArrow
+      Left = 0
+      Height = 192
+      Top = 0
+      Width = 462
+      ClientWidth = 462
+      ClientHeight = 192
+      object CTabBrowser1: TCTabBrowser
+        Left = 0
+        Height = 192
+        Top = 0
+        Width = 462
+        Align = alClient
+        Options = [nboShowCloseButtons]
+        TabOrder = 0
+        SavePath = 'C:\app\laz\lazarus50RC1'
+      end
+    end
+    object PairSplitterSide2: TPairSplitterSide
+      Cursor = crArrow
+      Left = 0
+      Height = 375
+      Top = 197
+      Width = 462
+      ClientWidth = 462
+      ClientHeight = 375
+      object CsEditor1: TCsEditor
+        Left = 0
+        Height = 375
+        Top = 0
+        Width = 462
+        Font.Height = -19
+        Font.Name = 'BIZ UDGothic'
+        Font.Quality = fqCleartypeNatural
+        SelectionColorStyle = scPurple
+        Align = alClient
+        TabOrder = 0
+        TabStop = True
+      end
+    end
+  end
+end

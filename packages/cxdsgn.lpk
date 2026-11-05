@@ -46,6 +46,15 @@
         <Type Value="LRS"/>
       </Item>
       <Item>
+        <Filename Value="../source/design/uCFileTreeReg.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="uCFileTreeReg"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/res/cfiletree_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
         <Filename Value="../source/res/ccheckgroupbox_icon.lrs"/>
         <Type Value="LRS"/>
       </Item>

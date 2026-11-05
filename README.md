@@ -16,6 +16,7 @@ Author: aotan083 / License: MIT
 |---|---|---|---|
 | TCTreeView | Folder tree that works like the left pane of Windows Explorer | [Usage](docs/en/TCTreeView_Usage.md) | [Design](docs/en/TCTreeView_Design.md) |
 | TCListView | File list that works like the right pane of Windows Explorer | [Usage](docs/en/TCListView_Usage.md) | [Design](docs/en/TCListView_Design.md) |
+| TCFileTree | Tree of folders and files rooted at a folder you specify (usable like the VS Code Explorer; no TCListView needed). Just connect TCMonacoEditor / TCsEditor / TCTabBrowser to open items by double-click or from the right-click menu | [Usage](docs/en/TCFileTree_Usage.md) | [Design](docs/en/TCFileTree_Design.md) |
 | TCSynEdit | TSynEdit with file loading/saving, color styles (including VS Code light/dark), syntax highlighting by file extension (including Markdown) and a context menu | [Usage](docs/en/TCSynEdit_Usage.md) | [Design](docs/en/TCSynEdit_Design.md) |
 | TCCheckListBox | TCheckListBox that can be limited to a single check | [Usage](docs/en/TCCheckListBox_Usage.md) | [Design](docs/en/TCCheckListBox_Design.md) |
 | TCGroupBox / TCCheckGroupBox | Group box whose child controls never disappear, and a group box with a check box in its caption | [Usage](docs/en/TCGroupBox_Usage.md) | [Design](docs/en/TCGroupBox_Design.md) |
@@ -145,5 +146,8 @@ MIT License (see [LICENSE](LICENSE)). Licenses of third-party libraries are list
 ![tcBookmarks](demo/Lazarus/20261028-133312-tcBookmarks.jpg)
 
 ![tcExpandPanel](demo/Lazarus/20261105-140515-tcExpandPanel.jpg)
+
+![tcFileTree](demo/Lazarus/20261105-173106-tcFileTree.jpg)
+
 
 ---

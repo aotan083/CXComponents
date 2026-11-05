@@ -60,7 +60,10 @@ type
     sBmMenuImport, sBmMenuExport, sBmSearchHint, sBmFileMissing, sBmUnsaved, sBmDeleteFolder,
     sBmTooMany, sBmSaveError, sBmLoadError, sBmDlgAdd, sBmDlgEdit, sBmDlgAddFolder,
     sBmDlgEditFolder, sBmDlgName, sBmDlgLocation, sBmNewFolder, sBmOK, sBmCancel,
-    sBmImportFolder, sBmImportNone, sBmImportError, sBmExportError, sBmOpenError, sBmHtmlFilter
+    sBmImportFolder, sBmImportNone, sBmImportError, sBmExportError, sBmOpenError, sBmHtmlFilter,
+    sFtMenuCopy, sFtMenuCut, sFtMenuPaste, sFtMenuRename, sFtMenuDelete, sFtMenuShowInExplorer,
+    sFtMenuCopyPath, sFtMenuNewFolder, sFtMenuTextOpen, sFtMenuTextOpenNew, sFtMenuSide, sFtMenuWebOpen,
+    sFtMenuWebOpenNew, sFtMenuOpenProgram, sFtMenuShowHidden, sFtMenuWindowsMenu, sFtErrBadChars, sFtErrCreateFolder
   );
 
 { 今の言語。最初に呼ばれたとき決め、あとは同じ値を返す }
@@ -461,7 +464,44 @@ const
     (Ja: '開けません：%s';
      En: 'Could not open: %s'),
     (Ja: 'ブックマーク HTML (*.html;*.htm)|*.html;*.htm|すべてのファイル (*.*)|*.*';
-     En: 'Bookmark HTML (*.html;*.htm)|*.html;*.htm|All files (*.*)|*.*')
+     En: 'Bookmark HTML (*.html;*.htm)|*.html;*.htm|All files (*.*)|*.*'),
+    { K. TCFileTree }
+    (Ja: 'コピー';
+     En: 'Copy'),
+    (Ja: '切取り';
+     En: 'Cut'),
+    (Ja: '貼付け';
+     En: 'Paste'),
+    (Ja: '名前の変更';
+     En: 'Rename'),
+    (Ja: '削除';
+     En: 'Delete'),
+    (Ja: 'エクスプローラーで表示';
+     En: 'Show in Explorer'),
+    (Ja: 'パスのコピー';
+     En: 'Copy Path'),
+    (Ja: 'フォルダ作成';
+     En: 'New Folder'),
+    (Ja: 'text開く';
+     En: 'Open as Text'),
+    (Ja: 'text新規タブで開く';
+     En: 'Open as Text in New Tab'),
+    (Ja: '横に並べて表示';
+     En: 'Open Side by Side'),
+    (Ja: 'Web開く';
+     En: 'Open as Web'),
+    (Ja: 'Web新規タブで開く';
+     En: 'Open as Web in New Tab'),
+    (Ja: 'プログラムで開く';
+     En: 'Open with Associated Program'),
+    (Ja: '隠しファイルを表示';
+     En: 'Show Hidden Files'),
+    (Ja: 'windowsメニュー';
+     En: 'Windows Menu'),
+    (Ja: 'ファイル名・フォルダー名に以下の文字は使用できません:';
+     En: 'The following characters cannot be used in a file or folder name:'),
+    (Ja: 'フォルダーを作れませんでした：%s';
+     En: 'Could not create the folder: %s')
   );
 
 var
