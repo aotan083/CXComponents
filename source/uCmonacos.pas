@@ -1122,30 +1122,31 @@ end;
 
 procedure TCMonacoEditor.ApplyThemeColors;
 var
-  CBar, COver, CActive, CFont, CFontActive, CLine, CSplit: TColor;
+  CBar, COver, CActive, CFont, CFontActive, CLine, CSplit, CMark: TColor;
 begin
   { Windows 11 のエクスプローラーに合わせた配色（仮の値。実機で調整する）。どれも灰色なので RGB/BGR の違いはない }
   if IsDarkTheme then
   begin
-    CBar := TColor($2B2B2B);
-    COver := TColor($383838);
+    CBar := TColor($202020);               { メニュー・タイトルバーと同じ }
+    COver := TColor($2B2B2B);
     CActive := TColor($1E1E1E);            { エディタの背景と同じ（タブと本文がつながって見える） }
-    CFont := TColor($C5C5C5);
+    CFont := TColor($A0A0A0);              { 非アクティブは暗くして、アクティブと見分ける }
     CFontActive := TColor($FFFFFF);
     CLine := TColor($3A3A3A);
-    CSplit := TColor($2B2B2B);
+    CSplit := TColor($202020);
   end
   else
   begin
-    CBar := TColor($F0F0F0);
+    CBar := TColor($FFFFFF);               { メニューと同じ（白） }
     COver := TColor($E5E5E5);
     CActive := TColor($FFFFFF);
-    CFont := TColor($5C5C5C);
+    CFont := TColor($767676);              { 非アクティブは薄くして、アクティブ（黒）と見分ける }
     CFontActive := TColor($000000);
     CLine := TColor($D9D9D9);
-    CSplit := TColor($E5E5E5);
+    CSplit := TColor($FFFFFF);
   end;
 
+  CMark := TColor($D47800);               { アクセント線 #0078D4（ダーク・ライト共通） }
   Color := CActive;                       { 起動直後に見える背景。ダークで白く光らない }
   FSplitter.Color := CSplit;
 
@@ -1167,7 +1168,9 @@ begin
   FTabs.ColorCloseBg := CBar;
   FTabs.ColorCloseBgOver := COver;
   FTabs.ColorCloseBorderOver := COver;
-  FTabs.ColorActiveMark := CActive;       { 色付きの線（アクセント）は出さない：背景と同じ色にして見えなくする }
+  FTabs.ColorActiveMark := CMark;       { アクティブなタブの上の細い線 }
+  FTabs.OptActiveMarkSize := 2;
+  FTabs.OptShowActiveMarkInverted := False;   { 線をタブの上に出す }
   { フラット表示でも、選択中・マウスを乗せたタブを、タブごとの色で塗る }
   if FTabBinder <> nil then FTabBinder.SetTabColors(CActive, COver);
   FTabs.Invalidate;

@@ -2479,20 +2479,21 @@ end;
 { タブ・背景の色（TCMonacoEditor の ApplyThemeColors と同じ値） }
 procedure TCsEditor.ApplyTabColors;
 var
-  CBar, COver, CActive, CFont, CFontActive, CLine: TColor;
+  CBar, COver, CActive, CFont, CFontActive, CLine, CMark: TColor;
   I: Integer;
   D: TATTabData;
 begin
   if IsDarkTheme then
   begin
-    CBar := TColor($2B2B2B); COver := TColor($383838); CActive := TColor($1E1E1E);
-    CFont := TColor($C5C5C5); CFontActive := TColor($FFFFFF); CLine := TColor($3A3A3A);
+    CBar := TColor($202020); COver := TColor($2B2B2B); CActive := TColor($1E1E1E);
+    CFont := TColor($A0A0A0); CFontActive := TColor($FFFFFF); CLine := TColor($3A3A3A);
   end
   else
   begin
-    CBar := TColor($F0F0F0); COver := TColor($E5E5E5); CActive := TColor($FFFFFF);
-    CFont := TColor($5C5C5C); CFontActive := TColor($000000); CLine := TColor($D9D9D9);
+    CBar := TColor($FFFFFF); COver := TColor($E5E5E5); CActive := TColor($FFFFFF);
+    CFont := TColor($767676); CFontActive := TColor($000000); CLine := TColor($D9D9D9);
   end;
+  CMark := TColor($D47800);                  { アクセント線 #0078D4 }
   Color := CActive;
   if FTabs = nil then Exit;
   FTabs.ColorBg := CBar;
@@ -2513,7 +2514,9 @@ begin
   FTabs.ColorCloseBg := CBar;
   FTabs.ColorCloseBgOver := COver;
   FTabs.ColorCloseBorderOver := COver;
-  FTabs.ColorActiveMark := CActive;       { アクセントの線は出さない（背景と同じ色） }
+  FTabs.ColorActiveMark := CMark;       { アクティブなタブの上の細い線 }
+  FTabs.OptActiveMarkSize := 2;
+  FTabs.OptShowActiveMarkInverted := False;
   for I := 0 to FTabs.TabCount - 1 do
   begin
     D := FTabs.GetTabData(I);

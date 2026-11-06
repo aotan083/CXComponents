@@ -267,6 +267,7 @@ uses
 // エクスプローラーと同じ自然順の比較
 function StrCmpLogicalW(psz1, psz2: PWideChar): Integer; stdcall; external 'shlwapi.dll';
 
+
 const
   CFtSHGFI_SMALLICON         = $000000001;
   CFtSHGFI_USEFILEATTRIBUTES = $000000010;

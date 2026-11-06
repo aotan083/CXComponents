@@ -12,10 +12,11 @@ object Form1: TForm1
     Height = 572
     Top = 0
     Width = 301
-    RootPath = 'C:\app\laz\test\tcFileTree'
+    RootPath = 'C:\temp'
     TargetEditor = CsEditor1
     TargetBrowser = CTabBrowser1
     Align = alLeft
+    BorderStyle = bsNone
     TabOrder = 0
   end
   object Splitter1: TSplitter
