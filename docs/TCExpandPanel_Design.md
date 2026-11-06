@@ -1,8 +1,8 @@
 # TCExpandPanel 設計書
 
 作者: aotan083
-日付: 2026-11-05
-版: 1.0
+日付: 2026-11-06
+版: 1.1
 
 ---
 
@@ -25,16 +25,20 @@ CExpandPanel1.AddPanel(CRollout2);
 - ボタンは、いつも出すか、タイトルバーにマウスが乗ったときだけ出すかを選べる。
 - 入れ物の中身が溢れたときは、スクロールバーが出てスクロールできる（切り替えられる）。
 - 色はシステム色だけを使う（ダーク／ライトはアプリ側の MetaDarkStyle などに任せる）。
+- パネルの境界（パネルとパネルの間の隙間）をマウスでドラッグして、隣り合う 2 つのパネルの大きさを変えられる（実行時も設計時も。`AllowResize`）。
+- `Fill = True` のパネルが 1 つもないときは、開いている最後のパネルが、余った場所を自動で埋める。
+- 設計時は、入れ物の場所と範囲が分かる破線の枠と、動かせる境界の青い帯が出る。
 
-### 1.1 この版に含めないもの
+### 1.1 含めないもの
 
-- 入れ物の中で、パネルの境界をドラッグして大きさを変えること（入れ物のスプリッター）。大きさは `ExpandedSize`・`Fill` で決める。単体の TCRollout を `Align = alTop` などで置く場合は、標準の TSplitter を使える。
+- 入れ物の外で、入れ物とほかの部品の間を分ける分割線。TSplitter または TCSplitter を使う。
+- 単体の TCRollout を `Align = alTop` などで置く場合の境界のドラッグ（標準の TSplitter または TCSplitter を使える）。
 
 ## 2. ファイルとパッケージ
 
 | ファイル | パッケージ | 中身 |
 |---|---|---|
-| `uCExpandPanel.pas` | cx（実行時） | 型、`TCRolloutButton`、`TCRolloutButtons`、`TCRollout`、`TCExpandPanel` |
+| `uCExpandPanel.pas` | cx（実行時） | 型、`TCRolloutButton`、`TCRolloutButtons`、`TCRollout`、`TCExpandSash`（境界の帯）、`TCExpandPanel` |
 | `uCExpandPanelReg.pas`（`source\design`） | cxdsgn（設計時） | パレット [CX] への登録、コンポーネントエディタ `TCExpandPanelEditor` |
 | `cexpandpanel_icon.lrs` | cxdsgn（設計時） | アイコン（`TCExpandPanel`・`TCRollout`、それぞれ `_150`・`_200`）。`uCExpandPanelReg` の initialization で `{$I cexpandpanel_icon.lrs}` |
 
@@ -64,6 +68,7 @@ TCRolloutExpandingEvent = procedure(Sender: TObject; var Allow: Boolean) of obje
 | `cTextPad96` | 6 | 矢印・ボタンと文字の間 |
 | `cArrowSize96` | 8 | 矢印の大きさ |
 | `cButtonRadius96` | 4 | 強調表示の角の丸み |
+| `cSashSize96` | 5 | 境界の帯の太さ（パネルの間の隙間。`AllowResize = True` のとき、`Spacing` に足す） |
 | `cFillMin96` | 60 | `Fill` のパネルの、中身の最小の大きさ（これより小さくならず、足りなければスクロール） |
 | `cScrollLine96` | 24 | スクロールの 1 行（矢印を押したときの量。マウスホイール 1 目盛りは 3 行） |
 
@@ -190,6 +195,8 @@ Destroy：`FAnimTimer` を止めて解放し、`FButtons` と `FImageChangeLink`
 4. `Invalidate`。実行時なら、開いたとき `OnExpand`、閉じたとき `OnCollapse`（アニメーションの始まりで出す。終わりを待たない）。
 5. 設計時のヘッダークリックによる変更は、`OwnerFormDesignerModified(Self)` を呼ぶ（7.4）。
 
+`ApplyExpandedSize(v)`：`v` が `HeaderSize` より小さければ `HeaderSize` にし、`ExpandedSize` に入れる。配置（`LayoutChanged`）はしない。変わったら `True`。`SetExpandedSize` は、これを呼んで、`True` なら `LayoutChanged` する。境界のドラッグ（6.7）が、2 つのパネルの大きさを入れてから、配置を 1 回だけ行うために使う。
+
 アニメーション：
 
 | 手続き | 処理 |
@@ -263,6 +270,11 @@ private
   FScrollable: Boolean;
   FScrollPos: Integer;     // スクロールの位置（軸方向。0 以上）
   FContentLength: Integer; // 全パネルを並べた長さ（6.3 の合計）
+  FAllowResize: Boolean;   // 境界のドラッグを許す（6.7）
+  FSashes: TFPList;        // 境界の帯（TCExpandSash）。パネルの間の数だけ（6.7）
+  FSashIndex: Integer;     // ドラッグ中の境界の番号（なければ -1）
+  FSashStartPos, FSashStartA, FSashStartB, FSashPool, FSashFillCount: Integer;  // ドラッグの途中の値（6.7）
+  FDesignDragging, FDesignerPressLeft: Boolean;  // 設計時のドラッグ（6.7）
 public
   constructor Create(TheOwner: TComponent); override;
   destructor Destroy; override;
@@ -277,11 +289,13 @@ published
   property Multiple: Boolean read FMultiple write SetMultiple default True;
   property Spacing: Integer read FSpacing write SetSpacing default 0;
   property Scrollable: Boolean read FScrollable write SetScrollable default True;
+  property AllowResize: Boolean read FAllowResize write SetAllowResize default True;
   property Align, Anchors, BorderSpacing, Color, Constraints, Enabled, Font, ParentFont,
            ParentColor, ParentShowHint, ShowHint, Visible;
 end;
 ```
 
+- `AllowResize`：`True` で、パネルの間に境界の帯を置いて、ドラッグで大きさを変えられる（6.7）。`False` なら、帯も、間の隙間もなくなる（`Spacing` だけ）。
 - `Scrollable`：`True` で、パネルを並べた長さが入れ物より長いとき、スクロールバー（縦なら縦、横なら横）が出て、スクロールできる。`False` なら、溢れた分は切れる。
 
 ### 6.2 パネルの一覧
@@ -297,20 +311,22 @@ end;
 | `IndexOfPanel(R)` | `FPanels.IndexOf(R)`（なければ -1）。設計時のコンポーネントエディタ（8 章）が、選んでいる TCRollout の番号を知るために使う |
 | `AddRollout(R)` | すでにあれば終わる。`FPanels.Add(R)`、`R.Align := alNone`。`LayoutChanged` |
 | `RemoveRollout(R)` | 一覧から外し、`LayoutChanged`（壊している途中は何もしない） |
-| `InsertControl(AControl, Index)` | `AControl` が `TCRollout` でなければ `EInvalidOperation(CXT(sEpErrChild))`。ほかは `inherited` |
+| `InsertControl(AControl, Index)` | `AControl` が `TCRollout` か `TCExpandSash`（6.7）でなければ `EInvalidOperation(CXT(sEpErrChild))`。ほかは `inherited` |
 
 ### 6.3 配置（`AlignControls` を上書き）
 
 `inherited` は呼ばず、次の手順で全パネルを置く。軸は `Orientation`（縦なら高さ、横なら幅。以降「軸」と呼ぶ）。
 
 1. 表示している（`Visible`）パネルを `FPanels` の順に集める。0 個なら終わる。
-2. 軸の長さ `L` = クライアント領域の軸方向の長さ。
-3. `Fill` でないパネルの軸方向の大きさ `S(i)` = `LayoutSize(ExpandedSize)`（アニメーション中は途中の大きさ）。
-4. `Fill` のパネル（`F` 個）：開いている、またはアニメーション中（`Expanded` か `FOpenT > 0`）のものを `k` 個とする。中身の分の余り `P := L - Σ S(i) - Σ（`Fill` のパネルの `HeaderSize`）- Spacing * (n - 1)`（`n` は表示しているパネルの数）。`k > 0` なら、中身の大きさ `B := Max(P div k, Scale96ToFont(cFillMin96))`。`Fill` のパネルの大きさは `HeaderSize + Round(B * FOpenT)`（`k` に入らないものは `HeaderSize`）。`k = 0` なら余りは空きのまま（背景を見せる）。
-5. 合計 `C := Σ（全パネルの大きさ）+ Spacing * (n - 1)` を `FContentLength` に入れる。
+2. 軸の長さ `L` = クライアント領域の軸方向の長さ。パネルの間の長さ `G := Spacing + (AllowResize なら Scale96ToFont(cSashSize96)、そうでなければ 0)`。
+3. 余りを埋めるパネルを決める：`Fill = True` のパネルがあれば、それらが余りを埋める。1つもないときは、開いている（`Expanded` か `FOpenT > 0`）パネルのうち、`FPanels` の順で最後の1つが余りを埋める（自動の `Fill`。`FAutoFill`。設計書 10 の 4b）。開いているパネルがなければ、余りは空きのまま。以降、余りを埋めるパネルを「Fill のパネル」と書く。
+3a. Fill でないパネルの軸方向の大きさ `S(i)` = `LayoutSize(ExpandedSize)`（アニメーション中は途中の大きさ）。
+4. `Fill` のパネル（`F` 個）：開いている、またはアニメーション中（`Expanded` か `FOpenT > 0`）のものを `k` 個とする。中身の分の余り `P := L - Σ S(i) - Σ（`Fill` のパネルの `HeaderSize`）- G * (n - 1)`（`n` は表示しているパネルの数）。`k > 0` なら、中身の大きさ `B := Max(P div k, Scale96ToFont(cFillMin96))`。`Fill` のパネルの大きさは `HeaderSize + Round(B * FOpenT)`（`k` に入らないものは `HeaderSize`）。`k = 0` なら余りは空きのまま（背景を見せる）。
+5. 合計 `C := Σ（全パネルの大きさ）+ G * (n - 1)` を `FContentLength` に入れる。
 6. スクロール（6.6）：`Scrollable` で `C > L` ならスクロールバーを出して `FScrollPos` を `0 .. C - L` に収め、それ以外はバーを消して `FScrollPos := 0`。
-7. パネルを `FPanels` の順に、軸の先頭（`-FScrollPos`）から `Spacing` を空けて並べる。位置は軸方向に積み上げ、交差する向きは 0 から入れ物のクライアント領域の幅（高さ）いっぱい（スクロールバーの分は除く）。`SetBoundsManaged` を使う。
+7. パネルを `FPanels` の順に、軸の先頭（`-FScrollPos`）から `G` を空けて並べる。位置は軸方向に積み上げ、交差する向きは 0 から入れ物のクライアント領域の幅（高さ）いっぱい（スクロールバーの分は除く）。`SetBoundsManaged` を使う。
 8. `Scrollable = False` で合計が `L` を超えたら、溢れた分は切れる。
+9. 境界の帯（6.7）：`AllowResize` で、表示しているパネルが 2 つ以上のとき、パネルの間（n - 1 か所）に `TCExpandSash` を置く（足りない分は作り、`Parent := Self`、`FSashes` に入れる）。`i` 番目の帯は、`i` 番目のパネルの終わりの直後から、長さ `G` で、交差する向きはパネルと同じ。置いたら `FIndex := i` にして `UpdateState` を呼ぶ。余った帯、`AllowResize = False`、パネルが 1 つ以下のときは、帯を隠す。`FSashPool := P`、`FSashFillCount := k`（ドラッグ中、`FSashIndex >= 0` の間は更新しない）。
 
 `LayoutChanged`：壊している途中、`csLoading` 中は何もしない。`InvalidatePreferredSize`・`ReAlign`・`Invalidate`。
 
@@ -329,6 +345,8 @@ end;
 | `SetMultiple` | 変わったら入れる。`False` にして開いているパネルが 2 つ以上あれば、最初に開いているもの以外を閉じる（イベントは出す） |
 | `SetSpacing` | 負なら 0。変わったら入れて `LayoutChanged` |
 | `SetScrollable` | 変わったら入れて `LayoutChanged`（`False` ならバーを消して `FScrollPos := 0`） |
+| `SetAllowResize` | 変わったら入れる。`False` にしたら `FSashIndex := -1`。`LayoutChanged`（間の長さが変わるので並べ直す） |
+| `Paint` | 背景を `Color` で塗る。設計時は、置いた入れ物の場所と範囲が分かるように、全体を囲む破線（`clGrayText`、1px）を描く（文字は描かない） |
 | `DoAutoAdjustLayout` | `inherited` のあと、`lapAutoAdjustWithoutHorizontalScrolling`・`lapAutoAdjustForDPI` なら `FSpacing` を `Round(FSpacing * 倍率)`（軸の向きの倍率） |
 | `Destroy` | `inherited Destroy` のあと `FPanels` を解放する（子の `SetParent(nil)` で `RemoveRollout` が呼ばれる） |
 
@@ -346,6 +364,74 @@ Windows 標準のスクロールバーを使う（`ShowScrollBar`・`SetScrollIn
 | パネルが開く（最後のパネルが伸びて見えなくなるとき） | 開閉のアニメーション中も毎回 6.3 をやり直すので、`FScrollPos` が `FContentLength - L` を超えたら収め直す（閉じたときに空白が見えないように） |
 
 `TCRollout.SetParent(NewParent)`：同じなら終わる。前の親が `TCExpandPanel` なら `RemoveRollout(Self)`。`inherited SetParent`。新しい親が `TCExpandPanel` なら `AddRollout(Self)`。`TCRollout.GetExpandPanel`：`Parent` が `TCExpandPanel` ならそれ、ちがえば nil。
+
+### 6.7 境界のドラッグ（TCExpandSash）
+
+パネルとパネルの間の隙間（長さ `G` のうち、`AllowResize` による分。6.3 の 9）が「境界」。境界を押してドラッグすると、その前後の 2 つのパネルの大きさが変わる。
+
+#### 6.7.1 動かせる境界
+
+`SashEnabled(i)`（`i` 番目と `i + 1` 番目の表示しているパネルの間）が真になる条件は、すべて満たすとき。
+
+| 条件 | 中身 |
+|---|---|
+| `AllowResize` | `True` |
+| 入れ物が使える | `Enabled` か、設計時 |
+| 前後のパネルがある | `VisiblePanelAt(i)`・`VisiblePanelAt(i + 1)` が nil でない |
+| 前後とも開いている | `Expanded` で、アニメーション中でなく、`FOpenT = 1` |
+| 両方が `Fill` ではない | 前後の少なくとも片方が、余りを埋めるパネルでない（`FillNow` が偽。6.3 の 3） |
+
+動かせない境界は、帯を隠す（見せず、マウスにも反応させない）。
+
+#### 6.7.2 ドラッグ
+
+| 手続き | 処理 |
+|---|---|
+| `SashBegin(i, 位置)` | `FSashIndex := i`、`FSashStartPos := 位置`（入れ物の座標の、軸方向）、`FSashStartA`・`FSashStartB` := 前・後のパネルの今の軸方向の大きさ |
+| `SashMove(位置)` | 下の表で動かす量 `D` を求め、前後の `ApplyExpandedSize` を呼び、どちらかが変わったら `LayoutChanged` と `Update` を 1 回だけ行う |
+| `SashEnd` | `FSashIndex := -1`、`LayoutChanged`（余りの値を今の配置で取り直す）。設計時は `OwnerFormDesignerModified(Self)`（`ExpandedSize` がフォームに保存される） |
+
+`D := 位置 - FSashStartPos` を、次の範囲に収める。最小の大きさ `Mn := HeaderThickness + Scale96ToFont(cFillMin96)`（パネルごと）。`PoolMax := Max(0, FSashPool - FSashFillCount * Scale96ToFont(cFillMin96))`。
+
+| 前 A / 後 B | 範囲（Lo .. Hi） | 変わるもの |
+|---|---|---|
+| どちらも Fill でない | `MnA - StartA .. StartB - MnB` | A の `ExpandedSize := StartA + D`、B の `ExpandedSize := StartB - D`（隣と分け合う） |
+| A が Fill、B が Fill でない | `-PoolMax .. StartB - MnB` | B の `ExpandedSize := StartB - D`（A は余りで決まる） |
+| A が Fill でなく、B が Fill | `MnA - StartA .. PoolMax` | A の `ExpandedSize := StartA + D`（B は余りで決まる） |
+| 両方 Fill | — | 動かさない（6.7.1） |
+
+- 範囲が反対になる（`Lo > Hi`）ときは `D := 0`。
+- Esc で取り消す動きはない。
+
+#### 6.7.3 TCExpandSash
+
+`TCExpandSash = class(TCustomControl)`。`TCExpandPanel` が作って、`Parent` にする（`Owner` は入れ物なので、フォームのファイルには保存されない）。
+
+| 項目 | 内容 |
+|---|---|
+| フィールド | `FIndex`（前のパネルの番号）、`FHot`、`FDragging`、`FDesignerPressLeft` |
+| `Create` | `ControlStyle` に `csCaptureMouse`・`csNoDesignSelectable` を足し、`csAcceptsControls` を外す。`Align := alNone`、`Visible := False` |
+| `UpdateState` | `SashEnabled(FIndex)` を調べる。真ならカーソルを `crVSplit`（縦に並べる）・`crHSplit`（横に並べる）にし、偽なら `crDefault`。`Visible := 動かせるか`。`Invalidate` |
+| `Paint` | 入れ物の `Color` で塗る。設計時は、全体を青（RGB 90,160,230）で塗る。実行時は、マウスが乗っているか、ドラッグ中なら、真ん中に `Scale96ToFont(2)` の太さの線を `clHighlight` で引く |
+| `MouseDown` | 左ボタンで動かせるなら `FDragging := True`、`MouseCapture := True`、`SashBegin(FIndex, 入れ物の座標)`。座標は `ClientToParent`（入れ物の座標）を使う |
+| `MouseMove` | `FHot` を更新。`FDragging` なら `SashMove` |
+| `MouseUp` | `FDragging` なら 偽にし、`MouseCapture := False`、`SashEnd` |
+| `MouseLeave` | ドラッグ中でなければ `FHot := False` |
+| `CMDesignHitTest` | ドラッグ中、または動かせるなら 1 |
+
+#### 6.7.4 設計時
+
+Lazarus のデザイナは、マウスの下の部品を探すとき、`csNoDesignSelectable` の部品を飛ばして、入れ物を選ぶ。そのため、設計時は、帯ではなく入れ物が、マウス操作を受け取る。
+
+| 手続き | 処理 |
+|---|---|
+| `SashAtPoint(X, Y)` | 入れ物の座標 (X, Y) にある、動かせる境界の番号（なければ -1） |
+| `CMDesignHitTest` | ドラッグ中（`FDesignDragging`）、または、前回のドラッグの後（`FDesignerPressLeft`）でボタンが押されていない、または、境界の上なら 1。それ以外は 0（デザイナが部品を選ぶ） |
+| `MouseDown` | 設計時、左ボタンで、境界の上なら `FDesignDragging := True`、`MouseCapture := True`、`SashBegin`（軸方向の座標は X か Y をそのまま使う） |
+| `MouseMove` | `FDesignDragging` なら `SashMove` |
+| `MouseUp` | `FDesignDragging` なら 偽にし、`MouseCapture := False`、`SashEnd`、`FDesignerPressLeft := True` |
+
+`FDesignerPressLeft` の意味は、TCSideBar の `CMDesignHitTest`（uCSideBar）と同じ（デザイナは、`MouseUp` を部品が処理すると、押下中の状態を残すため）。
 
 ## 7. TCRollout の描画とマウス
 
@@ -417,9 +503,32 @@ Windows 標準のスクロールバーを使う（`ShowScrollBar`・`SetScrollIn
 | 開閉の動きがカクつく・止まる | `StartOpen`・`AnimTimerTick`（5.4）、`AnimationTime`、`Animated` |
 | ボタンが出ない・消えない | `ButtonsShown`（5.6）、`ButtonsShow`、`FHotHeader`（7.2） |
 | スクロールバーが出ない・位置が戻る | `UpdateScrollBar`・`ScrollTo`（6.6）、`Scrollable`、`FContentLength`（6.3 の 5〜6） |
-| 入れ物の中で開いたパネルが余りを埋めない | `Fill`、6.3 の 3〜4 |
+| 入れ物の中で開いたパネルが余りを埋めない | `Fill`・`FAutoFill`、6.3 の 3〜4 |
 | `hpLeft` が縦配置の入れ物で横向きにならない | `EffectivePosition`（5.3） |
 | ［…］のメニューが出ない | `ClickButton`（7.3）、`DropDownMenu`、`Notification` |
 | 設計時に置いた部品がパネルに入らない | `csAcceptsControls`（5.2）、`AdjustClientRect`（5.5） |
 | パネルの順番が .lfm と違う | `MovePanel` の `SetControlIndex`（6.2） |
 | 表示スケールでタイトルバーの厚みがずれる | `DoAutoAdjustLayout`（5.4・6.5） |
+| 境界をドラッグしても動かない（実行時） | `SashEnabled`（6.7.1）、`TCExpandSash.MouseDown`・`MouseMove`（6.7.3）、帯が見えているか（`UpdateState`） |
+| 境界をドラッグしても動かない（設計時） | `SashAtPoint`・`CMDesignHitTest`・`MouseDown`（6.7.4）。cxdsgn を作り直して IDE を再起動したか |
+| 最後のパネルが余りを埋めない | `FAutoFill`（6.3 の 3）、`Fill` が他のパネルに付いていないか |
+| 設計時に境界が見えない | `TCExpandSash.Paint`（6.7.3）、`AllowResize`、`SashEnabled`（両方 Fill の境界は隠れる） |
+
+## 10. この版の変更（1.1）
+
+### 10.1 今と変更後
+
+| 番号 | 項目 | 変更前（1.0） | 変更後（1.1） |
+|---|---|---|---|
+| 1 | 境界のドラッグ | なし。大きさは `ExpandedSize`・`Fill` だけで決める | パネルの間の境界をドラッグして、隣と分け合って大きさを変える（`AllowResize`、6.7）。実行時も設計時も |
+| 2 | パネルの間の隙間 | `Spacing` だけ（既定 0） | `AllowResize = True` のとき、`Spacing` に境界の帯の分（5px）を足す |
+| 3 | 余りの埋め方 | `Fill = True` のパネルだけが埋める。ないと空きが残る | `Fill` のパネルがなければ、開いている最後のパネルが埋める（6.3 の 3） |
+| 4 | 設計時の見た目 | 何もない | 入れ物に破線の枠。動かせる境界に青い帯 |
+| 5 | `ExpandedSize` の入れ方 | `SetExpandedSize`（入れて、すぐ配置） | `ApplyExpandedSize` を足す（入れるだけ。5.4）。`SetExpandedSize` はこれを使う |
+
+### 10.2 変更したファイル
+
+| ファイル | 変更 |
+|---|---|
+| `source/uCExpandPanel.pas` | `TCExpandSash`、`AllowResize`、`FAutoFill`・`FillNow`、`ApplyExpandedSize`、設計時のマウス（`SashAtPoint` など）、`Paint`（破線の枠） |
+| `docs/TCExpandPanel_Usage.md` | 設計時の使い方、境界のドラッグ、`AllowResize`、余りの埋め方 |

@@ -20,7 +20,8 @@ Author: aotan083 / License: MIT
 | TCCheckListBox | A TCheckListBox that allows only one check at a time | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
 | TCGroupBox / TCCheckGroupBox | A group box whose child controls do not disappear, and a group box with a checkbox in its caption | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
 | TCSideBar | An icon column like Edge's and a panel that opens and closes | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
-| TCExpandPanel / TCRollout | Expandable panels with title bars, like the VS Code Explorer (top, bottom, left, right; multiple panels can be stacked; animation; buttons and a menu on the right side) | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
+| TCExpandPanel / TCRollout | Expandable panels with title bars, like the VS Code Explorer (top, bottom, left, right; multiple panels can be stacked; animation; buttons and a menu on the right side; resize panels by dragging the boundary) | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
+| TCSplitter | A splitter that shows a blue line on hover and while dragging (used like TSplitter; the color and cursor can be set) | [Usage](docs/TCSplitter_Usage.md) | [Design](docs/TCSplitter_Design.md) |
 | TCPageControl / TCTitleBar | Browser-style tabs, and a title bar where tabs can be arranged | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | A tabbed web browser using WebView2 | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor / TCMFindDialog | An editor based on WebView2 and Monaco Editor (with built-in tabs, preview, search, and printing), and 25 standard actions | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
@@ -223,7 +224,11 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 
 #### `TCExpandPanel`
 * A **panel that expands and collapses like an accordion**.
+* **Resize panels by dragging the boundary between them** (at run time and at design time). The last open panel fills the remaining space automatically.
 * Full support for the Windows theme.
+
+#### `TCSplitter`
+* A splitter used like the standard `TSplitter`, but it **shows a blue line on hover and while dragging**. The line color (`HighlightColor`) and the cursor (`SplitCursor`) can be set, and `OnMouseEnter` / `OnMouseLeave` are available.
 
 #### `TCTitleBar` + `TCPageControl`
 * **Places tabs directly on the window's title bar**.

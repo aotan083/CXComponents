@@ -5,14 +5,13 @@
     <PathDelim Value="\"/>
     <General>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="tcSideBar"/>
+      <Title Value="tcExpandPanelDesign"/>
       <Scaled Value="True"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
       <XPManifest>
         <DpiAware Value="True"/>
       </XPManifest>
-      <Icon Value="0"/>
     </General>
     <BuildModes>
       <Item Name="Default" Default="True"/>
@@ -26,10 +25,10 @@
     </RunParams>
     <RequiredPackages>
       <Item>
-        <PackageName Value="cx"/>
+        <PackageName Value="cxdsgn"/>
       </Item>
       <Item>
-        <PackageName Value="WebView4Delphi"/>
+        <PackageName Value="cx"/>
       </Item>
       <Item>
         <PackageName Value="LCL"/>
@@ -37,7 +36,7 @@
     </RequiredPackages>
     <Units>
       <Unit>
-        <Filename Value="tcSideBar.lpr"/>
+        <Filename Value="tcExpandPanelDesign.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -54,7 +53,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="tcSideBar"/>
+      <Filename Value="tcExpandPanelDesign"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

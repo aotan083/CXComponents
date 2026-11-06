@@ -25,6 +25,9 @@ unit uCXLang;
 
 interface
 
+uses
+  Classes;
+
 type
   { 言語。cx 全体で 1 つ }
   TCXLanguage = (cxlJa, cxlEn);
@@ -63,7 +66,8 @@ type
     sBmImportFolder, sBmImportNone, sBmImportError, sBmExportError, sBmOpenError, sBmHtmlFilter,
     sFtMenuCopy, sFtMenuCut, sFtMenuPaste, sFtMenuRename, sFtMenuDelete, sFtMenuShowInExplorer,
     sFtMenuCopyPath, sFtMenuNewFolder, sFtMenuTextOpen, sFtMenuTextOpenNew, sFtMenuSide, sFtMenuWebOpen,
-    sFtMenuWebOpenNew, sFtMenuOpenProgram, sFtMenuShowHidden, sFtMenuWindowsMenu, sFtErrBadChars, sFtErrCreateFolder
+    sFtMenuWebOpenNew, sFtMenuOpenProgram, sFtMenuShowHidden, sFtMenuWindowsMenu, sFtErrBadChars, sFtErrCreateFolder,
+    sErrFileLocked
   );
 
 { 今の言語。最初に呼ばれたとき決め、あとは同じ値を返す }
@@ -74,6 +78,18 @@ function CXLangCode: string;
 
 { 今の言語に合う文字列。Format を使う文字列は Format(CXT(ID), [...]) で使う }
 function CXT(AId: TCXStr): string;
+
+{ ---- ファイルの保存（TCMonacoEditor・TCsEditor・TCSynEdit で共通） ----
+  保存のために、ファイルを作り直して開く（TFileStream.Create(名前, fmCreate) の代わり）。
+  fmCreate だけでは共有モードが「誰とも共有しない」になり、ウイルス対策・検索・プレビューなどが、
+  書き込みを許す形でそのファイルを開いているだけでも、保存が共有違反（エラー 32）で失敗する。
+  ここでは、書き込みを許す相手とは共有して開く。共有違反は 0.1 秒おき 3 回まで再試行し、
+  それでも開けなければ、つかんでいるアプリ名を添えた EFCreateError にする（相手が書き込みを許さないとき）。
+  使う側は、これまでどおり try ... finally で Free する。 }
+function CXCreateFileShared(const AFileName: string): TFileStream;
+
+{ そのファイルを今開いているアプリ名（'a.exe, b.exe'）。Windows の再起動マネージャーで調べる。調べられないときは '' }
+function CXFileHolders(const AFileName: string): string;
 
 implementation
 
@@ -501,7 +517,10 @@ const
     (Ja: 'ファイル名・フォルダー名に以下の文字は使用できません:';
      En: 'The following characters cannot be used in a file or folder name:'),
     (Ja: 'フォルダーを作れませんでした：%s';
-     En: 'Could not create the folder: %s')
+     En: 'Could not create the folder: %s'),
+    { N. ファイルの保存 }
+    (Ja: 'ほかのアプリがこのファイルを使用中で、保存できません';
+     En: 'The file is in use by another application and cannot be saved')
   );
 
 var
@@ -575,4 +594,109 @@ begin
   if CXLanguage = cxlJa then Result := CXTable[AId].Ja else Result := CXTable[AId].En;
 end;
 
+
+{ ---------- ファイルの保存 ---------- }
+
+const
+  ERROR_SHARING_VIOLATION = 32;
+  ERROR_LOCK_VIOLATION = 33;
+
+type
+  { 再起動マネージャー（rstrtmgr.dll）の宣言。FPC の windows ユニットには無いので、自分で宣言する }
+  TRmFileTime = record
+    dwLowDateTime, dwHighDateTime: LongWord;
+  end;
+  TRmProcessInfo = record
+    dwProcessId: LongWord;
+    ProcessStartTime: TRmFileTime;
+    strAppName: array[0..255] of WideChar;
+    strServiceShortName: array[0..63] of WideChar;
+    ApplicationType: LongWord;
+    AppStatus: LongWord;
+    TSSessionId: LongWord;
+    bRestartable: LongBool;
+  end;
+
+function RmStartSession(var pSessionHandle: LongWord; dwSessionFlags: LongWord;
+  strSessionKey: PWideChar): LongWord; stdcall; external 'rstrtmgr.dll';
+function RmRegisterResources(dwSessionHandle: LongWord; nFiles: LongWord; rgsFileNames: PPWideChar;
+  nApplications: LongWord; rgApplications: Pointer; nServices: LongWord;
+  rgsServiceNames: Pointer): LongWord; stdcall; external 'rstrtmgr.dll';
+function RmGetList(dwSessionHandle: LongWord; var pnProcInfoNeeded: LongWord; var pnProcInfo: LongWord;
+  rgAffectedApps: Pointer; var lpdwRebootReasons: LongWord): LongWord; stdcall; external 'rstrtmgr.dll';
+function RmEndSession(dwSessionHandle: LongWord): LongWord; stdcall; external 'rstrtmgr.dll';
+
+function CXFileHolders(const AFileName: string): string;
+var
+  Session, Need, Count, Reasons: LongWord;
+  Key: array[0..32] of WideChar;
+  FileW: UnicodeString;
+  PFile: PWideChar;
+  Info: array of TRmProcessInfo;
+  I: Integer;
+  Name: string;
+begin
+  Result := '';
+  try
+    FillChar(Key, SizeOf(Key), 0);
+    if RmStartSession(Session, 0, @Key[0]) <> 0 then Exit;
+    try
+      FileW := UTF8Decode(AFileName);
+      PFile := PWideChar(FileW);
+      if RmRegisterResources(Session, 1, @PFile, 0, nil, 0, nil) <> 0 then Exit;
+      Need := 0;
+      Count := 0;
+      Reasons := 0;
+      RmGetList(Session, Need, Count, nil, Reasons);
+      if Need = 0 then Exit;
+      SetLength(Info, Need);
+      Count := Need;
+      if RmGetList(Session, Need, Count, @Info[0], Reasons) <> 0 then Exit;
+      for I := 0 to Integer(Count) - 1 do
+      begin
+        Name := UTF8Encode(WideString(PWideChar(@Info[I].strAppName[0])));
+        if Name = '' then Continue;
+        if Pos(Name, Result) > 0 then Continue;           { 同じ名前は 1 回だけ }
+        if Result <> '' then Result := Result + ', ';
+        Result := Result + Name;
+      end;
+    finally
+      RmEndSession(Session);
+    end;
+  except
+    Result := '';                    { 調べられなくても、保存の失敗はそのまま伝える }
+  end;
+end;
+
+function CXCreateFileShared(const AFileName: string): TFileStream;
+var
+  Attempt, Err: Integer;
+  Holders: string;
+begin
+  Attempt := 0;
+  while True do
+  begin
+    try
+      Result := TFileStream.Create(AFileName, fmCreate or fmShareDenyNone);
+      Exit;
+    except
+      on E: EStreamError do
+      begin
+        Err := GetLastOSError;
+        if (Err <> ERROR_SHARING_VIOLATION) and (Err <> ERROR_LOCK_VIOLATION) then raise;
+        if Attempt < 3 then
+        begin
+          Inc(Attempt);
+          Sleep(100);                { ウイルス対策などが一瞬つかむことがあるので、少し待つ }
+          Continue;
+        end;
+        Holders := CXFileHolders(AFileName);
+        if Holders <> '' then
+          raise EFCreateError.Create(CXT(sErrFileLocked) + ' (' + Holders + ')')
+        else
+          raise EFCreateError.Create(CXT(sErrFileLocked));
+      end;
+    end;
+  end;
+end;
 end.

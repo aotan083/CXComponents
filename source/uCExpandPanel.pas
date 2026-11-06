@@ -22,6 +22,7 @@ uses
 type
   TCRollout = class;
   TCExpandPanel = class;
+  TCExpandSash = class;
 
   { タイトルバーの位置（伸縮する向きも決める） }
   TCRolloutHeaderPosition = (hpTop, hpBottom, hpLeft, hpRight);
@@ -87,6 +88,7 @@ type
     FHeaderSize: Integer;
     FExpandedSize: Integer;
     FFill: Boolean;
+    FAutoFill: Boolean;        // Fill のパネルがないとき、配置が「最後に開いているパネル」に付ける（設計書 6.3 の 3）
     FShowArrow: Boolean;
     FImages: TCustomImageList;
     FImageChangeLink: TChangeLink;
@@ -116,6 +118,7 @@ type
     procedure SetHeaderPosition(AValue: TCRolloutHeaderPosition);
     procedure SetHeaderSize(AValue: Integer);
     procedure SetExpandedSize(AValue: Integer);
+    function ApplyExpandedSize(AValue: Integer): Boolean;
     procedure SetFill(AValue: Boolean);
     procedure SetShowArrow(AValue: Boolean);
     procedure SetImages(AValue: TCustomImageList);
@@ -139,6 +142,7 @@ type
     function HeaderRect: TRect;
     procedure ApplyOwnSize;
     procedure SetBoundsManaged(ALeft, ATop, AWidth, AHeight: Integer);
+    function FillNow: Boolean;
     // アニメーション
     procedure StartOpen;
     procedure AnimTimerTick(Sender: TObject);
@@ -226,12 +230,31 @@ type
     FViewLength: Integer;
     FInLayout: Boolean;
     FBarVisible: Boolean;
+    FAllowResize: Boolean;     // 境界のドラッグを許す（設計書 6.7）
+    FSashes: TFPList;          // 境界の帯（TCExpandSash）。パネルの間の数だけ
+    FSashIndex: Integer;       // ドラッグ中の境界の番号（なければ -1）
+    FSashStartPos: Integer;    // ドラッグを始めたときのマウスの位置（軸方向）
+    FSashStartA, FSashStartB: Integer;  // ドラッグを始めたときの、境界の前後のパネルの大きさ
+    FSashPool: Integer;        // 配置（6.3 の 4）の余り P。ドラッグ中は更新しない（始めたときの値）
+    FSashFillCount: Integer;   // 配置（6.3 の 4）の k。ドラッグ中は更新しない
+    FDesignDragging: Boolean;  // 設計時：入れ物が、デザイナから受け取ったマウスで境界をドラッグ中
+    FDesignerPressLeft: Boolean;
     function GetPanel(Index: Integer): TCRollout;
     function GetPanelCount: Integer;
     procedure SetOrientation(AValue: TCExpandOrientation);
     procedure SetMultiple(AValue: Boolean);
     procedure SetSpacing(AValue: Integer);
     procedure SetScrollable(AValue: Boolean);
+    procedure SetAllowResize(AValue: Boolean);
+    // 境界のドラッグ（設計書 6.7）
+    function GapLength: Integer;
+    function VisiblePanelAt(AIndex: Integer): TCRollout;
+    function SashEnabled(AIndex: Integer): Boolean;
+    procedure SashBegin(AIndex, APos: Integer);
+    procedure SashMove(APos: Integer);
+    procedure SashEnd;
+    function SashAtPoint(X, Y: Integer): Integer;
+    procedure CMDesignHitTest(var Message: TCMDesignHitTest); message CM_DESIGNHITTEST;
     procedure AddRollout(ARollout: TCRollout);
     procedure RemoveRollout(ARollout: TCRollout);
     procedure RolloutToggled(ARollout: TCRollout);
@@ -246,6 +269,9 @@ type
   protected
     procedure InsertControl(AControl: TControl; Index: Integer); override;
     procedure AlignControls(AControl: TControl; var RemainingClientRect: TRect); override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure CreateWnd; override;
     procedure Loaded; override;
     procedure DoAutoAdjustLayout(const AMode: TLayoutAdjustmentPolicy;
@@ -269,6 +295,7 @@ type
     property Multiple: Boolean read FMultiple write SetMultiple default True;
     property Spacing: Integer read FSpacing write SetSpacing default 0;
     property Scrollable: Boolean read FScrollable write SetScrollable default True;
+    property AllowResize: Boolean read FAllowResize write SetAllowResize default True;
     property Align;
     property Anchors;
     property BorderSpacing;
@@ -283,6 +310,30 @@ type
     property Visible;
   end;
 
+  { TCExpandSash
+    TCExpandPanel の中の、隣り合うパネルの間に置く境界の帯。つかんで動かすと、前後のパネルの大きさが変わる。
+    入れ物が作る・数える・隠す（設計書 6.7）。持ち主は入れ物なので、.lfm には保存されない。 }
+
+  TCExpandSash = class(TCustomControl)
+  private
+    FIndex: Integer;           // この帯の前のパネルの番号（表示しているパネルの中での番号。0 から）
+    FHot: Boolean;             // マウスが乗っている
+    FDragging: Boolean;        // この帯をドラッグ中
+    FDesignerPressLeft: Boolean;
+    function Container: TCExpandPanel;
+    function AxisPos(X, Y: Integer): Integer;
+    procedure UpdateState;
+  protected
+    procedure Paint; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseLeave; override;
+    procedure CMDesignHitTest(var Message: TCMDesignHitTest); message CM_DESIGNHITTEST;
+  public
+    constructor Create(TheOwner: TComponent); override;
+  end;
+
 implementation
 
 const
@@ -294,6 +345,7 @@ const
   cArrowSize96 = 8;
   cButtonRadius96 = 4;
   cFillMin96 = 60;
+  cSashSize96 = 5;
   cScrollLine96 = 24;
   cAnimInterval = 15;
 
@@ -562,6 +614,12 @@ begin
   end;
 end;
 
+{ 余りを埋めるか：Fill = True、または Fill のパネルがないときの最後に開いているパネル（FAutoFill） }
+function TCRollout.FillNow: Boolean;
+begin
+  Result := FFill or FAutoFill;
+end;
+
 procedure TCRollout.SetBoundsManaged(ALeft, ATop, AWidth, AHeight: Integer);
 begin
   FManaged := True;
@@ -684,10 +742,16 @@ end;
 
 procedure TCRollout.SetExpandedSize(AValue: Integer);
 begin
+  if ApplyExpandedSize(AValue) then LayoutChanged;
+end;
+
+{ 開いたときの大きさを入れる（配置はしない）。変わったら True。
+  境界のドラッグが、2 つのパネルの大きさを入れてから、入れ物の配置を 1 回だけ行うために使う（設計書 5.4・6.7） }
+function TCRollout.ApplyExpandedSize(AValue: Integer): Boolean;
+begin
   if AValue < FHeaderSize then AValue := FHeaderSize;
-  if FExpandedSize = AValue then Exit;
-  FExpandedSize := AValue;
-  LayoutChanged;
+  Result := FExpandedSize <> AValue;
+  if Result then FExpandedSize := AValue;
 end;
 
 procedure TCRollout.SetFill(AValue: Boolean);
@@ -1348,6 +1412,9 @@ constructor TCExpandPanel.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   FPanels := TFPList.Create;
+  FSashes := TFPList.Create;
+  FSashIndex := -1;
+  FAllowResize := True;
   FOrientation := eoVertical;
   FMultiple := True;
   FSpacing := 0;
@@ -1362,7 +1429,8 @@ end;
 
 destructor TCExpandPanel.Destroy;
 begin
-  inherited Destroy;       // 子のパネルの親が外れ、RemoveRollout が呼ばれる
+  inherited Destroy;       // 子のパネルの親が外れ、RemoveRollout が呼ばれる。帯は持ち主が自分なので、ここで壊れる
+  FreeAndNil(FSashes);
   FreeAndNil(FPanels);
 end;
 
@@ -1434,7 +1502,7 @@ end;
 
 procedure TCExpandPanel.InsertControl(AControl: TControl; Index: Integer);
 begin
-  if not (AControl is TCRollout) then
+  if not ((AControl is TCRollout) or (AControl is TCExpandSash)) then
     raise EInvalidOperation.Create(CXT(sEpErrChild));
   inherited InsertControl(AControl, Index);
 end;
@@ -1511,6 +1579,14 @@ begin
   LayoutChanged;
 end;
 
+procedure TCExpandPanel.SetAllowResize(AValue: Boolean);
+begin
+  if FAllowResize = AValue then Exit;
+  FAllowResize := AValue;
+  if not FAllowResize then FSashIndex := -1;
+  LayoutChanged;            // 間が変わるので、並べ直す（帯は、並べ直しで出し入れする）
+end;
+
 procedure TCExpandPanel.CreateWnd;
 begin
   inherited CreateWnd;
@@ -1542,6 +1618,15 @@ begin
   Canvas.Brush.Style := bsSolid;
   Canvas.Brush.Color := Color;
   Canvas.FillRect(ClientRect);
+  // 設計時は、置いた入れ物の場所と範囲が分かるように、全体を囲む破線の枠を描く（文字は描かない。設計書 6.5）
+  if csDesigning in ComponentState then
+  begin
+    Canvas.Pen.Color := clGrayText;
+    Canvas.Pen.Style := psDash;
+    Canvas.Pen.Width := 1;
+    Canvas.Brush.Style := bsClear;
+    Canvas.Rectangle(0, 0, Width, Height);
+  end;
 end;
 
 { ---- 配置 ---- }
@@ -1559,14 +1644,205 @@ begin
   Invalidate;
 end;
 
+{ パネルの間の隙間（設計書 6.3）：Spacing。境界のドラッグを許すときは、帯の太さを足す }
+function TCExpandPanel.GapLength: Integer;
+begin
+  Result := FSpacing;
+  if FAllowResize then Inc(Result, Scale96ToFont(cSashSize96));
+end;
+
+{ 表示している（Visible）パネルの、AIndex 番目（0 から。なければ nil） }
+function TCExpandPanel.VisiblePanelAt(AIndex: Integer): TCRollout;
+var
+  I, N: Integer;
+  R: TCRollout;
+begin
+  Result := nil;
+  if (FPanels = nil) or (AIndex < 0) then Exit;
+  N := 0;
+  for I := 0 to FPanels.Count - 1 do
+  begin
+    R := TCRollout(FPanels[I]);
+    if not R.Visible then Continue;
+    if N = AIndex then Exit(R);
+    Inc(N);
+  end;
+end;
+
+{ AIndex 番目と、その次の表示しているパネルの間の境界を、動かせるか（設計書 6.7） }
+function TCExpandPanel.SashEnabled(AIndex: Integer): Boolean;
+var
+  A, B: TCRollout;
+begin
+  Result := False;
+  if not FAllowResize then Exit;
+  if not (Enabled or (csDesigning in ComponentState)) then Exit;
+  A := VisiblePanelAt(AIndex);
+  B := VisiblePanelAt(AIndex + 1);
+  if (A = nil) or (B = nil) then Exit;
+  if not (A.Expanded and B.Expanded) then Exit;
+  if A.Animating or B.Animating then Exit;
+  if (A.FOpenT < 1) or (B.FOpenT < 1) then Exit;
+  if A.FillNow and B.FillNow then Exit;
+  Result := True;
+end;
+
+{ ドラッグを始める：前後のパネルの、今の大きさを覚える }
+procedure TCExpandPanel.SashBegin(AIndex, APos: Integer);
+var
+  A, B: TCRollout;
+begin
+  A := VisiblePanelAt(AIndex);
+  B := VisiblePanelAt(AIndex + 1);
+  if (A = nil) or (B = nil) then
+  begin
+    FSashIndex := -1;
+    Exit;
+  end;
+  FSashIndex := AIndex;
+  FSashStartPos := APos;
+  FSashStartA := A.AxisSize;
+  FSashStartB := B.AxisSize;
+end;
+
+{ ドラッグ中：動かす量を決めて、前後のパネルの ExpandedSize を入れ、1 回だけ並べ直す（設計書 6.7 の表） }
+procedure TCExpandPanel.SashMove(APos: Integer);
+var
+  A, B: TCRollout;
+  D, Lo, Hi, MnA, MnB, PoolMax, FillMin: Integer;
+  Moved: Boolean;
+begin
+  if FSashIndex < 0 then Exit;
+  A := VisiblePanelAt(FSashIndex);
+  B := VisiblePanelAt(FSashIndex + 1);
+  if (A = nil) or (B = nil) then Exit;
+  if A.FillNow and B.FillNow then Exit;
+  FillMin := Scale96ToFont(cFillMin96);
+  MnA := A.HeaderThickness + FillMin;
+  MnB := B.HeaderThickness + FillMin;
+  PoolMax := Max(0, FSashPool - FSashFillCount * FillMin);
+  D := APos - FSashStartPos;
+  if A.FillNow then
+  begin
+    Lo := -PoolMax;
+    Hi := FSashStartB - MnB;
+  end
+  else if B.FillNow then
+  begin
+    Lo := MnA - FSashStartA;
+    Hi := PoolMax;
+  end
+  else
+  begin
+    Lo := MnA - FSashStartA;
+    Hi := FSashStartB - MnB;
+  end;
+  if Lo > Hi then D := 0 else D := Max(Lo, Min(D, Hi));
+  if A.FillNow then
+    Moved := B.ApplyExpandedSize(FSashStartB - D)
+  else if B.FillNow then
+    Moved := A.ApplyExpandedSize(FSashStartA + D)
+  else
+  begin
+    Moved := A.ApplyExpandedSize(FSashStartA + D);
+    if B.ApplyExpandedSize(FSashStartB - D) then Moved := True;
+  end;
+  if Moved then
+  begin
+    LayoutChanged;
+    Update;
+  end;
+end;
+
+{ ドラッグを終える：設計時は、ExpandedSize を .lfm に保存させる }
+procedure TCExpandPanel.SashEnd;
+begin
+  FSashIndex := -1;
+  LayoutChanged;               // 余りの値（FSashPool など）を、今の配置で取り直す
+  if csDesigning in ComponentState then
+    OwnerFormDesignerModified(Self);
+end;
+
+{ ---- 設計時：デザイナから受け取るマウスで、境界をドラッグする ----
+  デザイナは、マウスの下の部品を探すとき csNoDesignSelectable の帯を飛ばして、入れ物を選ぶ。
+  そのため、帯ではなく入れ物が、マウス操作を受け取る。 }
+
+{ 入れ物の座標 (X, Y) にある、動かせる境界の番号（なければ -1） }
+function TCExpandPanel.SashAtPoint(X, Y: Integer): Integer;
+var
+  I: Integer;
+  S: TCExpandSash;
+begin
+  for I := 0 to FSashes.Count - 1 do
+  begin
+    S := TCExpandSash(FSashes[I]);
+    if S.Visible and PtInRect(S.BoundsRect, Point(X, Y)) and SashEnabled(S.FIndex) then
+      Exit(S.FIndex);
+  end;
+  Result := -1;
+end;
+
+procedure TCExpandPanel.CMDesignHitTest(var Message: TCMDesignHitTest);
+const
+  cMouseButtons = MK_LBUTTON or MK_RBUTTON or MK_MBUTTON;
+var
+  ButtonsDown: Boolean;
+begin
+  ButtonsDown := (Message.Keys and cMouseButtons) <> 0;
+  if ButtonsDown then
+    FDesignerPressLeft := False;
+  if FDesignDragging then
+    Message.Result := 1
+  else if FDesignerPressLeft and not ButtonsDown then
+    Message.Result := 1
+  else if SashAtPoint(Message.XPos, Message.YPos) >= 0 then
+    Message.Result := 1
+  else
+    Message.Result := 0;
+end;
+
+procedure TCExpandPanel.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  K: Integer;
+begin
+  inherited MouseDown(Button, Shift, X, Y);
+  if (Button <> mbLeft) or not (csDesigning in ComponentState) then Exit;
+  K := SashAtPoint(X, Y);
+  if K < 0 then Exit;
+  FDesignDragging := True;
+  MouseCapture := True;
+  if FOrientation = eoVertical then SashBegin(K, Y) else SashBegin(K, X);
+end;
+
+procedure TCExpandPanel.MouseMove(Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseMove(Shift, X, Y);
+  if FDesignDragging then
+  begin
+    if FOrientation = eoVertical then SashMove(Y) else SashMove(X);
+  end;
+end;
+
+procedure TCExpandPanel.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseUp(Button, Shift, X, Y);
+  if (Button <> mbLeft) or not FDesignDragging then Exit;
+  FDesignDragging := False;
+  MouseCapture := False;
+  SashEnd;
+  // デザイナは、この MouseUp の後に押下中の状態を残す（TCRollout の CMDesignHitTest と同じ）
+  FDesignerPressLeft := True;
+end;
+
 { 表示しているパネルを FPanels の順に、軸方向に並べる（設計書 6.3） }
 procedure TCExpandPanel.LayoutPanels;
 var
   V: array of TCRollout;
   Sizes: array of Integer;
-  N, I, L, K, Fixed, Pool, B, C, Cross, Pos, HS, FillMin: Integer;
+  N, I, L, K, Fixed, Pool, B, C, Cross, Pos, HS, FillMin, G: Integer;
   Vert: Boolean;
   R: TCRollout;
+  S: TCExpandSash;
 begin
   if FInLayout or (FPanels = nil) or (ComponentState * [csLoading, csDestroying] <> []) then
     Exit;
@@ -1584,13 +1860,25 @@ begin
       end;
     end;
     SetLength(V, N);
+    // 余りを埋めるパネル：Fill のパネルが 1 つもなければ、開いている最後のパネルが埋める
+    K := -1;
+    for I := 0 to N - 1 do
+    begin
+      V[I].FAutoFill := False;
+      if V[I].Fill then K := -2
+      else if (K <> -2) and (V[I].Expanded or (V[I].FOpenT > 0)) then K := I;
+    end;
+    if K >= 0 then V[K].FAutoFill := True;
     Vert := FOrientation = eoVertical;
     if Vert then L := ClientHeight else L := ClientWidth;
     FViewLength := L;
+    G := GapLength;
     if N = 0 then
     begin
       FContentLength := 0;
       UpdateScrollBar(L, 0);
+      for I := 0 to FSashes.Count - 1 do
+        TCExpandSash(FSashes[I]).Visible := False;      // パネルがないので、帯もない
       Exit;
     end;
     SetLength(Sizes, N);
@@ -1600,7 +1888,7 @@ begin
     for I := 0 to N - 1 do
     begin
       R := V[I];
-      if R.Fill then
+      if R.FillNow then
       begin
         Inc(Fixed, R.HeaderThickness);
         if R.Expanded or (R.FOpenT > 0) then Inc(K);
@@ -1612,13 +1900,19 @@ begin
       end;
     end;
     // 4. Fill のパネルが、余りを分け合う
-    Pool := L - Fixed - FSpacing * (N - 1);
+    Pool := L - Fixed - G * (N - 1);
     FillMin := Scale96ToFont(cFillMin96);
+    // 境界のドラッグが使う、余り P と k（ドラッグ中は更新しない。設計書 6.3 の 9）
+    if FSashIndex < 0 then
+    begin
+      FSashPool := Pool;
+      FSashFillCount := K;
+    end;
     if K > 0 then B := Max(Pool div K, FillMin) else B := 0;
     for I := 0 to N - 1 do
     begin
       R := V[I];
-      if not R.Fill then Continue;
+      if not R.FillNow then Continue;
       HS := R.HeaderThickness;
       if R.Expanded or (R.FOpenT > 0) then
         Sizes[I] := HS + Round(B * R.FOpenT)
@@ -1626,7 +1920,7 @@ begin
         Sizes[I] := HS;
     end;
     // 5. 全体の長さ
-    C := FSpacing * (N - 1);
+    C := G * (N - 1);
     for I := 0 to N - 1 do Inc(C, Sizes[I]);
     FContentLength := C;
     // 6. スクロールバー（出し入れで、交差する向きの大きさが変わる）
@@ -1640,8 +1934,36 @@ begin
         V[I].SetBoundsManaged(0, Pos, Cross, Sizes[I])
       else
         V[I].SetBoundsManaged(Pos, 0, Sizes[I], Cross);
-      Inc(Pos, Sizes[I] + FSpacing);
+      Inc(Pos, Sizes[I] + G);
     end;
+    // 9. 境界の帯：隣り合うパネルの間（N - 1 か所）に置く。足りない分は作り、余った分と、帯を使わないときは隠す
+    if FAllowResize and (N > 1) then
+    begin
+      while FSashes.Count < N - 1 do
+      begin
+        S := TCExpandSash.Create(Self);
+        S.Parent := Self;
+        FSashes.Add(S);
+      end;
+      Pos := -FScrollPos;
+      for I := 0 to N - 2 do
+      begin
+        S := TCExpandSash(FSashes[I]);
+        S.FIndex := I;
+        Inc(Pos, Sizes[I]);
+        if Vert then
+          S.SetBounds(0, Pos, Cross, G)
+        else
+          S.SetBounds(Pos, 0, G, Cross);
+        S.UpdateState;
+        Inc(Pos, G);
+      end;
+      for I := N - 1 to FSashes.Count - 1 do
+        TCExpandSash(FSashes[I]).Visible := False;
+    end
+    else
+      for I := 0 to FSashes.Count - 1 do
+        TCExpandSash(FSashes[I]).Visible := False;
   finally
     FInLayout := False;
   end;
@@ -1756,6 +2078,151 @@ begin
     Exit;
   end;
   Result := inherited DoMouseWheel(Shift, WheelDelta, MousePos);
+end;
+
+{ ================================================================== }
+{ TCExpandSash（設計書 6.7）                                          }
+{ ================================================================== }
+
+constructor TCExpandSash.Create(TheOwner: TComponent);
+begin
+  inherited Create(TheOwner);
+  ControlStyle := ControlStyle + [csCaptureMouse, csNoDesignSelectable] - [csAcceptsControls];
+  Align := alNone;
+  TabStop := False;
+  FIndex := 0;
+  Visible := False;
+end;
+
+function TCExpandSash.Container: TCExpandPanel;
+begin
+  Result := TCExpandPanel(Parent);
+end;
+
+{ 入れ物の座標での、マウスの軸方向の位置（縦に並べるなら Y、横なら X） }
+function TCExpandSash.AxisPos(X, Y: Integer): Integer;
+var
+  P: TPoint;
+begin
+  P := ClientToParent(Point(X, Y));
+  if Container.FOrientation = eoVertical then Result := P.Y else Result := P.X;
+end;
+
+{ 並べ直しのたびに、動かせるかどうかで、見え方とカーソルを決める }
+procedure TCExpandSash.UpdateState;
+var
+  En: Boolean;
+begin
+  En := Container.SashEnabled(FIndex);
+  if En then
+  begin
+    if Container.FOrientation = eoVertical then Cursor := crVSplit else Cursor := crHSplit;
+  end
+  else
+  begin
+    Cursor := crDefault;
+    FHot := False;
+  end;
+  Visible := En;                      // 動かせない境界は、何も見せず、マウスにも反応させない
+  Invalidate;
+end;
+
+procedure TCExpandSash.Paint;
+var
+  T, M: Integer;
+begin
+  Canvas.Brush.Style := bsSolid;
+  Canvas.Brush.Color := Container.Color;
+  Canvas.FillRect(ClientRect);
+  // 設計時：境界の場所が分かるように、色の付いた帯にする（実行時は、マウスを乗せたときとドラッグ中に、青い線を出す）
+  if (csDesigning in ComponentState) and not (FHot or FDragging) then
+  begin
+    Canvas.Brush.Color := RGBToColor(90, 160, 230);
+    Canvas.FillRect(ClientRect);
+  end;
+  if FHot or FDragging then
+  begin
+    T := Max(1, Scale96ToFont(2));
+    Canvas.Brush.Color := clHighlight;
+    if Container.FOrientation = eoVertical then
+    begin
+      M := (Height - T) div 2;
+      Canvas.FillRect(Rect(0, M, Width, M + T));
+    end
+    else
+    begin
+      M := (Width - T) div 2;
+      Canvas.FillRect(Rect(M, 0, M + T, Height));
+    end;
+  end;
+end;
+
+procedure TCExpandSash.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseDown(Button, Shift, X, Y);
+  if (Button <> mbLeft) or not Container.SashEnabled(FIndex) then Exit;
+  FDragging := True;
+  MouseCapture := True;
+  Container.SashBegin(FIndex, AxisPos(X, Y));
+  Invalidate;
+end;
+
+procedure TCExpandSash.MouseMove(Shift: TShiftState; X, Y: Integer);
+var
+  Hot: Boolean;
+begin
+  inherited MouseMove(Shift, X, Y);
+  Hot := Container.SashEnabled(FIndex);
+  if Hot <> FHot then
+  begin
+    FHot := Hot;
+    Invalidate;
+  end;
+  if FDragging then
+    Container.SashMove(AxisPos(X, Y));
+end;
+
+procedure TCExpandSash.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseUp(Button, Shift, X, Y);
+  if (Button <> mbLeft) or not FDragging then Exit;
+  FDragging := False;
+  MouseCapture := False;
+  Container.SashEnd;
+  // デザイナは、この MouseUp の後に押下中の状態を残す（TCRollout の CMDesignHitTest と同じ）
+  if csDesigning in ComponentState then
+    FDesignerPressLeft := True;
+  Invalidate;
+end;
+
+procedure TCExpandSash.MouseLeave;
+begin
+  inherited MouseLeave;
+  if not FDragging then
+  begin
+    FHot := False;
+    Invalidate;
+  end;
+end;
+
+{ 設計時：動かせる帯なら、マウスを帯が受け取る（1）。ほかはデザイナが処理する（0） }
+procedure TCExpandSash.CMDesignHitTest(var Message: TCMDesignHitTest);
+const
+  cMouseButtons = MK_LBUTTON or MK_RBUTTON or MK_MBUTTON;
+var
+  ButtonsDown: Boolean;
+begin
+  ButtonsDown := (Message.Keys and cMouseButtons) <> 0;
+  if ButtonsDown then
+    FDesignerPressLeft := False;
+  if FDragging then
+    Message.Result := 1
+  else if FDesignerPressLeft and not ButtonsDown then
+    Message.Result := 1
+  else if Container.SashEnabled(FIndex) then
+    Message.Result := 1
+  else
+    Message.Result := 0;
 end;
 
 initialization

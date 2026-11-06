@@ -1,0 +1,39 @@
+object Form1: TForm1
+  Left = 567
+  Height = 620
+  Top = 250
+  Width = 857
+  Caption = 'Form1'
+  ClientHeight = 620
+  ClientWidth = 857
+  LCLVersion = '5.0.1.0'
+  object CTabBrowser1: TCTabBrowser
+    Left = 0
+    Height = 620
+    Top = 0
+    Width = 200
+    Align = alLeft
+    Options = [nboShowCloseButtons]
+    TabOrder = 0
+    SavePath = 'C:\app\laz\CXComponents\demo\Lazarus\tcExpandPanelDesign'
+  end
+  object CSplitter1: TCSplitter
+    Left = 200
+    Height = 620
+    Top = 0
+    Width = 5
+  end
+  object CMonacoEditor1: TCMonacoEditor
+    Left = 205
+    Height = 620
+    Top = 0
+    Width = 652
+    Theme = ctLight
+    DefaultLanguage = 'pascal'
+    QuotePrefix = '> '
+    SelectionColorStyle = scPurple
+    Align = alClient
+    TabOrder = 2
+    TabStop = True
+  end
+end

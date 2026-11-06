@@ -1,0 +1,132 @@
+object Form1: TForm1
+  Left = 420
+  Height = 700
+  Top = 150
+  Width = 1096
+  Caption = 'tcExpandPanelDesign'
+  ClientHeight = 700
+  ClientWidth = 1096
+  LCLVersion = '5.0.1.0'
+  object CSideBar1: TCSideBar
+    Left = 0
+    Height = 700
+    Top = 0
+    Width = 357
+    ActivePage = CSideBarPage1
+    ShowHeader = False
+    object CSideBarPage1: TCSideBarPage
+      Left = 40
+      Height = 700
+      Top = 0
+      Width = 309
+      Caption = 'SideBarPage1'
+      PanelWidth = 309
+      Color = clBtnFace
+      object CExpandPanel1: TCExpandPanel
+        Left = 0
+        Height = 700
+        Top = 0
+        Width = 309
+        Align = alClient
+        Color = clBtnFace
+        ParentColor = False
+        object CRollout1: TCRollout
+          Left = 0
+          Height = 150
+          Top = 0
+          Width = 309
+          Caption = 'CRollout1'
+          Buttons = <>
+          Color = clBtnFace
+          ParentColor = False
+          object CBookmark1: TCBookmark
+            Left = 0
+            Height = 126
+            Top = 24
+            Width = 309
+            Align = alClient
+            TabOrder = 0
+          end
+        end
+        object CRollout2: TCRollout
+          Left = 0
+          Height = 150
+          Top = 155
+          Width = 309
+          Caption = 'CRollout2'
+          Buttons = <>
+          Color = clBtnFace
+          ParentColor = False
+          object CFileTree1: TCFileTree
+            Left = 0
+            Height = 126
+            Top = 24
+            Width = 309
+            RootPath = 'C:\'
+            TargetEditor = CsEditor2
+            Align = alClient
+            TabOrder = 0
+          end
+        end
+        object CRollout3: TCRollout
+          Left = 0
+          Height = 390
+          Top = 310
+          Width = 309
+          Caption = 'CRollout3'
+          ExpandedSize = 390
+          Buttons = <>
+          Color = clBtnFace
+          ParentColor = False
+          object CsEditor2: TCsEditor
+            Left = 0
+            Height = 366
+            Top = 24
+            Width = 309
+            MultiDocument = False
+            Font.Height = -19
+            Font.Name = 'BIZ UDGothic'
+            Font.Quality = fqCleartypeNatural
+            Theme = ctLight
+            ReadOnly = True
+            SelectionColorStyle = scPurple
+            Align = alClient
+            TabOrder = 0
+            TabStop = True
+          end
+        end
+      end
+    end
+    object CSideBarPage2: TCSideBarPage
+      Left = 40
+      Height = 700
+      Top = 0
+      Width = 250
+      Caption = 'CSideBarPage2'
+      Color = clBtnFace
+    end
+  end
+  object CPreview1: TCPreview
+    Left = 896
+    Height = 700
+    Top = 0
+    Width = 200
+    Align = alRight
+    TabOrder = 1
+  end
+  object CsEditor1: TCsEditor
+    Left = 357
+    Height = 700
+    Top = 0
+    Width = 539
+    Font.Height = -19
+    Font.Name = 'BIZ UDGothic'
+    Font.Quality = fqCleartypeNatural
+    Theme = ctLight
+    SelectionColorStyle = scPurple
+    Preview = CPreview1
+    Align = alClient
+    TabOrder = 2
+    TabStop = True
+  end
+end

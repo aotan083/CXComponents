@@ -1421,9 +1421,23 @@ begin
 end;
 
 procedure TCSynEdit.SaveToFile(const AFileName: string);
+var
+  FS: TFileStream;
 begin
   UnlockFile;
-  Lines.SaveToFile(AFileName);
+  try
+    { Lines.SaveToFile は、共有しない開き方（fmCreate）になり、ほかのアプリが読んでいるだけでも失敗する。
+      共有付きで開いたストリームへ書く（uCXLang）。書けなかったときも、押さえ直す }
+    FS := CXCreateFileShared(AFileName);
+    try
+      Lines.SaveToStream(FS);
+    finally
+      FS.Free;
+    end;
+  except
+    LockFile(FFileName);          { 失敗：これまでのファイルを押さえ直して、例外はそのまま伝える }
+    raise;
+  end;
   FileName := AFileName;
   Modified := False;
   LockFile(AFileName);

@@ -83,6 +83,10 @@
         <Type Value="LRS"/>
       </Item>
       <Item>
+        <Filename Value="../source/res/csplitter_icon.lrs"/>
+        <Type Value="LRS"/>
+      </Item>
+      <Item>
         <Filename Value="../source/res/cx_icons.lrs"/>
         <Type Value="LRS"/>
       </Item>

@@ -71,6 +71,10 @@
         <UnitName Value="uCExpandPanel"/>
       </Item>
       <Item>
+        <Filename Value="../source/uCSplitter.pas"/>
+        <UnitName Value="uCSplitter"/>
+      </Item>
+      <Item>
         <Filename Value="../source/uCTitleBar.pas"/>
         <UnitName Value="uCTitleBar"/>
       </Item>

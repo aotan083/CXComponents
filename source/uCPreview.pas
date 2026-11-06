@@ -14,7 +14,7 @@ unit uCPreview;
 interface
 
 uses
-  Classes, SysUtils, Controls, Graphics, ExtCtrls, Forms, Dialogs,
+  Classes, SysUtils, Types, Math, Controls, Graphics, ExtCtrls, Forms, Dialogs,
   ucmdpreview, CMonacoPreview, uCmonacos;
 
 type
@@ -31,6 +31,32 @@ const
 
 type
 
+  TCPreview = class;
+
+  { TCPreviewGrip
+    TCPreview の内側の端（Align が alRight なら左端）にある、幅を変えるための細い帯。
+    マウスを乗せたとき・ドラッグ中に青い線（TCSplitter と同じ見た目）を出し、TCPreview の幅（上下なら高さ）を変える。
+    アプリが TSplitter を別に置かなくても、TCPreview の大きさを変えられる。 }
+  TCPreviewGrip = class(TCustomControl)
+  private
+    FHot: Boolean;
+    FDragging: Boolean;
+    FStartPos: Integer;       { ドラッグを始めたときのマウスの位置（画面。軸方向） }
+    FStartSize: Integer;      { ドラッグを始めたときの TCPreview の大きさ（軸方向） }
+    function Panel: TCPreview;
+    function AxisPos: Integer;
+  protected
+    procedure Paint; override;
+    procedure MouseEnter; override;
+    procedure MouseLeave; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure CaptureChanged; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+  end;
+
   { TCPreview }
 
   TCPreview = class(TCustomPanel)
@@ -39,6 +65,9 @@ type
     FSource: TComponent;                 { 表示元の TCsEditor（3章） }
     FTimer: TTimer;                      { 入力が止まるのを待つ（5.2） }
     FSplitter: TSplitter;
+    FGrip: TCPreviewGrip;                { 内側の端の、幅を変える帯（実行時だけ） }
+    FAllowResize: Boolean;
+    FShowRequested: Boolean;             { TCsEditor が、ShowPreview = True で出すよう求めた }
     FFontSize: Integer;
     FColorScheme: TCMColorScheme;
     FBackColorLight, FBackColorDark: TColor;
@@ -82,14 +111,21 @@ type
     procedure AsyncShowError(Data: PtrInt);
     procedure PlaceSplitter;
     procedure ApplySplitterColor;
+    procedure SetAllowResize(AValue: Boolean);
+    procedure UpdateGrip;
   protected
     procedure Loaded; override;
+    procedure SetAlign(Value: TAlign); override;
     procedure Paint; override;
     procedure VisibleChanged; override;
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
+    { TCsEditor の ShowPreview = True による、起動時に出す求め。出さない求めしかなければ、起動時は隠れる }
+    procedure RequestShow;
+    { 境目の色（表示元の Theme に合わせる。ダーク #2B2B2B、ライト #E5E5E5） }
+    function GripColor: TColor;
     { 表示元にする。違う表示元なら、すぐに Refresh（3.2） }
     procedure SetSource(ASource: TComponent);
     { 本文が変わった。表示元なら DelayMs 待って Refresh }
@@ -110,6 +146,7 @@ type
     property Ready: Boolean read GetReady;
   published
     property Splitter: TSplitter read FSplitter write SetSplitter;
+    property AllowResize: Boolean read FAllowResize write SetAllowResize default True;
     property FontSize: Integer read FFontSize write SetFontSize default 16;
     property ColorScheme: TCMColorScheme read FColorScheme write SetColorScheme default csEditor;
     property BackColorLight: TColor read FBackColorLight write SetBackColorLight default DefPreviewBackColorLight;
@@ -168,6 +205,7 @@ begin
   FLinkColorDark := DefPreviewLinkColorDark;
   FSyncScroll := ssBoth;
   FDelayMs := 300;
+  FAllowResize := True;
   FOpenQueue := TStringList.Create;
   FErrQueue := TStringList.Create;
 
@@ -190,6 +228,10 @@ begin
     FPreview.OnAfterPrint := @InnerAfterPrint;
     FPreview.OnFontSizeChange := @InnerFontSizeChange;
     ApplyAll;
+    { 幅を変える帯（実行時だけ）。Align に合わせて端に置く }
+    FGrip := TCPreviewGrip.Create(Self);
+    FGrip.Parent := Self;
+    UpdateGrip;
   end;
 end;
 
@@ -208,6 +250,61 @@ begin
   inherited Loaded;
   ApplyAll;
   ApplySplitterColor;
+  UpdateGrip;
+  { 実行時は、既定では隠して始める。TCsEditor の ShowPreview = True で出すよう求められたときだけ出す
+    （求めが先に届いていても、後から来ても同じになる）。設計時の Visible は、そのまま保つ }
+  if not (csDesigning in ComponentState) and not FShowRequested and Visible then
+  begin
+    Visible := False;
+    if FSplitter <> nil then FSplitter.Visible := False;
+  end;
+end;
+
+{ TCsEditor（ShowPreview = True）から、起動時に出す求め }
+procedure TCPreview.RequestShow;
+begin
+  FShowRequested := True;
+  if not Visible then Visible := True;
+end;
+
+{ 幅を変える帯の背景色：表示元の Theme に合わせる（境目と同じ色。4.4） }
+function TCPreview.GripColor: TColor;
+var
+  Dark: Boolean;
+begin
+  if FSource is TCsEditor then Dark := TCsEditor(FSource).IsDarkTheme else Dark := CsOsIsDark;
+  if Dark then Result := TColor($2B2B2B) else Result := TColor($E5E5E5);
+end;
+
+procedure TCPreview.SetAlign(Value: TAlign);
+begin
+  inherited SetAlign(Value);
+  UpdateGrip;
+end;
+
+procedure TCPreview.SetAllowResize(AValue: Boolean);
+begin
+  if FAllowResize = AValue then Exit;
+  FAllowResize := AValue;
+  UpdateGrip;
+end;
+
+{ 幅を変える帯を、Align に合わせて端（alRight なら左端）に置く。
+  使うのは、実行時で、AllowResize が True、Align が上下左右のどれかで、Splitter（アプリが置いた境目）が無いとき }
+procedure TCPreview.UpdateGrip;
+var
+  Sz: Integer;
+begin
+  if FGrip = nil then Exit;
+  Sz := Scale96ToFont(5);
+  case Align of
+    alRight: begin FGrip.Align := alLeft; FGrip.Width := Sz; FGrip.Cursor := crHSplit; end;
+    alLeft: begin FGrip.Align := alRight; FGrip.Width := Sz; FGrip.Cursor := crHSplit; end;
+    alBottom: begin FGrip.Align := alTop; FGrip.Height := Sz; FGrip.Cursor := crVSplit; end;
+    alTop: begin FGrip.Align := alBottom; FGrip.Height := Sz; FGrip.Cursor := crVSplit; end;
+  end;
+  FGrip.Visible := FAllowResize and (FSplitter = nil) and (Align in [alLeft, alRight, alTop, alBottom]);
+  FGrip.Invalidate;
 end;
 
 procedure TCPreview.Paint;
@@ -303,6 +400,7 @@ begin
     if not (csLoading in ComponentState) then FSplitter.Visible := Visible;
     ApplySplitterColor;
   end;
+  UpdateGrip;
 end;
 
 { ---------- 表示元とのやり取り（3.2） ---------- }
@@ -572,6 +670,127 @@ procedure TCPreview.SetPreviewPath(const AValue: string);
 begin
   FPreviewPath := AValue;
   if FPreview <> nil then FPreview.ResourcePath := AValue;
+end;
+
+{ ---------- TCPreviewGrip（内側の端の、幅を変える帯） ---------- }
+
+constructor TCPreviewGrip.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  ControlStyle := ControlStyle + [csCaptureMouse, csNoDesignSelectable] - [csAcceptsControls];
+  TabStop := False;
+  Visible := False;
+end;
+
+function TCPreviewGrip.Panel: TCPreview;
+begin
+  Result := TCPreview(Parent);
+end;
+
+{ マウスの位置（画面。TCPreview の軸方向）。帯は TCPreview の大きさで動くので、帯の座標ではなく画面の座標を使う }
+function TCPreviewGrip.AxisPos: Integer;
+begin
+  if Panel.Align in [alLeft, alRight] then Result := Mouse.CursorPos.X else Result := Mouse.CursorPos.Y;
+end;
+
+procedure TCPreviewGrip.Paint;
+var
+  T, M: Integer;
+begin
+  Canvas.Brush.Style := bsSolid;
+  Canvas.Brush.Color := Panel.GripColor;
+  Canvas.FillRect(ClientRect);
+  if FHot or FDragging then
+  begin
+    T := Max(1, Scale96ToFont(2));
+    Canvas.Brush.Color := clHighlight;           { TCSplitter と同じ青い線 }
+    if Panel.Align in [alLeft, alRight] then
+    begin
+      M := (Width - T) div 2;
+      Canvas.FillRect(Rect(M, 0, M + T, Height));
+    end
+    else
+    begin
+      M := (Height - T) div 2;
+      Canvas.FillRect(Rect(0, M, Width, M + T));
+    end;
+  end;
+end;
+
+procedure TCPreviewGrip.MouseEnter;
+begin
+  inherited MouseEnter;
+  if not FHot then
+  begin
+    FHot := True;
+    Invalidate;
+  end;
+end;
+
+procedure TCPreviewGrip.MouseLeave;
+begin
+  inherited MouseLeave;
+  if FHot then
+  begin
+    FHot := False;
+    Invalidate;
+  end;
+end;
+
+procedure TCPreviewGrip.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseDown(Button, Shift, X, Y);
+  if Button <> mbLeft then Exit;
+  FDragging := True;
+  MouseCapture := True;
+  FStartPos := AxisPos;
+  if Panel.Align in [alLeft, alRight] then FStartSize := Panel.Width else FStartSize := Panel.Height;
+  Invalidate;
+end;
+
+{ ドラッグ中：マウスの動いた分だけ、TCPreview の大きさを変える。
+  alRight・alBottom は、帯が内側（左・上）にあるので、左（上）へ動かすと大きくなる。小さい方の限界は 100px（表示スケールで換算）、
+  大きい方の限界は、親のクライアント領域から、ほかの部品のために 100px 残した大きさ }
+procedure TCPreviewGrip.MouseMove(Shift: TShiftState; X, Y: Integer);
+var
+  D, NewSize, MinSz, MaxSz, ParentSz: Integer;
+  Horz: Boolean;
+begin
+  inherited MouseMove(Shift, X, Y);
+  if not FDragging then Exit;
+  Horz := Panel.Align in [alLeft, alRight];
+  D := AxisPos - FStartPos;
+  if Panel.Align in [alRight, alBottom] then NewSize := FStartSize - D else NewSize := FStartSize + D;
+  MinSz := Scale96ToFont(100);
+  if Panel.Parent <> nil then
+  begin
+    if Horz then ParentSz := Panel.Parent.ClientWidth else ParentSz := Panel.Parent.ClientHeight;
+    MaxSz := Max(MinSz, ParentSz - Scale96ToFont(100));
+  end
+  else MaxSz := MaxInt;
+  NewSize := Max(MinSz, Min(NewSize, MaxSz));
+  if Horz then Panel.Width := NewSize else Panel.Height := NewSize;
+end;
+
+procedure TCPreviewGrip.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseUp(Button, Shift, X, Y);
+  if (Button = mbLeft) and FDragging then
+  begin
+    FDragging := False;
+    MouseCapture := False;
+    Invalidate;
+  end;
+end;
+
+procedure TCPreviewGrip.CaptureChanged;
+begin
+  inherited CaptureChanged;
+  if FDragging and not MouseCapture then
+  begin
+    FDragging := False;
+    Invalidate;
+  end;
 end;
 
 initialization

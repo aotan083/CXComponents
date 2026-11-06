@@ -2147,6 +2147,8 @@ begin
   if csDesigning in ComponentState then Exit;
   { .lfm の設定をまとめて全タブに渡す。設計時の Lines は 1 枚目に入っている（4.2） }
   ApplyAllOptions;
+  { .lfm の Theme は、読み込み中は反映されない（SetTheme が csLoading で何もしない）ので、ここで全タブ・タブの色・背景に反映する }
+  ApplyTheme;
   if FCur <> nil then
   begin
     FCur.FSyn.ClearUndo;
@@ -2154,7 +2156,9 @@ begin
     CheckModified(FCur);
   end;
   if (FPreview <> nil) and FAllowRemoteImages then FPreview.AllowRemoteImages := True;
-  if (FPreview <> nil) and FShowPreview then FPreview.Visible := True;
+  { プレビューは、既定では隠して始める。ShowPreview = True のエディタがあるときだけ出す。
+    TCPreview が先に読み込まれても後でも同じになるよう、出す要求を TCPreview に伝える }
+  if (FPreview <> nil) and FShowPreview then FPreview.RequestShow;
   { 分離で起動されたなら、ここで受け取り、フォームを落とした位置に出す（4.11） }
   if TryClaimTearOff then MoveFormToTearOff;
 end;
@@ -2660,7 +2664,7 @@ begin
   Result := False;
   try
     B := EncodeText(P.GetText, P.FEncoding);
-    FS := TFileStream.Create(AFileName, fmCreate);
+    FS := CXCreateFileShared(AFileName);   { 他のアプリが書き込みを許して開いているだけなら、保存できる（uCXLang） }
     try
       if Length(B) > 0 then FS.WriteBuffer(B[0], Length(B));
     finally

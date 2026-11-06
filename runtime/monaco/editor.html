@@ -65,6 +65,7 @@
         'editor.lineHighlightBorder': '#00000000' } });
       monaco.editor.setTheme(dark ? 'cm-dark' : 'cm-light');
       document.body.style.background = dark ? '#1e1e1e' : '#fff';
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';   // ページのスクロールバーの色を、OS ではなくテーマに合わせる
     }
     osDark.addEventListener('change', function () {
       applyTheme();

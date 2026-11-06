@@ -20,7 +20,8 @@
 | TCCheckListBox | チェックを 1 つだけにできる TCheckListBox | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
 | TCGroupBox・TCCheckGroupBox | 中の部品が消えないグループボックスと、チェック付きの見出しのグループボックス | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
 | TCSideBar | Edge のようなアイコン列と開閉するパネル | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
-| TCExpandPanel・TCRollout | VS Code のエクスプローラーのような、タイトルバー付きの伸縮するパネル（上下左右・複数並べる・アニメーション・右側にボタンとメニュー） | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
+| TCExpandPanel・TCRollout | VS Code のエクスプローラーのような、タイトルバー付きの伸縮するパネル（上下左右・複数並べる・アニメーション・右側にボタンとメニュー・境界のドラッグで大きさを変える） | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
+| TCSplitter | マウスを乗せたとき・ドラッグ中に青い線が出る分割線（TSplitter と同じ使い方。色・カーソルを指定できる） | [Usage](docs/TCSplitter_Usage.md) | [Design](docs/TCSplitter_Design.md) |
 | TCPageControl・TCTitleBar | ブラウザのようなタブと、タブを並べられるタイトルバー | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | WebView2 を使ったタブ付きの Web ブラウザ | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor・TCMFindDialog | WebView2 と Monaco Editor によるエディタ（タブ・プレビュー・検索・印刷を内蔵）と、標準アクション 25 個 | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
@@ -124,7 +125,7 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 
 ---
 
-## 🚀 なぜ CXComponents なのか？（RAD体験の革命）
+## ⚡ なぜ CXComponents なのか？（RAD体験の革命）
 
 従来のLazarus開発では、Windows Explorer同等のファイル操作やVS Code風のタブ切り離し、Markdownプレビューなどを実現するために、**数千行の複雑なコードやShell API呼び出しをガリガリ書く必要**がありました。
 
@@ -213,7 +214,7 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 
 ---
 
-### 🎨 UIレイアウト・ナビゲーションコンポーネント
+### ⚡ UIレイアウト・ナビゲーションコンポーネント
 
 #### `TCSideBar`
 * VS Codeスタイルの**ナビゲーションサイドバー**を即座に構築。
@@ -223,7 +224,11 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 
 #### `TCExpandPanel`
 * アコーディオンのように**伸縮・折りたたみが可能なPanel**。
+* パネルの間の境界を**マウスでドラッグして大きさを変更**（実行時・設計時）。開いている最後のパネルが、余った場所を自動で埋める。
 * Windows Theme にフル対応。
+
+#### `TCSplitter`
+* 標準 `TSplitter` と同じ使い方で、**マウスを乗せたとき・ドラッグ中に青い線が出る**分割線。線の色（`HighlightColor`）とカーソル（`SplitCursor`）を指定でき、`OnMouseEnter`・`OnMouseLeave` も使える。
 
 #### `TCTitleBar` + `TCPageControl`
 * ウィンドウの**タイトルバー上にタブを直接配置**。

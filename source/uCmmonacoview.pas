@@ -1854,7 +1854,7 @@ begin
   end;
 
   B := EncodeText(ADoc.Text, ADoc.Encoding);
-  FS := TFileStream.Create(N, fmCreate);
+  FS := CXCreateFileShared(N);      { 他のアプリが書き込みを許して開いているだけなら、保存できる（uCXLang） }
   try
     if Length(B) > 0 then FS.WriteBuffer(B[0], Length(B));
   finally

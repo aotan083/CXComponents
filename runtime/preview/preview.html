@@ -189,6 +189,7 @@
   }
   function applyTheme() {
     var dark = state.theme === 'vs-dark' || (state.theme === 'auto' && osDark.matches);
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';   // ページのスクロールバーの色を、OS ではなくテーマに合わせる
     document.getElementById('cssL').disabled = dark;
     document.getElementById('cssD').disabled = !dark;
     document.getElementById('hlL').disabled = dark;

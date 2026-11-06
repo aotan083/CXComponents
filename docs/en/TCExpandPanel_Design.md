@@ -1,8 +1,8 @@
 # TCExpandPanel Design Document
 
 Author: aotan083
-Date: 2026-11-05
-Version: 1.0
+Date: 2026-11-06
+Version: 1.1
 
 ---
 
@@ -25,16 +25,20 @@ CExpandPanel1.AddPanel(CRollout2);
 - Buttons can be shown always, or only while the mouse is over the title bar.
 - When the contents of the container overflow, a scroll bar appears and the contents can be scrolled (can be switched off).
 - Only system colors are used (dark/light is left to the application side, e.g. MetaDarkStyle).
+- The border between panels (the gap between two panels) can be dragged with the mouse to change the sizes of the two neighboring panels (at run time and at design time; `AllowResize`).
+- When no panel has `Fill = True`, the last open panel automatically fills the remaining space.
+- At design time, a dashed frame shows the place and extent of the container, and a blue band shows the borders that can be moved.
 
-### 1.1 Not Included in This Version
+### 1.1 Not Included
 
-- Dragging the border between panels inside the container to change their sizes (a container splitter). Sizes are decided by `ExpandedSize` and `Fill`. When a single TCRollout is placed with `Align = alTop` or similar, the standard TSplitter can be used.
+- A splitter between the container and other components outside it. Use TSplitter or TCSplitter.
+- Dragging the border of a single TCRollout placed with `Align = alTop` or similar (the standard TSplitter or TCSplitter can be used).
 
 ## 2. Files and Packages
 
 | File | Package | Contents |
 |---|---|---|
-| `uCExpandPanel.pas` | cx (runtime) | Types, `TCRolloutButton`, `TCRolloutButtons`, `TCRollout`, `TCExpandPanel` |
+| `uCExpandPanel.pas` | cx (runtime) | Types, `TCRolloutButton`, `TCRolloutButtons`, `TCRollout`, `TCExpandSash` (the border band), `TCExpandPanel` |
 | `uCExpandPanelReg.pas` (`source\design`) | cxdsgn (design time) | Registration on the [CX] palette, component editor `TCExpandPanelEditor` |
 | `cexpandpanel_icon.lrs` | cxdsgn (design time) | Icons (`TCExpandPanel` and `TCRollout`, each with `_150` and `_200`). Included with `{$I cexpandpanel_icon.lrs}` in the initialization of `uCExpandPanelReg` |
 
@@ -64,6 +68,7 @@ Sizes at 100% (in the implementation; scaled with `Scale96ToFont` each time they
 | `cTextPad96` | 6 | Gap between the arrow/buttons and the text |
 | `cArrowSize96` | 8 | Size of the arrow |
 | `cButtonRadius96` | 4 | Corner radius of the highlight |
+| `cSashSize96` | 5 | Thickness of the border band (the gap between panels; added to `Spacing` when `AllowResize = True`) |
 | `cFillMin96` | 60 | Minimum size of the body of a `Fill` panel (it does not get smaller than this; if there is not enough room, the container scrolls) |
 | `cScrollLine96` | 24 | One scroll line (the amount for an arrow click; one mouse-wheel notch is 3 lines) |
 
@@ -190,6 +195,8 @@ Writing `Expanded` (`SetExpanded(v)`):
 4. `Invalidate`. At run time, raise `OnExpand` when opened and `OnCollapse` when closed (raised at the start of the animation; it does not wait for the end).
 5. A change made by clicking the header at design time calls `OwnerFormDesignerModified(Self)` (7.4).
 
+`ApplyExpandedSize(v)`: if `v` is smaller than `HeaderSize`, use `HeaderSize`, and store it in `ExpandedSize`. It does not lay out. It returns `True` if the value changed. `SetExpandedSize` calls it and, if `True`, calls `LayoutChanged`. The border drag (6.7) uses it to store the sizes of two panels and then lay out only once.
+
 Animation:
 
 | Routine | Processing |
@@ -263,6 +270,7 @@ private
   FScrollable: Boolean;
   FScrollPos: Integer;     // scroll position (on the axis; 0 or more)
   FContentLength: Integer; // length of all panels lined up (the total in 6.3)
+FAllowResize: Boolean;   // allow dragging the borders (6.7)  FSashes: TFPList;        // border bands (TCExpandSash); one between each pair of panels (6.7)  FSashIndex: Integer;     // number of the border being dragged (-1 if none)  FSashStartPos, FSashStartA, FSashStartB, FSashPool, FSashFillCount: Integer;  // values during a drag (6.7)  FDesignDragging, FDesignerPressLeft: Boolean;  // dragging at design time (6.7)
 public
   constructor Create(TheOwner: TComponent); override;
   destructor Destroy; override;
@@ -277,11 +285,13 @@ published
   property Multiple: Boolean read FMultiple write SetMultiple default True;
   property Spacing: Integer read FSpacing write SetSpacing default 0;
   property Scrollable: Boolean read FScrollable write SetScrollable default True;
+  property AllowResize: Boolean read FAllowResize write SetAllowResize default True;
   property Align, Anchors, BorderSpacing, Color, Constraints, Enabled, Font, ParentFont,
            ParentColor, ParentShowHint, ShowHint, Visible;
 end;
 ```
 
+- `AllowResize`: if `True`, a border band is placed between panels, and their sizes can be changed by dragging (6.7). If `False`, the bands and the gaps for them disappear (only `Spacing` remains).
 - `Scrollable`: if `True`, when the length of the lined-up panels is longer than the container, a scroll bar (vertical for a vertical container, horizontal for a horizontal one) appears and the contents can be scrolled. If `False`, the overflowing part is cut off.
 
 ### 6.2 List of Panels
@@ -297,20 +307,22 @@ end;
 | `IndexOfPanel(R)` | `FPanels.IndexOf(R)` (-1 if not found). Used by the design-time component editor (chapter 8) to know the number of the selected TCRollout |
 | `AddRollout(R)` | If already in the list, finish. `FPanels.Add(R)`, `R.Align := alNone`. `LayoutChanged` |
 | `RemoveRollout(R)` | Remove it from the list and `LayoutChanged` (do nothing while being destroyed) |
-| `InsertControl(AControl, Index)` | If `AControl` is not a `TCRollout`, `EInvalidOperation(CXT(sEpErrChild))`. Otherwise `inherited` |
+| `InsertControl(AControl, Index)` | If `AControl` is neither a `TCRollout` nor a `TCExpandSash` (6.7), `EInvalidOperation(CXT(sEpErrChild))`. Otherwise `inherited` |
 
 ### 6.3 Layout (overrides `AlignControls`)
 
 `inherited` is not called. All panels are placed with the following procedure. The axis is `Orientation` (height for vertical, width for horizontal; called the "axis" below).
 
 1. Collect the shown (`Visible`) panels in the order of `FPanels`. If there are none, finish.
-2. The axis length `L` = the length of the client area along the axis.
-3. For panels that are not `Fill`, the size along the axis `S(i)` = `LayoutSize(ExpandedSize)` (an intermediate size during the animation).
-4. For `Fill` panels (`F` of them): those that are open or animating (`Expanded` or `FOpenT > 0`) are `k` in number. The remainder for the bodies is `P := L - Σ S(i) - Σ (HeaderSize of the Fill panels) - Spacing * (n - 1)` (`n` is the number of shown panels). If `k > 0`, the body size is `B := Max(P div k, Scale96ToFont(cFillMin96))`. The size of a `Fill` panel is `HeaderSize + Round(B * FOpenT)` (`HeaderSize` for those not counted in `k`). If `k = 0`, the remainder stays empty (the background shows).
-5. Store the total `C := Σ (sizes of all panels) + Spacing * (n - 1)` in `FContentLength`.
+2. The axis length `L` = the length of the client area along the axis. The length between panels is `G := Spacing + (Scale96ToFont(cSashSize96) if AllowResize, otherwise 0)`.
+3. Decide the panels that fill the remainder: if there are `Fill = True` panels, they fill the remainder. If there are none, the last one (in the order of `FPanels`) of the panels that are open (`Expanded` or `FOpenT > 0`) fills the remainder (an automatic `Fill`: `FAutoFill`; see 10, item 3). If no panel is open, the remainder is left empty. Below, the panels that fill the remainder are called "Fill panels".
+3a. For panels that are not Fill panels, the size along the axis `S(i)` = `LayoutSize(ExpandedSize)` (an intermediate size during the animation).
+4. For `Fill` panels (`F` of them): those that are open or animating (`Expanded` or `FOpenT > 0`) are `k` in number. The remainder for the bodies is `P := L - Σ S(i) - Σ (HeaderSize of the Fill panels) - G * (n - 1)` (`n` is the number of shown panels). If `k > 0`, the body size is `B := Max(P div k, Scale96ToFont(cFillMin96))`. The size of a `Fill` panel is `HeaderSize + Round(B * FOpenT)` (`HeaderSize` for those not counted in `k`). If `k = 0`, the remainder stays empty (the background shows).
+5. Store the total `C := Σ (sizes of all panels) + G * (n - 1)` in `FContentLength`.
 6. Scrolling (6.6): if `Scrollable` and `C > L`, show the scroll bar and keep `FScrollPos` within `0 .. C - L`; otherwise hide the bar and set `FScrollPos := 0`.
-7. Place the panels in the order of `FPanels`, from the start of the axis (`-FScrollPos`), with `Spacing` between them. Positions are stacked along the axis; across the axis, they run from 0 and fill the width (height) of the client area of the container (excluding the scroll bar). `SetBoundsManaged` is used.
+7. Place the panels in the order of `FPanels`, from the start of the axis (`-FScrollPos`), with `G` between them. Positions are stacked along the axis; across the axis, they run from 0 and fill the width (height) of the client area of the container (excluding the scroll bar). `SetBoundsManaged` is used.
 8. If `Scrollable = False` and the total exceeds `L`, the overflowing part is cut off.
+9. Border bands (6.7): with `AllowResize` and two or more shown panels, place a `TCExpandSash` between the panels (n - 1 places); create the missing ones, set `Parent := Self`, and add them to `FSashes`. The `i`-th band starts right after the end of the `i`-th panel, has length `G`, and across the axis is the same as the panels. After placing it, set `FIndex := i` and call `UpdateState`. Hide the extra bands, and all bands when `AllowResize = False` or there is one panel or fewer. `FSashPool := P` and `FSashFillCount := k` (not updated while dragging, i.e. while `FSashIndex >= 0`).
 
 `LayoutChanged`: do nothing while being destroyed or while `csLoading`. `InvalidatePreferredSize`, `ReAlign`, `Invalidate`.
 
@@ -329,6 +341,8 @@ end;
 | `SetMultiple` | If changed, store it. When set to `False` and two or more panels are open, close all but the first open one (events are raised) |
 | `SetSpacing` | If negative, 0. If changed, store it and `LayoutChanged` |
 | `SetScrollable` | If changed, store it and `LayoutChanged` (if `False`, hide the bar and `FScrollPos := 0`) |
+| `SetAllowResize` | If changed, store it. If set to `False`, `FSashIndex := -1`. `LayoutChanged` (the length between panels changes, so lay out again) |
+| `Paint` | Fill the background with `Color`. At design time, draw a dashed frame (`clGrayText`, 1px) around the whole container so that its place and extent can be seen (no text is drawn) |
 | `DoAutoAdjustLayout` | After `inherited`, if `AMode` is `lapAutoAdjustWithoutHorizontalScrolling` or `lapAutoAdjustForDPI`, `FSpacing := Round(FSpacing * proportion)` (the proportion of the axis direction) |
 | `Destroy` | After `inherited Destroy`, free `FPanels` (`RemoveRollout` is called by `SetParent(nil)` of each child) |
 
@@ -346,6 +360,74 @@ The standard Windows scroll bar is used (`ShowScrollBar`, `SetScrollInfo`, `GetS
 | A panel opens (when the last panel grows and goes out of view) | The layout of 6.3 is redone every time during the open/close animation, so if `FScrollPos` exceeds `FContentLength - L`, it is brought back in (so that no blank is visible when closing) |
 
 `TCRollout.SetParent(NewParent)`: if it is the same, finish. If the previous parent is a `TCExpandPanel`, `RemoveRollout(Self)`. `inherited SetParent`. If the new parent is a `TCExpandPanel`, `AddRollout(Self)`. `TCRollout.GetExpandPanel`: the `Parent` if it is a `TCExpandPanel`, otherwise nil.
+
+### 6.7 Border Drag (TCExpandSash)
+
+The gap between two panels (the part of the length `G` that comes from `AllowResize`; 6.3, step 9) is the "border". When the border is pressed and dragged, the sizes of the two panels before and after it change.
+
+#### 6.7.1 Borders That Can Be Moved
+
+`SashEnabled(i)` (between the `i`-th and the `i + 1`-th shown panels) is true when all of the following are met.
+
+| Condition | Contents |
+|---|---|
+| `AllowResize` | `True` |
+| The container is usable | `Enabled`, or at design time |
+| The panels before and after exist | `VisiblePanelAt(i)` and `VisiblePanelAt(i + 1)` are not nil |
+| Both are open | `Expanded`, not animating, and `FOpenT = 1` |
+| Not both are `Fill` | At least one of them is not a panel that fills the remainder (`FillNow` is false; 6.3, step 3) |
+
+A border that cannot be moved has its band hidden (it is not shown and does not react to the mouse).
+
+#### 6.7.2 Drag
+
+| Routine | Processing |
+|---|---|
+| `SashBegin(i, position)` | `FSashIndex := i`, `FSashStartPos := position` (in container coordinates, along the axis), `FSashStartA` and `FSashStartB` := the current sizes along the axis of the panels before and after |
+| `SashMove(position)` | Find the amount `D` with the table below, call `ApplyExpandedSize` for both, and if either changed, do `LayoutChanged` and `Update` once |
+| `SashEnd` | `FSashIndex := -1`, `LayoutChanged` (take the remainder values again from the current layout). At design time, `OwnerFormDesignerModified(Self)` (so that `ExpandedSize` is saved in the form) |
+
+`D := position - FSashStartPos` is clamped to the range below. The minimum size per panel is `Mn := HeaderThickness + Scale96ToFont(cFillMin96)`. `PoolMax := Max(0, FSashPool - FSashFillCount * Scale96ToFont(cFillMin96))`.
+
+| Before A / after B | Range (Lo .. Hi) | What changes |
+|---|---|---|
+| Neither is Fill | `MnA - StartA .. StartB - MnB` | `ExpandedSize` of A := `StartA + D`, `ExpandedSize` of B := `StartB - D` (the two share the size) |
+| A is Fill, B is not | `-PoolMax .. StartB - MnB` | `ExpandedSize` of B := `StartB - D` (A is decided by the remainder) |
+| A is not Fill, B is | `MnA - StartA .. PoolMax` | `ExpandedSize` of A := `StartA + D` (B is decided by the remainder) |
+| Both are Fill | — | Not moved (6.7.1) |
+
+- If the range is reversed (`Lo > Hi`), `D := 0`.
+- There is no way to cancel with Esc.
+
+#### 6.7.3 TCExpandSash
+
+`TCExpandSash = class(TCustomControl)`. `TCExpandPanel` creates it and makes it a child (`Owner` is the container, so it is not saved in the form file).
+
+| Item | Contents |
+|---|---|
+| Fields | `FIndex` (number of the panel before it), `FHot`, `FDragging`, `FDesignerPressLeft` |
+| `Create` | Add `csCaptureMouse` and `csNoDesignSelectable` to `ControlStyle`, remove `csAcceptsControls`. `Align := alNone`, `Visible := False` |
+| `UpdateState` | Check `SashEnabled(FIndex)`. If true, set the cursor to `crVSplit` (vertical stacking) or `crHSplit` (horizontal stacking); if false, `crDefault`. `Visible :=` whether it can be moved. `Invalidate` |
+| `Paint` | Fill with the container's `Color`. At design time, fill all of it with blue (RGB 90,160,230). At run time, if the mouse is over it or it is being dragged, draw a line of thickness `Scale96ToFont(2)` in `clHighlight` in the middle |
+| `MouseDown` | With the left button, if it can be moved: `FDragging := True`, `MouseCapture := True`, `SashBegin(FIndex, container coordinates)`. The coordinates use `ClientToParent` (container coordinates) |
+| `MouseMove` | Update `FHot`. If `FDragging`, `SashMove` |
+| `MouseUp` | If `FDragging`, make it false, `MouseCapture := False`, `SashEnd` |
+| `MouseLeave` | If not dragging, `FHot := False` |
+| `CMDesignHitTest` | 1 while dragging, or if it can be moved |
+
+#### 6.7.4 Design Time
+
+When the Lazarus designer looks for the component under the mouse, it skips components with `csNoDesignSelectable` and picks the container. So at design time, the container, not the band, receives the mouse operations.
+
+| Routine | Processing |
+|---|---|
+| `SashAtPoint(X, Y)` | The number of the movable border at container coordinates (X, Y) (-1 if none) |
+| `CMDesignHitTest` | 1 while dragging (`FDesignDragging`), or after the previous drag (`FDesignerPressLeft`) when no button is pressed, or over a border. Otherwise 0 (the designer selects the component) |
+| `MouseDown` | At design time, with the left button, over a border: `FDesignDragging := True`, `MouseCapture := True`, `SashBegin` (X or Y is used as it is for the axis coordinate) |
+| `MouseMove` | If `FDesignDragging`, `SashMove` |
+| `MouseUp` | If `FDesignDragging`, make it false, `MouseCapture := False`, `SashEnd`, `FDesignerPressLeft := True` |
+
+`FDesignerPressLeft` has the same meaning as in `CMDesignHitTest` of TCSideBar (uCSideBar): when a component handles `MouseUp`, the designer leaves its pressed state behind.
 
 ## 7. Painting and Mouse of TCRollout
 
@@ -423,3 +505,26 @@ After `inherited`, if the button under the mouse has a `Hint`, `HintStr := Hint`
 | A component placed at design time does not enter the panel | `csAcceptsControls` (5.2), `AdjustClientRect` (5.5) |
 | The order of panels differs from the .lfm | `SetControlIndex` in `MovePanel` (6.2) |
 | The thickness of the title bar is off with the display scale | `DoAutoAdjustLayout` (5.4 and 6.5) |
+| A border does not move when dragged (run time) | `SashEnabled` (6.7.1), `TCExpandSash.MouseDown` and `MouseMove` (6.7.3), whether the band is visible (`UpdateState`) |
+| A border does not move when dragged (design time) | `SashAtPoint`, `CMDesignHitTest` and `MouseDown` (6.7.4). Was cxdsgn rebuilt and the IDE restarted? |
+| The last panel does not fill the remainder | `FAutoFill` (6.3, step 3), whether `Fill` is set on another panel |
+| The border cannot be seen at design time | `TCExpandSash.Paint` (6.7.3), `AllowResize`, `SashEnabled` (a border between two Fill panels is hidden) |
+
+## 10. Changes in This Version (1.1)
+
+### 10.1 Now and After
+
+| No. | Item | Before (1.0) | After (1.1) |
+|---|---|---|---|
+| 1 | Border drag | None. Sizes are decided only by `ExpandedSize` and `Fill` | The border between panels can be dragged to change sizes, sharing with the neighbor (`AllowResize`, 6.7). At run time and at design time |
+| 2 | Gap between panels | Only `Spacing` (default 0) | When `AllowResize = True`, the border band (5px) is added to `Spacing` |
+| 3 | How the remainder is filled | Only `Fill = True` panels fill it. Otherwise empty space remains | If there is no Fill panel, the last open panel fills it (6.3, step 3) |
+| 4 | Look at design time | Nothing | A dashed frame on the container. A blue band on borders that can be moved |
+| 5 | How `ExpandedSize` is stored | `SetExpandedSize` (store, then lay out at once) | `ApplyExpandedSize` is added (store only; 5.4). `SetExpandedSize` uses it |
+
+### 10.2 Changed Files
+
+| File | Change |
+|---|---|
+| `source/uCExpandPanel.pas` | `TCExpandSash`, `AllowResize`, `FAutoFill` and `FillNow`, `ApplyExpandedSize`, mouse at design time (`SashAtPoint`, etc.), `Paint` (dashed frame) |
+| `docs/TCExpandPanel_Usage.md` | Design-time use, border drag, `AllowResize`, how the remainder is filled |

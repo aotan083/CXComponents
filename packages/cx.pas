@@ -8,11 +8,12 @@ unit cx;
 interface
 
 uses
-  CTreeView, CListView, CFileTree, CShellNotify, CShellMenu, CShellDragDrop,
-  CShellOleDrop, CShellOleDrag, csynedit, CCheckListBox, uCGroupBox,
-  uCCheckGroupBox, uCSideBar, uCExpandPanel, uCTitleBar, uCPageControl, uCXRuntime, uCXLang,
-  uCTabBrowser, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview,
-  CMonacoFindDlg, uCmonacos, CMonacoActions, uCbookmark, uCPreview, uCsEditor;
+  CTreeView, CListView, CFileTree, CShellNotify, CShellMenu, CShellDragDrop, 
+  CShellOleDrop, CShellOleDrag, cSynedit, CCheckListBox, uCGroupBox, 
+  uCCheckGroupBox, uCSideBar, uCExpandPanel, uCSplitter, uCTitleBar, 
+  uCPageControl, uCXRuntime, uCXLang, uCTabBrowser, uCmmonacoview, 
+  uCmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg, uCmonacos, 
+  CMonacoActions, uCbookmark, uCPreview, uCsEditor;
 
 implementation
 

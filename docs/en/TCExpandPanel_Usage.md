@@ -1,8 +1,8 @@
 # TCExpandPanel User Manual
 
 Author: aotan083
-Date: 2026-11-05
-Version: 1.0
+Date: 2026-11-06
+Version: 1.1
 
 ---
 
@@ -74,7 +74,9 @@ Components that line up VS Code Explorer-style "collapsible panels with a title 
 
 - To change the order of panels, select a panel and choose "Move Up" or "Move Down" from the right-click menu.
 - To delete a panel, select it and choose "Delete Panel" from the right-click menu.
-- For a panel that should fill the remaining space, set `Fill` to `True` (4.1).
+- A panel that fills the remaining space can be decided with `Fill = True` (4.1). If no panel is `Fill`, the last open panel fills the remaining space (3.3).
+- The size of a panel can be changed by dragging the thin band between panels (blue at design time) with the mouse. It shares the size with the neighboring panel (3.5).
+- At design time, to select a panel, click a part of the panel other than the title bar (a place where no component is put in the body), or choose it from the list at the top of the Object Inspector. Clicking the title bar opens or closes it.
 
 ### 2.2 Adding Buttons to a Panel
 
@@ -120,6 +122,7 @@ Language=en
 |---|---|---|---|
 | `Orientation` | `TCExpandOrientation` | Read/Write | Direction in which the panels are lined up (default `eoVertical`). `eoVertical` stacks them vertically. `eoHorizontal` lines them up horizontally |
 | `Multiple` | `Boolean` | Read/Write | Whether several panels can be open at the same time (default `True`). If `False`, opening one panel closes the others (accordion) |
+| `AllowResize` | `Boolean` | Read/Write | Whether the borders between panels can be dragged to change sizes (default `True`). If `False`, the border bands and the gaps for them disappear |
 | `Spacing` | `Integer` | Read/Write | Margin between panels (default 0) |
 | `Scrollable` | `Boolean` | Read/Write | Whether a scroll bar appears when the length of the lined-up panels is longer than the container (default `True`). If `False`, the overflowing part is cut off |
 | `Panels[Index]` | `TCRollout` | Read | A panel in the container (in the order they are lined up). Run time only |
@@ -170,7 +173,8 @@ When `Orientation = eoVertical` (stacked vertically), the panels are lined up as
 | Closed | `HeaderSize` (only the title bar) |
 | Open, `Fill = True` | The remaining space divided equally among the open `Fill` panels (the minimum is the title bar plus about 60 px) |
 
-- If there is no open `Fill` panel, the remaining space stays empty (the background shows).
+- If no panel is `Fill = True`, the last one of the open panels, in the order they are lined up, fills the remaining space (it is treated the same as `Fill = True`). If no panel is open, the remaining space stays empty (the background shows).
+- When `AllowResize = True`, there is a gap of 5 px (enlarged with the display scale) between panels. This is the border, and it can be dragged (3.5).
 - A `HeaderPosition` that does not match the direction of lining up is read differently inside a container. When stacked vertically, `hpLeft` and `hpRight` are treated as `hpTop`. When lined up horizontally, `hpTop` and `hpBottom` are treated as `hpLeft`. The value of `HeaderPosition` itself does not change.
 - The width of a panel (height when lined up horizontally) fills the container.
 
@@ -186,6 +190,22 @@ When the length of the lined-up panels is longer than the container and `Scrolla
 
 - When the wheel is turned over a component on a panel (such as a TMemo), that component receives it.
 - When a panel closes and the whole becomes shorter, the scroll position is brought back in automatically.
+
+### 3.5 Changing Panel Sizes by Dragging a Border
+
+When `AllowResize = True` (default), you can drag the thin band between panels with the mouse to change the sizes of the two panels before and after it. It works the same at run time and at design time (form designer).
+
+| Panels before and after | Behavior |
+|---|---|
+| Neither is `Fill = True` | They share the size. As one becomes larger, the other becomes smaller (`ExpandedSize` changes) |
+| One fills the remaining space (`Fill = True`, or the last panel in 3.3) | Only the size of the other changes. The panel that fills the remaining space gets the remaining size |
+| Both fill the remaining space | It cannot be moved |
+
+- A border next to a closed panel, or a border in the middle of an open/close animation, cannot be moved.
+- The smallest size is the title bar plus about 60 px.
+- When the mouse is over a border, the cursor becomes an arrow (up-down for vertical stacking, left-right for horizontal stacking) and a blue line (`clHighlight`) appears in the middle. The blue line stays while dragging.
+- At design time, the borders that can be moved are shown as blue bands (thin bands of about 5 px). Drag the middle of a band with the mouse to change the size; `ExpandedSize` is saved in the form.
+- To decide sizes without dragging a border, select the panel and write `ExpandedSize` in the Object Inspector (4.1).
 
 ## 4. TCRollout
 
@@ -330,9 +350,11 @@ TCRollout has no methods added by this component. Opening and closing are done w
 | Right-click the container -> "Add Panel" | Adds a panel at the end |
 | Right-click a panel -> "Delete Panel" | Deletes a panel that is in a container |
 | Right-click a panel -> "Move Up" / "Move Down" | Changes the order of the panel in the container |
-| Drag the edge of a panel | Changes the size of a single panel (it becomes `ExpandedSize`) |
+| Drag the blue band between panels | Changes the sizes of the panels before and after it (3.5; it becomes `ExpandedSize`) |
+| Drag the edge of a single panel | Changes the size of a single panel (it becomes `ExpandedSize`) |
+| Dashed frame around the container | Shows the place and extent of the container. It does not appear at run time |
 
-- The position and size of a panel in a container are decided by the container, so they return to the original even if you move them by dragging. Decide the size with `ExpandedSize`.
+- The position and size of a panel in a container are decided by the container, so they return to the original even if you drag the edge of the panel. Decide the size by dragging the blue band between panels, or with `ExpandedSize`.
 
 ## 6. Display
 
