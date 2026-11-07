@@ -146,6 +146,7 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 | **Markdown & Mermaid diagram preview** | Embedding an external rendering engine and writing scroll-sync code | **0 lines of code** (just place `TCPreview`) |
 | **WebView2-based tabbed browser** | WebView calls, source retrieval, and PDF output processing implemented by hand | **0 lines of code** (just place `TCTabBrowser`) |
 | **Title-bar-integrated tabs & sidebar** | Complex custom drawing of the non-client area of the window | **0 lines of code** (just place `TCTitleBar` + `TCSideBar`) |
+| **Command Prompt** | Completely emit custom drawing using cmd.exe | **0 lines of code** (just place `TCcmd`) |
 
 ---
 
@@ -293,5 +294,8 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 ![tcExpandPanel](demo/Lazarus/20261105-140515-tcExpandPanel.jpg)
 
 ![tcFileTree](demo/Lazarus/20261105-173106-tcFileTree.jpg)
+
+![tcCmd](demo/Lazarus/20261107-221839-tcCmd.jpg)
+
 
 ---
