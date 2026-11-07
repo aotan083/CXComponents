@@ -939,7 +939,7 @@ end;
 | Item | Decision |
 |---|---|
 | User code | Works with zero lines. All settings are in the Object Inspector. The component also takes care of preparing WebView2 |
-| Runtime file locations | WebView2.ini is always placed in the EXE folder. If a key is empty, the default location in the EXE folder. For `monaco` and `preview`, `MonacoPath` and `PreviewPath` take precedence. Relative paths are counted from the EXE folder |
+| Runtime file locations | WebView2.ini is always placed in the EXE folder. If a key is empty, the default location in the EXE folder. For `monaco` and `preview`, `MonacoPath` and `PreviewPath` take precedence. Relative paths are counted from the EXE folder. A `%name%` in a value is replaced by a key of the same section or an environment variable (`CXExpandIniVars`) |
 | Component shape | A composite component with built-in tabs, editor, preview, find, replace, and printing. Any number can be placed on one form |
 | Entry point | The visible tab is `ed`; background tabs are `ed.Pages[n]`. Everything in `Pages[n]` is also in `ed` |
 | Not two ways to do the same thing | The same operation is not made under two different names |

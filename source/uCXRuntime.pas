@@ -14,6 +14,9 @@
     PreviewFolder=..\preview              ← preview.html と lib があるフォルダー（空なら EXE の隣の preview）
 
   ・相対パスは EXE のフォルダーから数える。絶対パスも書ける。
+  ・値の中の %名前% は、同じ [WebView2] セクションのキー、なければ Windows の環境変数で置き換える
+    （例：CXROOT=C:\CX\runtime と書いて、TerminalFolder=%CXROOT%\terminal）。見つからない名前は、そのまま残る。
+  ・TerminalFolder=terminal.html と lib があるフォルダー（空なら EXE の隣の terminal。TCcmd）。
   ・ini は、最初に使うときに 1 回だけ読む（実行中に書き換えても、次の起動まで効かない）。
   ・CXStartWebView2 は、アプリの中で最初の 1 回だけ GlobalWebView2Loader を作って起動する。
     2 回目からは、できているローダーの状態を返す（どの部品から呼んでも同じローダーを使う）。
@@ -32,7 +35,7 @@ unit uCXRuntime;
 interface
 
 uses
-  Controls, uWVWindowParent;
+  Classes, Controls, uWVWindowParent;
 
 type
   { WebView2 を載せる窓（TWVWindowParent を継いだもの）。
@@ -49,7 +52,14 @@ type
     procedure DestroyWnd; override;
   end;
 
-{ WebView2.ini の [WebView2] セクションから、AKey の値を返す。無ければ ''（前後の空白は除く） }
+{ AValue の中の %名前% を、置き換えた文字列を返す。
+  ・名前の探し方：① AValues（「キー=値」の行。nil でもよい）のキー（大文字・小文字は区別しない）、② 無ければ Windows の環境変数
+  ・どちらにも無い %名前% は、そのまま残す。閉じていない % や、% だけも、そのまま残す
+  ・置き換えた値の中の %名前% も置き換える（入れ子は 8 段まで。自分を指していても止まる） }
+function CXExpandIniVars(const AValue: string; AValues: TStrings): string;
+
+{ WebView2.ini の [WebView2] セクションから、AKey の値を返す。無ければ ''（前後の空白は除く）。
+  値の中の %名前% は、CXExpandIniVars で置き換えて返す }
 function CXRuntimeIniValue(const AKey: string): string;
 
 { 相対パスを、EXE のフォルダーから数えた絶対パスにする。'..' も取り除く。'' なら '' }
@@ -74,7 +84,7 @@ implementation
 
 uses
   uCXLang,
-  Classes, SysUtils, IniFiles, uWVLoader;
+  SysUtils, IniFiles, uWVLoader;
 
 const
   INI_NAME = 'WebView2.ini';
@@ -122,6 +132,63 @@ begin
   end;
 end;
 
+const
+  MAX_VAR_DEPTH = 8;      { 値の中の %名前% を、入れ子で置き換える段数の上限 }
+
+function ExpandVarsDepth(const AValue: string; AValues: TStrings; ADepth: Integer): string;
+var
+  I, J, N: Integer;
+  Name, Val: string;
+  Found: Boolean;
+begin
+  Result := '';
+  I := 1;
+  N := Length(AValue);
+  while I <= N do
+  begin
+    if AValue[I] <> '%' then
+    begin
+      Result := Result + AValue[I];
+      Inc(I);
+      Continue;
+    end;
+    { % の次の % を探す。名前が空なら、% は、ただの文字 }
+    J := I + 1;
+    while (J <= N) and (AValue[J] <> '%') do Inc(J);
+    Found := False;
+    if (J <= N) and (J > I + 1) then
+    begin
+      Name := Copy(AValue, I + 1, J - I - 1);
+      if (AValues <> nil) and (AValues.IndexOfName(Name) >= 0) then
+      begin
+        Val := AValues.Values[Name];          { 空の値も「ある」として、空に置き換える }
+        Found := True;
+      end
+      else
+      begin
+        Val := GetEnvironmentVariable(Name);
+        Found := Val <> '';
+      end;
+    end;
+    if Found then
+    begin
+      if ADepth < MAX_VAR_DEPTH then Val := ExpandVarsDepth(Val, AValues, ADepth + 1);
+      Result := Result + Val;
+      I := J + 1;
+    end
+    else
+    begin
+      Result := Result + '%';                 { 置き換えない：この % はそのまま、次の文字から続ける }
+      Inc(I);
+    end;
+  end;
+end;
+
+function CXExpandIniVars(const AValue: string; AValues: TStrings): string;
+begin
+  Result := ExpandVarsDepth(AValue, AValues, 0);
+end;
+
 function CXRuntimeIniValue(const AKey: string): string;
 var
   Values: TStringList;
@@ -129,11 +196,12 @@ begin
   LoadIni;
   Result := '';
   if GIniText = '' then Exit;
-  { 覚えておいた「キー=値」の行から、キーの値を探す（キーの大文字・小文字は区別しない） }
+  { 覚えておいた「キー=値」の行から、キーの値を探す（キーの大文字・小文字は区別しない）。
+    値の中の %名前% は、ほかのキーか環境変数で置き換える }
   Values := TStringList.Create;
   try
     Values.Text := GIniText;
-    Result := Trim(Values.Values[AKey]);
+    Result := Trim(CXExpandIniVars(Trim(Values.Values[AKey]), Values));
   finally
     Values.Free;
   end;

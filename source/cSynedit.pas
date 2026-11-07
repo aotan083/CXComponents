@@ -206,6 +206,7 @@ type
 
     procedure SetFileName(const AValue: string);
     procedure SetEditStyle(const AValue: TCEditStyle);
+    procedure ApplyGutterBackground;
     procedure SetInsModeValue(const AValue: Boolean);
     function GetInsModeValue: Boolean;
     function GetCaretYValue: Integer;
@@ -875,6 +876,21 @@ begin
 end;
 
 
+{ gutter（行番号の欄）の各部分の背景を、エディタの背景（Color）にそろえる。
+  部分ごとの背景が決まっていないと、ダーク表示で、変更の印の欄などに、既定の色（白）が出ることがある }
+procedure TCSynEdit.ApplyGutterBackground;
+var
+  Bg: TColor;
+begin
+  if not Assigned(Gutter) then Exit;
+  Bg := Color;
+  Gutter.Color := Bg;
+  if Assigned(Gutter.ChangesPart) then Gutter.ChangesPart.MarkupInfo.Background := Bg;
+  if Assigned(Gutter.LineNumberPart) then Gutter.LineNumberPart.MarkupInfo.Background := Bg;
+  if Assigned(Gutter.CodeFoldPart) then Gutter.CodeFoldPart.MarkupInfo.Background := Bg;
+  if Assigned(Gutter.SeparatorPart) then Gutter.SeparatorPart.MarkupInfo.Background := Bg;
+end;
+
 { 外観・スタイル設定 }
 procedure TCSynEdit.ApplyEditStyle;
 var
@@ -1175,6 +1191,7 @@ begin
       ApplyVSStyle(Self, FEditStyle = csVSDark);
   end;
 
+  ApplyGutterBackground;      // gutter の背景を、エディタの背景にそろえる
   // 7.4.3 色分けの属性（Pascal で既存の 4 つの配色は、上の case で入れ終わっている）
   ApplyHighlighterColors;
 end;

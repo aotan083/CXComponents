@@ -13,7 +13,7 @@ uses
   uCCheckGroupBox, uCSideBar, uCExpandPanel, uCSplitter, uCTitleBar, 
   uCPageControl, uCXRuntime, uCXLang, uCTabBrowser, uCmmonacoview, 
   uCmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg, uCmonacos, 
-  CMonacoActions, uCbookmark, uCPreview, uCsEditor;
+  CMonacoActions, uCbookmark, uCPreview, uCcmd, uCsEditor;
 
 implementation
 

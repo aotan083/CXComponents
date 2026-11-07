@@ -10,7 +10,7 @@
   ・アクションリストエディタの [CX] カテゴリへ、TCMonacoEditor 用のアクション（25 個）を登録する
   ・アクションリストエディタの [CX TCsEditor] カテゴリへ、TCsEditor 用のアクション（25 個）を登録する
   ・コンポーネントパレットのアイコン（cx_icons.lrs・cchecklistbox_icon.lrs・cgroupbox_icon.lrs・
-    ccheckgroupbox_icon.lrs・cseditor_icon.lrs・csplitter_icon.lrs）を読み込む
+    ccheckgroupbox_icon.lrs・cseditor_icon.lrs・csplitter_icon.lrs・ccmd_icon.lrs）を読み込む
   部品の中身は実行時パッケージ cx にあり、ここでは登録だけを行う。 }
 unit uCXReg;
 
@@ -27,7 +27,8 @@ uses
   CCheckListBox,                              // TCCheckListBox
   uCGroupBox, uCCheckGroupBox,                // TCGroupBox・TCCheckGroupBox
   uCsEditor, uCPreview,                       // TCsEditor・TCsFindDialog・アクション・TCPreview
-  uCSplitter;                                 // TCSplitter
+  uCSplitter,                                 // TCSplitter
+  uCcmd;                                      // TCcmd
 
 
 procedure Register;
@@ -41,7 +42,7 @@ begin
   // リソースを、表示スケールに合わせて選んでアイコンにする。
   RegisterComponents('CX', [TCTreeView, TCListView, TCSynEdit, TCTabBrowser,
     TCMonacoEditor, TCMFindDialog, TCCheckListBox, TCGroupBox, TCCheckGroupBox,
-    TCsEditor, TCsFindDialog, TCPreview, TCSplitter]);
+    TCsEditor, TCsFindDialog, TCPreview, TCSplitter, TCcmd]);
 
   // アクションリストエディタの [CX] カテゴリへ、エディタ操作のアクション25個を登録する
   // （アクションはパレットに出ないため、アイコンは持たない）
@@ -80,5 +81,6 @@ initialization
   {$I ccheckgroupbox_icon.lrs}    // TCCheckGroupBox の 24/36/48px
   {$I cseditor_icon.lrs}         // TCsEditor・TCPreview・TCsFindDialog・TCMFindDialog（A→B の絵）の 24/36/48px
   {$I csplitter_icon.lrs}         // TCSplitter の 24/36/48px
+  {$I ccmd_icon.lrs}              // TCcmd の 24/36/48px
 
 end.

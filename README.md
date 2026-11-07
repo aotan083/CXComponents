@@ -27,6 +27,7 @@ Author: aotan083 / License: MIT
 | TCMonacoEditor / TCMFindDialog | An editor based on WebView2 and Monaco Editor (with built-in tabs, preview, search, and printing), and 25 standard actions | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
 | TCsEditor / TCsFindDialog | An editor that holds multiple TCSynEdit instances in tabs. Usage is the same as TCMonacoEditor (including search and replace dialogs, minimap, and detachable tabs). 25 standard actions | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
 | TCPreview | Preview (Markdown and code) and printing (save as PDF) for TCsEditor. Placed separately from the editor, and can be shared by multiple editors | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
+| TCcmd | A command prompt in a form (cmd.exe, PowerShell, ssh, vi, etc. run on ConPTY; screen drawn by xterm.js; redirection and pipes work; log and command history files; `RunCapture` returns the result of a command) | [Usage](docs/TCcmd_Usage.md) | [Design](docs/TCcmd_Design.md) |
 | TCBookmark | Bookmark management like Firefox's (opens links in TCTabBrowser or TCMonacoEditor) | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
 | CXLang (Japanese/English switching) | Switches all on-screen text of every component (menus, buttons, messages) between Japanese and English. Specified by `Language` in `[CX]` of WebView2.ini (see Chapter 2 of each component's Usage document) | ― | [Design](docs/CXLang_Design.md) |
 
@@ -70,7 +71,7 @@ All components appear in the palette [CX].
 - When you place a component on a form, `cx` is automatically added to the project's required packages (`cxdsgn` is not needed in the application).
 - Nothing needs to be written in the .lpr.
 
-Applications that use TCTabBrowser, TCMonacoEditor, TCBookmark, or TCPreview need the following files in the same folder as the EXE.
+Applications that use TCTabBrowser, TCMonacoEditor, TCBookmark, TCPreview, or TCcmd need the following files in the same folder as the EXE.
 
 | File | Contents |
 |---|---|
@@ -78,6 +79,7 @@ Applications that use TCTabBrowser, TCMonacoEditor, TCBookmark, or TCPreview nee
 | `WebView2Loader.dll` | 64-bit version. Obtain it from the WebView4Delphi repository |
 | `monaco\` | The TCMonacoEditor editor (only for TCMonacoEditor; `runtime\monaco`. `vs` is `min\vs` from the npm `monaco-editor` package) |
 | `preview\` | The preview for TCMonacoEditor and TCPreview (`runtime\preview`) |
+| `terminal\` | The screen of TCcmd (`runtime\terminal`) |
 
 ```ini
 [WebView2]
@@ -85,6 +87,7 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+TerminalFolder=
 
 [CX]
 Language=
@@ -96,8 +99,10 @@ Language=
 | `UserDataFolder` | WebView2 user data folder | EXE's folder\WebView2Data |
 | `MonacoFolder` | Folder containing `editor.html` and `vs` | EXE's folder\monaco |
 | `PreviewFolder` | Folder containing `preview.html` and `lib` | EXE's folder\preview |
+| `TerminalFolder` | Folder containing `terminal.html` and `lib` (TCcmd) | EXE's folder\terminal |
 | `Language` (`[CX]`) | Display language `ja` or `en` | Windows display language (`ja` if Japanese, otherwise `en`) |
 
+- A `%name%` written in a value is replaced by a key of the same `[WebView2]` section, or else by a Windows environment variable. For example, write `CXROOT=C:\CX\runtime` and then `TerminalFolder=%CXROOT%\terminal`. A name that is not found is left as it is.
 - Relative paths are counted from the EXE's folder. Multiple applications can share one `monaco` and `preview` folder (see the [TCMonacoEditor Usage document](docs/TCMonacoEditor_Usage.md)).
 - Running requires the Microsoft Edge WebView2 Runtime (already included in Windows 11).
 - If you use only TCsEditor, the runtime files are not needed. Place them only when using TCPreview.
@@ -211,6 +216,13 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * Zoom in and out, synchronized scrolling and scroll-width adjustment, and ON/OFF control for loading external URL images.
 * Supports **PDF printing and output**. Full support for the Windows theme.
 * ⚡ **No-code effect**: Interactive preview of documents and diagrams with 0 lines of code.
+
+#### `TCcmd`
+* A **command prompt inside a form**. cmd.exe, PowerShell, ssh, vi, python, and so on run on Windows ConPTY, and the screen is drawn by xterm.js in WebView2 (colors, cursor, full-width characters, selection, search).
+* Redirection (`>`, `2>&1`) and pipes (`|`) work as in cmd.exe. No console window appears.
+* Saves an output log and a command history to files. `RunCapture` returns standard output, standard error, and the exit code of a command separately.
+* Font, colors, light/dark theme, cursor, and number of lines kept can be set in the Object Inspector.
+* ⚡ **No-code effect**: Just place it, and your app has a working command prompt.
 
 ---
 

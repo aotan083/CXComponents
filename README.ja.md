@@ -27,6 +27,7 @@
 | TCMonacoEditor・TCMFindDialog | WebView2 と Monaco Editor によるエディタ（タブ・プレビュー・検索・印刷を内蔵）と、標準アクション 25 個 | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
 | TCsEditor・TCsFindDialog | TCSynEdit をタブで複数持つエディタ。使い方は TCMonacoEditor と同じ（検索・置換ダイアログ・ミニマップ・タブの分離を含む）。標準アクション 25 個 | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
 | TCPreview | TCsEditor のプレビュー（Markdown・コード）と印刷（PDF 保存）。エディタとは別の場所に置き、複数のエディタで共有できる | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
+| TCcmd | フォームの中のコマンドプロンプト（cmd.exe・PowerShell・ssh・vi などをエミレート。リダイレクト・パイプが使える。ログ・コマンド履歴のファイル保存、`RunCapture` でコマンドの結果の取得） | [Usage](docs/TCcmd_Usage.md) | [Design](docs/TCcmd_Design.md) |
 | TCBookmark | Firefox のようなブックマーク管理（TCTabBrowser・TCMonacoEditor で開く） | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
 | CXLang（日英切り替え） | すべての部品の画面の文字（メニュー・ボタン・メッセージ）を、日本語と英語で切り替える。WebView2.ini の `[CX]` の `Language` で指定する（使い方は各部品の取扱説明書の 2章） | ― | [Design](docs/CXLang_Design.md) |
 
@@ -70,7 +71,7 @@
 - 部品をフォームに置くと、プロジェクトの必要パッケージに `cx` が自動で追加される（`cxdsgn` はアプリには要らない）。
 - .lpr には何も書かない。
 
-TCTabBrowser・TCMonacoEditor・TCBookmark・TCPreview を使うアプリは、EXE と同じフォルダーに次のファイルを置く。
+TCTabBrowser・TCMonacoEditor・TCBookmark・TCPreview・TCcmd を使うアプリは、EXE と同じフォルダーに次のファイルを置く。
 
 | ファイル | 中身 |
 |---|---|
@@ -78,6 +79,7 @@ TCTabBrowser・TCMonacoEditor・TCBookmark・TCPreview を使うアプリは、E
 | `WebView2Loader.dll` | 64 ビット版。WebView4Delphi のリポジトリから入手する |
 | `monaco\` | TCMonacoEditor のエディタ（TCMonacoEditor だけ。`runtime\monaco`。`vs` は npm の `monaco-editor` の `min\vs`） |
 | `preview\` | TCMonacoEditor・TCPreview のプレビュー（`runtime\preview`） |
+| `terminal\` | TCcmd の画面（`runtime\terminal`） |
 
 ```ini
 [WebView2]
@@ -85,6 +87,7 @@ LoaderDllPath=
 UserDataFolder=
 MonacoFolder=
 PreviewFolder=
+TerminalFolder=
 
 [CX]
 Language=
@@ -96,8 +99,10 @@ Language=
 | `UserDataFolder` | WebView2 のユーザーデータのフォルダー | EXE のフォルダー\WebView2Data |
 | `MonacoFolder` | `editor.html` と `vs` があるフォルダー | EXE のフォルダー\monaco |
 | `PreviewFolder` | `preview.html` と `lib` があるフォルダー | EXE のフォルダー\preview |
+| `TerminalFolder` | `terminal.html` と `lib` があるフォルダー（TCcmd） | EXE のフォルダー\terminal |
 | `Language`（`[CX]`） | 画面の言語 `ja`・`en` | Windows の表示言語（日本語なら `ja`、それ以外は `en`） |
 
+- 値の中の `%名前%` は、同じ `[WebView2]` のキー、なければ Windows の環境変数で置き換える。たとえば `CXROOT=C:\CX\runtime` と書いて、`TerminalFolder=%CXROOT%\terminal` とする。見つからない名前は、そのまま残る。
 - 相対パスは EXE のフォルダーから数える。複数のアプリで 1 か所の `monaco`・`preview` を使うこともできる（[TCMonacoEditor の取扱説明書](docs/TCMonacoEditor_Usage.md)）。
 - 実行には Microsoft Edge WebView2 ランタイム（Windows 11 には最初から入っている）が要る。
 - TCsEditor だけなら、実行時のファイルは要らない。TCPreview を使うときだけ置く。
@@ -212,6 +217,13 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * **PDF印刷・出力**に対応。Windows Theme にフル対応。
 * ⚡ **ノーコード効果**: コード0行でドキュメントや図形のインタラクティブなプレビュー環境を実現します。
 
+#### `TCcmd`
+* **フォームの中で動くコマンドプロンプト**。cmd.exe・PowerShell・ssh・vi・python などエミレート（色・カーソル・全角・選択・検索）します。
+* リダイレクト（`>`・`2>&1`）とパイプ（`|`）は cmd.exe と同じように動く。コンソールの窓は出ない。
+* 出力のログとコマンド履歴をファイルに保存。`RunCapture` で、コマンドの標準出力・エラー出力・終了コードを別々に受け取れる。
+* フォント・色・ライト/ダークの配色・カーソル・保持する行数を、オブジェクトインスペクタで設定できる。
+* ⚡ **ノーコード効果**: 置くだけで、アプリにコマンドプロンプトが付く。
+
 ---
 
 ### ⚡ UIレイアウト・ナビゲーションコンポーネント
@@ -283,6 +295,7 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 
 ![tcFileTree](demo/Lazarus/20261105-173106-tcFileTree.jpg)
 
+![tcCmd](demo/Lazarus/20261107-221839-tcCmd.jpg)
 
 
 ---

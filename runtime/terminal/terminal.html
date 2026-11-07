@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 aotan083 / SPDX-License-Identifier: MIT -->
+<!-- TCcmd の画面：xterm.js で端末を描く。Pascal（uCcmd.pas）との通信は、区切り文字 \u0001 でつないだ 1 本の文字列（docs/TCcmd_Design.md 6 章） -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>TCcmd</title>
+<link rel="stylesheet" href="lib/xterm.css">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1e1e1e; }
+  @media (prefers-color-scheme: light) { html, body { background: #ffffff; } }
+  #t { position: absolute; left: 0; top: 0; right: 0; bottom: 0; padding: 0; }
+  .xterm { height: 100%; padding: 2px 0 0 4px; box-sizing: border-box; }
+  #flash { position: absolute; inset: 0; background: #ffffff; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+</style>
+</head>
+<body>
+<div id="t"></div>
+<div id="flash"></div>
+<script src="lib/xterm.js"></script>
+<script src="lib/addon-fit.js"></script>
+<script src="lib/addon-search.js"></script>
+<script>
+(function () {
+  'use strict';
+  var wv = window.chrome && window.chrome.webview;
+  var SEP = '\u0001', SEP2 = '\u0002';
+  function post() { if (wv) wv.postMessage(Array.prototype.slice.call(arguments).join(SEP)); }
+
+  // ---------- 配色（docs/TCcmd_Design.md 9 章） ----------
+  var THEMES = {
+    dark: { background: '#1e1e1e', foreground: '#cccccc', cursor: '#aeafad', selectionBackground: '#264f78',
+      black: '#000000', red: '#cd3131', green: '#0dbc79', yellow: '#e5e510', blue: '#2472c8', magenta: '#bc3fbc', cyan: '#11a8cd', white: '#e5e5e5',
+      brightBlack: '#666666', brightRed: '#f14c4c', brightGreen: '#23d18b', brightYellow: '#f5f543', brightBlue: '#3b8eea', brightMagenta: '#d670d6', brightCyan: '#29b8db', brightWhite: '#e5e5e5' },
+    light: { background: '#ffffff', foreground: '#333333', cursor: '#000000', selectionBackground: '#add6ff',
+      black: '#000000', red: '#cd3131', green: '#00bc00', yellow: '#949800', blue: '#0451a5', magenta: '#bc05bc', cyan: '#0598bc', white: '#555555',
+      brightBlack: '#666666', brightRed: '#cd3131', brightGreen: '#14ce14', brightYellow: '#b5ba00', brightBlue: '#0451a5', brightMagenta: '#bc05bc', brightCyan: '#0598bc', brightWhite: '#a5a5a5' }
+  };
+  var PALETTE_KEYS = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
+    'brightBlack', 'brightRed', 'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite'];
+  var opt = { theme: 'dark', fg: '', bg: '', cursor: '', sel: '', palette: '' };
+
+  var term = new Terminal({
+    allowProposedApi: true, scrollback: 1000, fontFamily: 'Consolas, "BIZ UDGothic", "MS Gothic", monospace', fontSize: 14,
+    cursorBlink: true, cursorStyle: 'block', convertEol: false, windowsMode: false, theme: THEMES.dark
+  });
+  var fit = new FitAddon.FitAddon();
+  var search = new SearchAddon.SearchAddon();
+  term.loadAddon(fit);
+  term.loadAddon(search);
+  term.open(document.getElementById('t'));
+
+  function applyTheme() {
+    var base = opt.theme === 'light' ? THEMES.light : THEMES.dark;
+    var th = {};
+    for (var k in base) th[k] = base[k];
+    if (opt.palette) {
+      var p = opt.palette.split(',');
+      for (var i = 0; i < PALETTE_KEYS.length && i < p.length; i++) if (p[i]) th[PALETTE_KEYS[i]] = p[i];
+    }
+    if (opt.fg) th.foreground = opt.fg;
+    if (opt.bg) th.background = opt.bg;
+    if (opt.cursor) th.cursor = opt.cursor;
+    if (opt.sel) th.selectionBackground = opt.sel;
+    term.options.theme = th;
+    document.documentElement.style.colorScheme = opt.theme === 'light' ? 'light' : 'dark';   // スクロールバーの色を、OS ではなくテーマに合わせる
+    document.body.style.background = th.background;
+    document.documentElement.style.background = th.background;
+  }
+
+  // ---------- 大きさ ----------
+  var lastCols = 0, lastRows = 0;
+  function doFit() {
+    try { fit.fit(); } catch (e) { }
+    if (term.cols !== lastCols || term.rows !== lastRows) {
+      lastCols = term.cols; lastRows = term.rows;
+      post('resize', String(term.cols), String(term.rows));
+    }
+  }
+  new ResizeObserver(function () { doFit(); }).observe(document.getElementById('t'));
+
+  // ---------- 入力 ----------
+  var disabled = false;
+  term.onData(function (d) {
+    if (disabled) return;
+    if (d.indexOf('\r') >= 0) captureCommand();
+    post('input', d);
+  });
+  term.attachCustomKeyEventHandler(function (e) {
+    if (e.type !== 'keydown') return true;
+    var ctrl = e.ctrlKey && !e.altKey, key = e.key;
+    if (ctrl && !e.shiftKey && (key === 'c' || key === 'C')) {
+      if (term.hasSelection()) { post('selection', term.getSelection()); term.clearSelection(); return false; }
+      return true;                                          // 選択がなければ、Ctrl+C（中断）をそのまま送る
+    }
+    if (ctrl && e.shiftKey && (key === 'C' || key === 'c')) { post('selection', term.getSelection()); return false; }
+    if ((ctrl && (key === 'v' || key === 'V')) || (e.shiftKey && key === 'Insert')) { post('ctrlv'); return false; }
+    return true;
+  });
+  document.getElementById('t').addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    post('menu', String(Math.round(e.clientX)), String(Math.round(e.clientY)));
+  });
+
+  // ---------- Ctrl+ホイールで、文字の拡大・縮小 ----------
+  document.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY !== 0) post('zoom', e.deltaY < 0 ? '1' : '-1');
+  }, { capture: true, passive: false });
+
+  // ---------- エクスプローラーからのドロップ（ファイルの場所を、Pascal へ渡す） ----------
+  document.addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || files.length === 0 || disabled || !wv) return;
+    wv.postMessageWithAdditionalObjects('drop', files);
+  });
+
+  // ---------- タイトル・ベル ----------
+  term.onTitleChange(function (t) { post('title', t); });
+  term.onBell(function () { post('bell'); });
+
+  // ---------- コマンドの取り出し（docs/TCcmd_Design.md 7 章・8.5） ----------
+  // 出力が止まったときの、カーソルの位置を、プロンプトの終わりとして覚える。
+  // Enter のとき、その位置から行の終わりまでを、コマンドとして取り出す。
+  var promptX = 0, promptY = -1, idleTimer = null;
+  function rememberPrompt() {
+    var b = term.buffer.active;
+    promptX = b.cursorX;
+    promptY = b.baseY + b.cursorY;
+  }
+  function scheduleRemember() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(rememberPrompt, 150);
+  }
+  function captureCommand() {
+    if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+    var b = term.buffer.active;
+    if (promptY < 0) return;
+    var curY = b.baseY + b.cursorY;
+    var text = '';
+    for (var y = promptY; y <= curY; y++) {
+      var line = b.getLine(y);
+      if (!line) break;
+      var s = line.translateToString(true);
+      if (y === promptY) s = s.substring(promptX);
+      text += s;
+    }
+    text = text.replace(/^\s+|\s+$/g, '');
+    if (text !== '') post('cmd', text);
+  }
+
+  // ---------- Pascal からの命令 ----------
+  var pendingBell = false;
+  function onMessage(e) {
+    var s = String(e.data), i = s.indexOf(SEP);
+    var cmd = i < 0 ? s : s.substring(0, i), raw = i < 0 ? '' : s.substring(i + 1);
+    switch (cmd) {
+      case 'out':
+        term.write(raw, scheduleRemember);
+        break;
+      case 'opt': {
+        var kv = raw.split(SEP2);
+        for (var j = 0; j < kv.length; j++) {
+          var p = kv[j].indexOf('=');
+          if (p < 0) continue;
+          var k = kv[j].substring(0, p), v = kv[j].substring(p + 1);
+          switch (k) {
+            case 'fontFamily': term.options.fontFamily = v; break;
+            case 'fontSize': term.options.fontSize = parseInt(v, 10) || 14; break;
+            case 'fgColor': opt.fg = v; break;
+            case 'bgColor': opt.bg = v; break;
+            case 'cursorColor': opt.cursor = v; break;
+            case 'selColor': opt.sel = v; break;
+            case 'palette': opt.palette = v; break;
+            case 'theme': opt.theme = v; break;
+            case 'cursorStyle': term.options.cursorStyle = v; break;
+            case 'cursorBlink': term.options.cursorBlink = (v === '1'); break;
+            case 'scrollback': term.options.scrollback = parseInt(v, 10) || 1000; break;
+            case 'disabled': disabled = (v === '1'); break;
+          }
+        }
+        applyTheme();
+        doFit();
+        break;
+      }
+      case 'focus': term.focus(); break;
+      case 'paste': term.paste(raw); break;
+      case 'selectall': term.selectAll(); break;
+      case 'copy': post('selection', term.getSelection()); break;
+      case 'clearscroll': term.clear(); break;
+      case 'scrollbottom': term.scrollToBottom(); break;
+      case 'find': {
+        var f = raw.split(SEP2), o = { caseSensitive: f[2] === '1', decorations: { matchOverviewRuler: '#888888', activeMatchColorOverviewRuler: '#ffaa00' } };
+        if (f[0] === '1') search.findNext(f[1], o); else search.findPrevious(f[1], o);
+        break;
+      }
+      case 'gettext': {
+        var b = term.buffer.active, lines = [];
+        for (var y = 0; y < b.length; y++) { var l = b.getLine(y); lines.push(l ? l.translateToString(true) : ''); }
+        while (lines.length && lines[lines.length - 1] === '') lines.pop();
+        post('buffertext', lines.join('\n'));
+        break;
+      }
+      case 'message':
+        term.write('\r\n\x1b[90m' + raw + '\x1b[0m\r\n');
+        break;
+      case 'bell': {
+        var fl = document.getElementById('flash');
+        fl.style.opacity = '0.35';
+        setTimeout(function () { fl.style.opacity = '0'; }, 120);
+        break;
+      }
+    }
+  }
+  if (wv) wv.addEventListener('message', onMessage);
+
+  applyTheme();
+  doFit();
+  post('ready');
+  window.__cc = { term: term, fit: doFit };     // 調べるとき用
+})();
+</script>
+</body>
+</html>

@@ -127,6 +127,7 @@ Language=
 
 - Always place the file. All key values may be empty.
 - Relative paths are counted from the EXE folder. Absolute paths can also be written.
+- A `%name%` written in a value is replaced. The name is looked up as a key of the same `[WebView2]` section, then as a Windows environment variable (example: write `CXROOT=C:\CX\runtime`, then `TerminalFolder=%CXROOT%\terminal`). A name that is not found is left as it is.
 - It is read only once, at first use after startup. Rewriting it while running has no effect until the next startup.
 
 ### 2.3 How the preview Location Is Decided

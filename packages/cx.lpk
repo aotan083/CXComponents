@@ -131,6 +131,10 @@
         <UnitName Value="uCPreview"/>
       </Item>
       <Item>
+        <Filename Value="../source/uCcmd.pas"/>
+        <UnitName Value="uCcmd"/>
+      </Item>
+      <Item>
         <Filename Value="../source/uCsEditor.pas"/>
         <UnitName Value="uCsEditor"/>
       </Item>

@@ -1,6 +1,6 @@
 # Third-party notices
 
-The files in `runtime/` include the following third-party libraries. They are used by TCMonacoEditor at run time.
+The files in `runtime/` include the following third-party libraries. They are used by TCMonacoEditor, TCPreview and TCcmd at run time.
 Each library is distributed under its own license. The full license texts are included in the locations listed below.
 
 `runtime/` フォルダーには、次の外部ライブラリが入っています（TCMonacoEditor が実行時に使います）。
@@ -14,9 +14,12 @@ Each library is distributed under its own license. The full license texts are in
 | highlight.js | 11.12.0 | BSD-3-Clause | runtime/preview/lib/highlight.min.js, runtime/preview/lib/languages/, runtime/preview/lib/github.min.css, runtime/preview/lib/github-dark.min.css | runtime/preview/lib/licenses/highlightjs-LICENSE.txt | https://github.com/highlightjs/highlight.js |
 | github-markdown-css | 5.9.0 | MIT | runtime/preview/lib/github-markdown-light.css, runtime/preview/lib/github-markdown-dark.css | runtime/preview/lib/licenses/github-markdown-css-LICENSE.txt | https://github.com/sindresorhus/github-markdown-css |
 | Mermaid | 12.1.0 | MIT | runtime/preview/lib/mermaid.min.js | runtime/preview/lib/licenses/mermaid-LICENSE.txt | https://github.com/mermaid-js/mermaid |
+| xterm.js (@xterm/xterm) | 5.5.0 | MIT | runtime/terminal/lib/xterm.js, runtime/terminal/lib/xterm.css | runtime/terminal/lib/licenses/xterm-LICENSE.txt | https://github.com/xtermjs/xterm.js |
+| xterm.js fit addon (@xterm/addon-fit) | 0.10.0 | MIT | runtime/terminal/lib/addon-fit.js | runtime/terminal/lib/licenses/xterm-LICENSE.txt | https://github.com/xtermjs/xterm.js |
+| xterm.js search addon (@xterm/addon-search) | 0.15.0 | MIT | runtime/terminal/lib/addon-search.js | runtime/terminal/lib/licenses/xterm-LICENSE.txt | https://github.com/xtermjs/xterm.js |
 
 The files of these libraries are included unchanged, as distributed in their npm packages
-(monaco-editor, marked, dompurify, @highlightjs/cdn-assets, github-markdown-css, mermaid).
+(monaco-editor, marked, dompurify, @highlightjs/cdn-assets, github-markdown-css, mermaid, @xterm/xterm and its addons).
 
 これらのライブラリのファイルは、npm で配布されているもの（monaco-editor、marked、dompurify、@highlightjs/cdn-assets、github-markdown-css、mermaid）を変更せずに入れています。
 

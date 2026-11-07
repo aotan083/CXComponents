@@ -139,6 +139,7 @@ Language=
 
 - The file must always be present. All key values may be empty (in that case, the locations used for empty values apply).
 - Relative paths are counted from the EXE folder. Absolute paths can also be written.
+- A `%name%` written in a value is replaced. The name is looked up as a key of the same `[WebView2]` section, then as a Windows environment variable (example: write `CXROOT=C:\CX\runtime`, then `TerminalFolder=%CXROOT%\terminal`). A name that is not found is left as it is.
 - It is read only once, the first time it is used after startup. Rewriting it while the application is running has no effect until the next startup.
 - Convenient when several applications share a single `monaco` and `preview` (15.7). Keep `UserDataFolder` separate for each application (using the same folder from several applications at the same time can cause WebView2 startup to fail).
 

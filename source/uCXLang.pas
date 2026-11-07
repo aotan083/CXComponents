@@ -67,7 +67,9 @@ type
     sFtMenuCopy, sFtMenuCut, sFtMenuPaste, sFtMenuRename, sFtMenuDelete, sFtMenuShowInExplorer,
     sFtMenuCopyPath, sFtMenuNewFolder, sFtMenuTextOpen, sFtMenuTextOpenNew, sFtMenuSide, sFtMenuWebOpen,
     sFtMenuWebOpenNew, sFtMenuOpenProgram, sFtMenuShowHidden, sFtMenuWindowsMenu, sFtErrBadChars, sFtErrCreateFolder,
-    sErrFileLocked
+    sErrFileLocked,
+    sCcmdMenuCopy, sCcmdMenuPaste, sCcmdMenuSelectAll, sCcmdMenuClear, sCcmdExited, sCcmdErrStart,
+    sCcmdErrNoPage, sCcmdErrNoPty
   );
 
 { 今の言語。最初に呼ばれたとき決め、あとは同じ値を返す }
@@ -520,7 +522,24 @@ const
      En: 'Could not create the folder: %s'),
     { N. ファイルの保存 }
     (Ja: 'ほかのアプリがこのファイルを使用中で、保存できません';
-     En: 'The file is in use by another application and cannot be saved')
+     En: 'The file is in use by another application and cannot be saved'),
+    { O. TCcmd（端末） }
+    (Ja: 'コピー(&C)';
+     En: 'Copy(&C)'),
+    (Ja: '貼り付け(&P)';
+     En: 'Paste(&P)'),
+    (Ja: 'すべて選択(&A)';
+     En: 'Select All(&A)'),
+    (Ja: '画面を消す(&L)';
+     En: 'Clear(&L)'),
+    (Ja: '[プロセスが終了しました（コード %d）]';
+     En: '[Process exited with code %d]'),
+    (Ja: 'シェルを起動できませんでした：%s';
+     En: 'Could not start the shell: %s'),
+    (Ja: 'terminal.html が見つかりません：%s';
+     En: 'terminal.html was not found: %s'),
+    (Ja: 'この Windows には、ConPTY（擬似コンソール）がありません';
+     En: 'This Windows does not have ConPTY (pseudo console)')
   );
 
 var
