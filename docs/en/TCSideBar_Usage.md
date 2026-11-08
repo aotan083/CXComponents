@@ -1,8 +1,8 @@
 # TCSideBar User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.1
+Date: 2026-11-08
+Version: 1.2
 
 ---
 
@@ -22,7 +22,7 @@ A component that combines an Edge-style sidebar ("icon bar + collapsible panel +
 
 - Clicking an icon at the left edge opens the corresponding page. Clicking it again closes it.
 - The contents of a page (Button, ListBox, etc.) can be freely placed on the page in the form designer.
-- Dragging the splitter changes the width of the panel.
+- Dragging the splitter changes the width of the panel. When the mouse is over the splitter and while it is being dragged, a blue line (the same as TCSplitter; the color is `HighlightColor`) appears. The panel width cannot be made larger than the form.
 - The width of the sidebar changes automatically as pages open and close. A component placed on the right with `Align = alClient` grows and shrinks automatically.
 - You can also hide the header (`ShowHeader = False`) and build your own header for each page (8.4).
 
@@ -97,10 +97,12 @@ Language=en
 | `Images` | `TCustomImageList` | Read/Write | The image list that holds the icon images |
 | `ImagesWidth` | `Integer` | Read/Write | Width at which icons are drawn (px at 100% display scale). If 0 (default), the `Width` of `Images` |
 | `IconBarWidth` | `Integer` | Read/Write | Width of the icon bar (default 40). The cell of one icon is a square of this width |
-| `MinPanelWidth` | `Integer` | Read/Write | Lower limit of the panel width that can be set with the splitter (default 150) |
-| `MaxPanelWidth` | `Integer` | Read/Write | Upper limit of the panel width that can be set with the splitter (default 600). 0 means no limit |
+| `MinPanelWidth` | `Integer` | Read/Write | Lower limit of the panel width that can be set with the splitter (default 150). At least 1 (a value below 1 becomes 1) |
+| `MaxPanelWidth` | `Integer` | Read/Write | Upper limit of the panel width that can be set with the splitter (default 600). 0 means there is no limit from this value (only the limit by the form width). The panel width does not exceed the smaller of this value and the limit by the form width (explained below) |
+| `BodyMinWidth` | `Integer` | Read/Write | Width to leave in the form for the body (the control to the right of the sidebar) (default 50). Used to calculate the limit by the form width. 0 or more |
 | `SplitterWidth` | `Integer` | Read/Write | Width of the splitter (the part you grab) (default 8) |
-| `ResizeStyle` | `TResizeStyle` | Read/Write | Appearance while the splitter is being dragged. `rsLine` (default) / `rsPattern`: only a line moves, and the width changes on release. `rsUpdate`: the width changes during the drag too. `rsNone`: nothing is shown, and the width changes on release |
+| `HighlightColor` | `TColor` | Read/Write | Color of the blue line of the splitter (default `clHighlight`: the Windows selection color, which follows the theme and dark mode). It can be changed at design time |
+| `ResizeStyle` | `TResizeStyle` | Read/Write | Appearance while the splitter is being dragged. `rsLine` (default): only a thin line in `HighlightColor` moves, and the width changes on release. `rsPattern`: only a dotted line moves, and the width changes on release. `rsUpdate`: the width changes during the drag too. `rsNone`: nothing is shown, and the width changes on release |
 | `ShowHeader` | `Boolean` | Read/Write | Whether to show the header (`Caption` and [x]) (default `True`). With `False`, the page starts at the very top of the panel |
 | `ShowCloseButton` | `Boolean` | Read/Write | Whether to show [x] at the right of the header (default `True`). Not shown when `ShowHeader = False` |
 | `IconPopupMenu` | `TPopupMenu` | Read/Write | Menu shown when the icon bar is right-clicked |
@@ -131,7 +133,8 @@ Language=en
 
 - The index (`Index`) is the order including pages with `PageVisible = False`.
 - The width is decided by the sidebar itself. When closed it is `IconBarWidth`; when open it is `IconBarWidth` + the page's `PanelWidth` + `SplitterWidth`.
-- The widths read and written while running (`IconBarWidth`, `PanelWidth`, `MinPanelWidth`, `MaxPanelWidth`, `SplitterWidth`) are values after scaling by the display scale. `ImagesWidth` stays as the 100% value.
+- Upper limit of the panel width: the limit by the form width is the `ClientWidth` of the form on which the sidebar is placed, minus `BodyMinWidth`, `IconBarWidth`, and `SplitterWidth`. The width that can be set by dragging is at least `MinPanelWidth` and at most the smaller of this limit and `MaxPanelWidth`. If the form is made smaller, the limit becomes smaller. If `MinPanelWidth` is larger than the limit, the limit takes precedence.
+- The widths read and written while running (`IconBarWidth`, `PanelWidth`, `MinPanelWidth`, `MaxPanelWidth`, `SplitterWidth`, `BodyMinWidth`) are values after scaling by the display scale. `ImagesWidth` stays as the 100% value.
 
 ### 3.2 Methods
 
@@ -141,6 +144,8 @@ Language=en
 | `OpenPage` | `Index: Integer` | - | Opens that page. If another page is open, switches to it. Out of range raises an exception (`EListError`). Pages with `PageVisible = False` or `Enabled = False` are not opened |
 | `ClosePage` | - | - | Closes the open page |
 | `MovePage` | `CurIndex, NewIndex: Integer` | - | Changes the order of pages. Does nothing if out of range or the indexes are the same. No event is fired |
+| `EffectiveMaxPanelWidth` | - | `Integer` | The value that is currently the upper limit of the panel width (the smaller of `MaxPanelWidth` and the limit by the form width). At least 1 |
+| `ClampPanelWidth` | `AValue: Integer` | `Integer` | Returns the width fitted to at least `MinPanelWidth` and at most `EffectiveMaxPanelWidth` |
 
 ### 3.3 Events
 
@@ -219,7 +224,8 @@ TCSideBarPage has no events. Opening and closing are detected through the TCSide
 | Click [x] | Closes it (when `ShowHeader = True` and `ShowCloseButton = True`) |
 | Hover the mouse over an icon | The icon is highlighted. If `ShowHint = True`, `Caption` is shown as the hint |
 | Right-click the icon bar | Shows `IconPopupMenu` (does not open or close a page) |
-| Drag the splitter | Changes the panel width within the range `MinPanelWidth` to `MaxPanelWidth` |
+| Hover the mouse over the splitter | The splitter becomes a blue line (`HighlightColor`). The cursor becomes a horizontal arrow |
+| Drag the splitter | Changes the panel width within the range `MinPanelWidth` to the upper limit (`EffectiveMaxPanelWidth`: the smaller of `MaxPanelWidth` and the limit by the form width). While dragging, if `ResizeStyle` is `rsLine`, a thin blue line moves |
 | Press the `ShortCut` key of a page | Same behavior as clicking that page's icon |
 
 - The line shown during dragging is drawn as a separate window, so it is also displayed over components that use WebView2.
@@ -258,7 +264,7 @@ The `ShortCut` of a page receives only keys that no other component on the form 
 
 ### 7.1 Colors (Dark/Light)
 
-Drawn with system colors only. Switching between dark and light is left to the application side, e.g. MetaDarkStyle.
+Drawn with system colors. Switching between dark and light is left to the application side, e.g. MetaDarkStyle. Only the color of the blue line of the splitter can be specified, with `HighlightColor` (the default `clHighlight` is a system color, so it follows dark / light).
 
 | Part | Color |
 |---|---|
@@ -268,11 +274,12 @@ Drawn with system colors only. Switching between dark and light is left to the a
 | Icon under the mouse | Rounded rectangle of `clBtnHighlight` |
 | Icon of the open page | Rounded outline of `clHighlight` |
 | Icon with `Enabled = False` | Gray |
-| Splitter | Vertical line of `clBtnShadow` |
+| Splitter (normally, at design time) | Vertical line of `clBtnShadow` |
+| Splitter (mouse over / dragging, at run time) | Blue line in `HighlightColor` (default `clHighlight`) (2px, enlarged by the display scale) |
 
 ### 7.2 Display Scale (High DPI)
 
-According to the Windows display scale (125%, 150%, etc.), `IconBarWidth`, `PanelWidth`, `MinPanelWidth`, `MaxPanelWidth`, `SplitterWidth`, the header height, and the size of [x] are scaled up automatically (when the form's `Scaled = True`).
+According to the Windows display scale (125%, 150%, etc.), `IconBarWidth`, `PanelWidth`, `MinPanelWidth`, `MaxPanelWidth`, `SplitterWidth`, `BodyMinWidth`, the header height, and the size of [x] are scaled up automatically (when the form's `Scaled = True`).
 
 - To enlarge the icons, set the TImageList's `Scaled` to `True` and prepare images in different sizes. When there is no image of the exact size, at 125% or below the 100% image is used as is (an LCL rule).
 ## 8. Usage Examples

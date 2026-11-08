@@ -4,7 +4,7 @@
 { uCXReg
   CX パレットの設計時用ユニット（設計時パッケージ cxdsgn に入れる）。
   ・コンポーネントパレット [CX] へ部品を登録する：TCTreeView・TCListView・TCSynEdit・TCTabBrowser・
-    TCMonacoEditor・TCMFindDialog・TCCheckListBox・TCGroupBox・TCCheckGroupBox・TCsEditor・TCsFindDialog・TCPreview
+    TCMonacoEditor・TCMFindDialog・TCCheckListBox・TCGroupBox・TCCheckGroupBox・TCsEditor・TCsFindDialog・TCPreview・TCSplitter・TCPairSplitter・TCcmd
     （TCSideBar は uCSideBarReg、TCPageControl・TCTitleBar は uCPageControl_reg、
       TCBookmark は uCbookmark_reg が登録する）
   ・アクションリストエディタの [CX] カテゴリへ、TCMonacoEditor 用のアクション（25 個）を登録する
@@ -19,7 +19,7 @@ unit uCXReg;
 interface
 
 uses
-  Classes, SysUtils, LResources, ActnList,
+  Classes, SysUtils, LResources, ActnList, PropEdits,
   CTreeView, CListView,                       // TCTreeView・TCListView
   cSynEdit,                                   // TCSynEdit
   uCTabBrowser,                               // TCTabBrowser
@@ -42,7 +42,8 @@ begin
   // リソースを、表示スケールに合わせて選んでアイコンにする。
   RegisterComponents('CX', [TCTreeView, TCListView, TCSynEdit, TCTabBrowser,
     TCMonacoEditor, TCMFindDialog, TCCheckListBox, TCGroupBox, TCCheckGroupBox,
-    TCsEditor, TCsFindDialog, TCPreview, TCSplitter, TCcmd]);
+    TCsEditor, TCsFindDialog, TCPreview, TCSplitter, TCPairSplitter, TCcmd]);
+  RegisterNoIcon([TCPairSplitterSide]);          // 側は、境目が自分で作る（パレットには出さない）
 
   // アクションリストエディタの [CX] カテゴリへ、エディタ操作のアクション25個を登録する
   // （アクションはパレットに出ないため、アイコンは持たない）
@@ -80,7 +81,7 @@ initialization
   {$I cgroupbox_icon.lrs}         // TCGroupBox の 24/36/48px
   {$I ccheckgroupbox_icon.lrs}    // TCCheckGroupBox の 24/36/48px
   {$I cseditor_icon.lrs}         // TCsEditor・TCPreview・TCsFindDialog・TCMFindDialog（A→B の絵）の 24/36/48px
-  {$I csplitter_icon.lrs}         // TCSplitter の 24/36/48px
+  {$I csplitter_icon.lrs}         // TCSplitter・TCPairSplitter の 24/36/48px
   {$I ccmd_icon.lrs}              // TCcmd の 24/36/48px
 
 end.

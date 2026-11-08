@@ -1,8 +1,8 @@
 # TCSideBar 取扱説明書
 
 作者: aotan083
-日付: 2026-11-04
-版: 1.1
+日付: 2026-11-08
+版: 1.2
 
 ---
 
@@ -22,7 +22,7 @@ Microsoft Edge のサイドバーのような「アイコン列＋開閉する�
 
 - 左端のアイコンを押すと、対応するページが開く。もう一度押すと閉じる。
 - ページの中身（Button、ListBox など）は、フォームデザイナでページの上に自由に置ける。
-- スプリッターをドラッグすると、パネルの幅を変えられる。
+- スプリッターをドラッグすると、パネルの幅を変えられる。スプリッターにマウスを乗せたとき・ドラッグしている間は、青い線（TCSplitter と同じ。色は `HighlightColor`）が出る。パネルの幅は、フォームより大きくできない。
 - サイドバーの幅は、開閉に合わせて自動で変わる。右側に `Align = alClient` で置いた部品が、自動で伸び縮みする。
 - 見出しを消して（`ShowHeader = False`）、ページごとに自分で見出しを作ることもできる（8.4）。
 
@@ -97,10 +97,12 @@ Language=en
 | `Images` | `TCustomImageList` | 読み・書き | アイコンの画像を持つイメージリスト |
 | `ImagesWidth` | `Integer` | 読み・書き | アイコンを描く幅（表示スケール 100% のときの px）。0（既定値）なら `Images` の `Width` |
 | `IconBarWidth` | `Integer` | 読み・書き | アイコン列の幅（既定値は 40）。アイコン1つの枠は、この幅の正方形 |
-| `MinPanelWidth` | `Integer` | 読み・書き | スプリッターで変えられるパネルの幅の下限（既定値は 150） |
-| `MaxPanelWidth` | `Integer` | 読み・書き | スプリッターで変えられるパネルの幅の上限（既定値は 600）。0 なら上限なし |
+| `MinPanelWidth` | `Integer` | 読み・書き | スプリッターで変えられるパネルの幅の下限（既定値は 150）。1 以上（1 より小さい値は 1 になる） |
+| `MaxPanelWidth` | `Integer` | 読み・書き | スプリッターで変えられるパネルの幅の上限（既定値は 600）。0 なら、この値による上限はなし（フォームの幅による上限だけ）。パネルの幅は、この値と、フォームの幅による上限（下の説明）の、小さい方を超えない |
+| `BodyMinWidth` | `Integer` | 読み・書き | フォームの中で、本体（サイドバーの右の部品）のために残す幅（既定値は 50）。フォームの幅による上限の計算に使う。0 以上 |
 | `SplitterWidth` | `Integer` | 読み・書き | スプリッター（つかむ部分）の幅（既定値は 8） |
-| `ResizeStyle` | `TResizeStyle` | 読み・書き | スプリッターをドラッグしている間の表示。`rsLine`（既定値）・`rsPattern`：線だけを動かし、離したときに幅を変える。`rsUpdate`：ドラッグ中も幅を変える。`rsNone`：何も表示せず、離したときに幅を変える |
+| `HighlightColor` | `TColor` | 読み・書き | スプリッターの青い線の色（既定値は `clHighlight`。Windows の選択色で、テーマ・ダーク表示に合わせて変わる）。設計時に変えられる |
+| `ResizeStyle` | `TResizeStyle` | 読み・書き | スプリッターをドラッグしている間の表示。`rsLine`（既定値）：`HighlightColor` の細い線だけを動かし、離したときに幅を変える。`rsPattern`：点々の線だけを動かし、離したときに幅を変える。`rsUpdate`：ドラッグ中も幅を変える。`rsNone`：何も表示せず、離したときに幅を変える |
 | `ShowHeader` | `Boolean` | 読み・書き | 見出し（`Caption` と［×］）を出すか（既定値は `True`）。`False` で、ページがパネルの一番上から始まる |
 | `ShowCloseButton` | `Boolean` | 読み・書き | 見出しの右に［×］を出すか（既定値は `True`）。`ShowHeader = False` のときは出ない |
 | `IconPopupMenu` | `TPopupMenu` | 読み・書き | アイコン列を右クリックしたときに出すメニュー |
@@ -129,9 +131,10 @@ Language=en
 | `Top` | `Integer` | 読み・書き | 上端の位置 |
 | `Visible` | `Boolean` | 読み・書き | 表示するか |
 
+- パネルの幅の上限：フォームの幅による上限は、サイドバーを置いたフォームの `ClientWidth` から、`BodyMinWidth`・`IconBarWidth`・`SplitterWidth` を引いた値。ドラッグで変えられる幅は、`MinPanelWidth` 以上、この上限と `MaxPanelWidth` の小さい方以下になる。フォームを小さくすると、上限も小さくなる。`MinPanelWidth` が上限より大きいときは、上限が優先される。
 - 番号（`Index`）は、`PageVisible = False` のページも含めた順番。
 - 幅はサイドバーが自分で決める。閉じているときは `IconBarWidth`、開いているときは `IconBarWidth` ＋ そのページの `PanelWidth` ＋ `SplitterWidth`。
-- 実行中に読み書きする幅（`IconBarWidth`・`PanelWidth`・`MinPanelWidth`・`MaxPanelWidth`・`SplitterWidth`）は、表示スケールで拡大した後の値。`ImagesWidth` は 100% のときの値のまま。
+- 実行中に読み書きする幅（`IconBarWidth`・`PanelWidth`・`MinPanelWidth`・`MaxPanelWidth`・`SplitterWidth`・`BodyMinWidth`）は、表示スケールで拡大した後の値。`ImagesWidth` は 100% のときの値のまま。
 
 ### 3.2 メソッド
 
@@ -141,6 +144,8 @@ Language=en
 | `OpenPage` | `Index: Integer` | ― | そのページを開く。別のページが開いていれば切り替える。範囲外なら例外（`EListError`）。`PageVisible = False`・`Enabled = False` のページは開かない |
 | `ClosePage` | ― | ― | 開いているページを閉じる |
 | `MovePage` | `CurIndex, NewIndex: Integer` | ― | ページの順番を変える。範囲外・同じ番号なら何もしない。イベントは出さない |
+| `EffectiveMaxPanelWidth` | ― | `Integer` | 今、パネルの幅の上限になる値（`MaxPanelWidth` とフォームの幅による上限の、小さい方）。1 以上 |
+| `ClampPanelWidth` | `AValue: Integer` | `Integer` | 幅を、`MinPanelWidth` 以上、`EffectiveMaxPanelWidth` 以下に収めた値を返す |
 
 ### 3.3 イベント
 
@@ -219,7 +224,8 @@ TCSideBarPage には、イベントはない。開閉は TCSideBar のイベン�
 | ［×］をクリック | 閉じる（`ShowHeader = True`、`ShowCloseButton = True` のとき） |
 | アイコンの上にマウスを置く | アイコンを強調表示する。`ShowHint = True` なら `Caption` をヒントに出す |
 | アイコン列を右クリック | `IconPopupMenu` を出す（ページの開閉はしない） |
-| スプリッターをドラッグ | パネルの幅を `MinPanelWidth` ～ `MaxPanelWidth` の範囲で変える |
+| スプリッターにマウスを乗せる | スプリッターが青い線（`HighlightColor`）になる。カーソルが横向きの矢印になる |
+| スプリッターをドラッグ | パネルの幅を `MinPanelWidth` ～ 上限（`EffectiveMaxPanelWidth`：`MaxPanelWidth` とフォームの幅による上限の小さい方）の範囲で変える。ドラッグ中は、`ResizeStyle` が `rsLine` なら青い細い線が動く |
 | ページの `ShortCut` のキーを押す | そのページのアイコンをクリックしたのと同じ動き |
 
 - ドラッグ中の線は別のウィンドウとして描かれるため、WebView2 を使う部品の上にも表示される。
@@ -258,7 +264,7 @@ TCSideBarPage には、イベントはない。開閉は TCSideBar のイベン�
 
 ### 7.1 色（ダーク／ライト）
 
-システム色だけで描く。ダーク／ライトの切り替えは、アプリ側の MetaDarkStyle などに任せる。
+システム色で描く。ダーク／ライトの切り替えは、アプリ側の MetaDarkStyle などに任せる。スプリッターの青い線の色だけは、`HighlightColor` で指定できる（既定の `clHighlight` はシステム色なので、ダーク／ライトに追従する）。
 
 | 部分 | 色 |
 |---|---|
@@ -268,11 +274,12 @@ TCSideBarPage には、イベントはない。開閉は TCSideBar のイベン�
 | マウスを置いたアイコン | `clBtnHighlight` の角丸 |
 | 開いているページのアイコン | `clHighlight` の枠の角丸 |
 | `Enabled = False` のアイコン | 灰色 |
-| スプリッター | `clBtnShadow` の縦線 |
+| スプリッター（ふだん・設計時） | `clBtnShadow` の縦線 |
+| スプリッター（マウスを乗せたとき・ドラッグ中。実行時） | `HighlightColor`（既定は `clHighlight`）の青い線（太さ 2px。表示スケールで拡大） |
 
 ### 7.2 表示スケール（高 DPI）
 
-Windows の表示スケール（125%、150% など）に合わせて、`IconBarWidth`・`PanelWidth`・`MinPanelWidth`・`MaxPanelWidth`・`SplitterWidth`、見出しの高さ、［×］の大きさを自動で拡大する（フォームの `Scaled = True` のとき）。
+Windows の表示スケール（125%、150% など）に合わせて、`IconBarWidth`・`PanelWidth`・`MinPanelWidth`・`MaxPanelWidth`・`SplitterWidth`・`BodyMinWidth`、見出しの高さ、［×］の大きさを自動で拡大する（フォームの `Scaled = True` のとき）。
 
 - アイコンを拡大するには、TImageList の `Scaled` を `True` にし、大きさ違いの画像を用意する。ちょうどの大きさの画像がないとき、125% 以下では 100% の画像がそのまま使われる（LCL の決まり）。
 ## 8. 使い方の例

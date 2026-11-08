@@ -1,8 +1,8 @@
 # TCSideBar Design Document
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-08
+Version: 1.1 (blue line of the splitter and the range of the panel width changed)
 
 ---
 
@@ -13,7 +13,8 @@ Build an Edge-style sidebar ("icon bar + collapsible panel + splitter") as a sin
 - TCSideBar itself draws the icon bar, the header (Caption and the [x] button), and the splitter.
 - Only the open page is shown.
 - TCSideBar decides its own width (when closed, only the icon bar).
-- Only system colors are used (dark/light is left to the application side, e.g. MetaDarkStyle).
+- System colors are used (dark/light is left to the application side, e.g. MetaDarkStyle). Only the color of the blue line of the splitter can be specified, with `HighlightColor` (default `clHighlight`).
+- The panel width cannot be larger than the form (it is kept within the form width minus `BodyMinWidth`, the width left for the body).
 
 ## 2. Files and Packages
 
@@ -23,7 +24,7 @@ Build an Edge-style sidebar ("icon bar + collapsible panel + splitter") as a sin
 | `uCSideBarReg.pas` | cxdsgn (design time) | Registration on the [CX] palette, component editor `TCSideBarEditor` |
 | `csidebar_icon.lrs` | cxdsgn (design time) | Icons (`TCSideBar`, `TCSideBar_150`, `TCSideBar_200`). Included with `{$I csidebar_icon.lrs}` in the initialization of `uCSideBarReg` |
 
-- `uCSideBar` uses: `Classes, SysUtils, Types, LCLType, LCLIntf, LCLProc, LMessages, Controls, Graphics, GraphType, Forms, Menus, ImgList, ExtCtrls, Themes`
+- `uCSideBar` uses: `Classes, SysUtils, Types, Math, LCLType, LCLIntf, LCLProc, LMessages, Controls, Graphics, GraphType, Forms, Menus, ImgList, ExtCtrls, Themes`
 - `uCSideBar` initialization: `RegisterClass(TCSideBarPage)` (so that pages can be loaded from .lfm).
 - `uCSideBarReg` uses: `Classes, SysUtils, LResources, ComponentEditors, PropEdits, uCSideBar`
 
@@ -135,10 +136,14 @@ end;
 | `FImageChangeLink` | `TChangeLink` | created | `OnChange := ImageListChange` |
 | `FImagesWidth` | `Integer` | 0 | Icon width (kept as the 100% value) |
 | `FIconBarWidth` | `Integer` | 40 | Width of the icon bar |
-| `FMinPanelWidth` | `Integer` | 150 | Lower limit of the panel width |
-| `FMaxPanelWidth` | `Integer` | 600 | Upper limit of the panel width (0 means no limit) |
+| `FMinPanelWidth` | `Integer` | 150 | Lower limit of the panel width (at least 1) |
+| `FMaxPanelWidth` | `Integer` | 600 | Upper limit of the panel width (0 means no limit of its own; only the limit decided by the form width) |
 | `FSplitterWidth` | `Integer` | 8 | Width of the splitter |
 | `FResizeStyle` | `TResizeStyle` | `rsLine` | Appearance during dragging |
+| `FHighlightColor` | `TColor` | `clHighlight` | Color of the blue line of the splitter |
+| `FBodyMinWidth` | `Integer` | 50 | Lower limit of the width left in the form for the body |
+| `FSplitHot` | `Boolean` | `False` | The mouse is over the splitter (show the blue line) |
+| `FBandBrush` | `HBRUSH` | 0 | Brush of the color of the line during dragging (`HighlightColor`). Released when the line is erased |
 | `FShowHeader` | `Boolean` | `True` | Whether to show the header |
 | `FShowCloseButton` | `Boolean` | `True` | Whether to show the [x] button |
 | `FIconPopupMenu` | `TPopupMenu` | nil | Right-click menu of the icon bar |
@@ -162,6 +167,8 @@ public
   procedure OpenPage(Index: Integer);
   procedure ClosePage;
   procedure MovePage(CurIndex, NewIndex: Integer);
+  function EffectiveMaxPanelWidth: Integer;
+  function ClampPanelWidth(AValue: Integer): Integer;
   property Pages[Index: Integer]: TCSideBarPage read GetPage;
   property PageCount: Integer read GetPageCount;
   property ActivePageIndex: Integer read GetActivePageIndex write SetActivePageIndex;
@@ -174,6 +181,8 @@ published
   property MaxPanelWidth: Integer read FMaxPanelWidth write SetMaxPanelWidth default 600;
   property SplitterWidth: Integer read FSplitterWidth write SetSplitterWidth default 8;
   property ResizeStyle: TResizeStyle read FResizeStyle write FResizeStyle default rsLine;
+  property HighlightColor: TColor read FHighlightColor write SetHighlightColor default clHighlight;
+  property BodyMinWidth: Integer read FBodyMinWidth write SetBodyMinWidth default 50;
   property ShowHeader: Boolean read FShowHeader write SetShowHeader default True;
   property ShowCloseButton: Boolean read FShowCloseButton write SetShowCloseButton default True;
   property IconPopupMenu: TPopupMenu read FIconPopupMenu write SetIconPopupMenu;
@@ -208,7 +217,7 @@ Create:
 Destroy:
 
 1. If `FKeyHandlerAdded`, call `Application.RemoveOnKeyDownHandler(@AppKeyDown)`.
-2. If `FRubberBand <> 0`, call `DestroyRubberBand`.
+2. `FreeRubberBand` (releases the line during dragging and the brush of its color).
 3. `inherited Destroy` (inside this, the parents of the child pages are detached and `RemovePage` is called).
 4. After that, free `FImageChangeLink` and `FPages`.
 
@@ -232,7 +241,11 @@ Destroy:
 | `IconRect(P)` | Empty unless `IconShown(P)`. Walk `FPages` in order, count only those where `IconShown` is true, and for the row `Row` of `P` return `Rect(0, Row * FIconBarWidth, FIconBarWidth, (Row + 1) * FIconBarWidth)` |
 | `PageAtIcon(X, Y)` | nil if `FIconBarWidth <= 0`, `X` is outside the icon bar, or `Y < 0`. Otherwise the `IconShown` page at row `Y div FIconBarWidth` |
 | `InCloseButton`, `InSplitter` | Whether the point is inside `CloseButtonRect` / `SplitterRect` |
-| `ClampPanelWidth(v)` | The lower limit if `v < FMinPanelWidth`. If `FMaxPanelWidth > 0` and the upper limit is exceeded, the upper limit. 0 if negative |
+| `EffectiveMaxPanelWidth` | The base of the upper limit is `FMaxPanelWidth` if `FMaxPanelWidth > 0`, otherwise `MaxInt`. If there is a form on which the sidebar is placed (`GetParentForm`), `Min(base, ClientWidth of the form − FBodyMinWidth − FIconBarWidth − FSplitterWidth)`. 1 if smaller than 1 |
+| `ClampPanelWidth(v)` | The lower limit if `v < FMinPanelWidth`. `EffectiveMaxPanelWidth` if it is exceeded. 1 if smaller than 1 (if the lower limit is larger than the upper limit, the upper limit takes precedence) |
+| `SplitLineThickness` | `Max(1, Scale96ToFont(2))` (the same thickness as TCSplitter) |
+| `LineRect(offset)` | The area of a vertical line of thickness `SplitLineThickness` placed at the center of `SplitterRect`, shifted to the right by the offset (the change in width during dragging) |
+| `FreeRubberBand` | If there is a line during dragging (a separate window), `DestroyRubberBand`. If there is `FBandBrush`, `DeleteObject` |
 
 ### 5.6 Property Reads and Writes
 
@@ -244,7 +257,11 @@ Destroy:
 | `SetActivePageIndex(v)` | Do nothing if `v < -1` or `v >= Count`. If -1, `ChangeActivePage(nil)`; otherwise `ChangeActivePage(FPages[v])` |
 | `SetActivePage(v)` | While `csLoading`, only `FActivePage := v` (the display is decided in `Loaded`). If `v` is not a page of this sidebar, do nothing. Otherwise `ChangeActivePage(v)` |
 | `SetIconBarWidth`, `SetSplitterWidth` | 0 if negative. If changed, store and call `LayoutChanged` |
-| `SetMinPanelWidth`, `SetMaxPanelWidth` | Store, with 0 if negative (no repaint) |
+| `SetMinPanelWidth` | Store, with 1 if smaller than 1 (no repaint) |
+| `SetMaxPanelWidth` | Store, with 0 if negative (0 means no limit of its own; no repaint) |
+| `SetHighlightColor` | Finish if the same. Store and `Invalidate` |
+| `SetBodyMinWidth` | 0 if negative. Store (no repaint) |
+| `SetSplitHot` | Finish if the same. Store and `Invalidate` (show or hide the blue line of the splitter) |
 | `SetImagesWidth` | 0 if negative. If changed, store and call `Invalidate` |
 | `SetImages` | For the previous one, `UnRegisterChanges` and `RemoveFreeNotification`. For the new one, `FreeNotification` and `RegisterChanges`. `Invalidate` |
 | `SetIconPopupMenu` | `RemoveFreeNotification` for the previous one, `FreeNotification` for the new one |
@@ -293,7 +310,7 @@ Destroy:
 | `Loaded` | After `inherited`, set `FActivePage` to nil if it is not in the list or not `CanOpenPage`. `UpdatePageVisibility`, `LayoutChanged`. No event is fired |
 | `AdjustClientRect` | After `inherited`, `Left += FIconBarWidth`. If open: with `ShowHeader`, `Top += HeaderHeight`, and `Right -= FSplitterWidth`. Make sure the right does not become less than the left and the bottom less than the top. Since the page is `alClient`, it is placed filling the remainder |
 | `CalculatePreferredSize` | Width = `FIconBarWidth`; if open, `+ FActivePage.PanelWidth + FSplitterWidth`. 1 if 0 or less (0 or less is treated as "unspecified"). Height 0 (left to Align). `ShowHeader` is irrelevant |
-| `DoAutoAdjustLayout` | After `inherited`, if `lapAutoAdjustWithoutHorizontalScrolling` or `lapAutoAdjustForDPI`, set `FIconBarWidth`, `FMinPanelWidth`, `FMaxPanelWidth` (if not 0), and `FSplitterWidth` to `Round(value * AXProportion)` and call `LayoutChanged`. `PanelWidth` is handled on the page side, and `ImagesWidth` on the ImageList side |
+| `DoAutoAdjustLayout` | After `inherited`, if `lapAutoAdjustWithoutHorizontalScrolling` or `lapAutoAdjustForDPI`, set `FIconBarWidth`, `FMinPanelWidth`, `FMaxPanelWidth` (if not 0), `FSplitterWidth`, and `FBodyMinWidth` to `Round(value * AXProportion)` and call `LayoutChanged`. `PanelWidth` is handled on the page side, and `ImagesWidth` on the ImageList side |
 | `CMEnabledChanged` | After `inherited`, `Invalidate` |
 
 ## 6. Drawing
@@ -316,20 +333,20 @@ Destroy:
 3. Draw `FActivePage.Caption` with `Font`, text color `clBtnText`, vertically centered, single line, end ellipsis ("..."), clipped on overflow.
 4. [x]: if the mouse is over it, fill with `clBtnHighlight`. With `M := width of [x] div 4`, draw two lines of `clBtnText` with thickness `Scale96ToFont(1)` (minimum 1) to form the "x".
 
-`PaintSplitter`: a 1px vertical line of `clBtnShadow` in the center of `SplitterRect`.
+`PaintSplitter`: finish if `SplitterRect` is empty. At run time, if the mouse is over the splitter (`FSplitHot`) or it is being dragged (`FDragging`), fill `LineRect(0)` with `FHighlightColor` (the blue line; thickness `SplitLineThickness`). Otherwise (normally, and at design time), a 1px vertical line of `clBtnShadow` in the center of `SplitterRect`.
 
 ## 7. Mouse
 
 ### 7.1 MouseDown, MouseMove, MouseUp, MouseLeave
 
 - `MouseDown`: after `inherited`, for the left button: `FDownPage := nil`, `FDownClose := False`. If over the splitter, `BeginSplitterDrag(X)`; if over [x], `FDownClose := True`; otherwise `FDownPage := PageAtIcon(X, Y)`.
-- `MouseMove`: after `inherited`, if dragging, `MoveSplitterDrag(X)` and finish. Otherwise `SetHot(PageAtIcon(X, Y), InCloseButton(X, Y))`; if over the splitter `Cursor := crHSplit`, otherwise `crDefault`.
+- `MouseMove`: after `inherited`, if dragging, `MoveSplitterDrag(X)` and finish. Otherwise `SetHot(PageAtIcon(X, Y), InCloseButton(X, Y))`, `SetSplitHot(InSplitter(X, Y))`; if over the splitter `Cursor := crHSplit`, otherwise `crDefault`.
 - `MouseUp`: after `inherited`, finish if not the left button.
   1. If dragging, `EndSplitterDrag(X)`; at design time `FDesignerPressLeft := True`; finish.
   2. If `FDownClose`, reset it; if released over [x] and open, `ChangeActivePage(nil)`; finish.
   3. `P := FDownPage`, `FDownPage := nil`. At design time, `FDesignerPressLeft := True`.
   4. If `P` exists, the release point is also on the icon of `P`, the sidebar is usable, and (design time or `P.Enabled`), `UserTogglePage(P)`.
-- `MouseLeave`: after `inherited`, if not dragging, `SetHot(nil, False)` and `Cursor := crDefault`.
+- `MouseLeave`: after `inherited`, if not dragging, `SetHot(nil, False)`, `SetSplitHot(False)`, and `Cursor := crDefault`.
 - `SetHot(P, AClose)`: finish if the same. When moving to a different icon, `Application.CancelHint` (so that the hint can be shown again). Store and `Invalidate`.
 
 ### 7.2 Right-click (DoContextPopup)
@@ -344,14 +361,16 @@ After `inherited`, if the `Caption` of the page of the icon under the mouse is n
 
 | Procedure | Processing |
 |---|---|
-| `BeginSplitterDrag(X)` | Finish if closed. Erase any leftover previous line. `FDragging := True`, `MouseCapture := True` (at design time the designer calls MouseDown directly, so there is no capture; without this, the line's window would receive MouseUp on release and the line would remain). Remember the start position and the width at start. `CreateRubberband` at the screen coordinates of `SplitterRect`, black (`GetStockObject(BLACK_BRUSH)`) for `rsLine`, `ThemeServices.DottedBrush` for `rsPattern` |
+| `BeginSplitterDrag(X)` | Finish if closed. Erase any leftover previous line with `FreeRubberBand`. `FDragging := True`, `MouseCapture := True` (at design time the designer calls MouseDown directly, so there is no capture; without this, the line's window would receive MouseUp on release and the line would remain). Remember the start position and the width at start. `Invalidate` (make the splitter a blue line). `CreateRubberband`: for `rsLine`, with `FBandBrush := CreateSolidBrush(ColorToRGB(FHighlightColor))` at the screen coordinates of `LineRect(0)`; for `rsPattern`, with `ThemeServices.DottedBrush` at the screen coordinates of `SplitterRect` |
 | `MoveSplitterDrag(X)` | `FDragWidth := ClampPanelWidth(width at start + (X - start position))`. For `rsUpdate`, `PanelWidth := FDragWidth`; for `rsLine` and `rsPattern`, `UpdateRubberBand`; `rsNone` does nothing |
-| `UpdateRubberBand` | Shift `SplitterRect` to the right by `FDragWidth - width at start` and `SetRubberBandRect` in screen coordinates |
-| `EndSplitterDrag(X)` | `FDragging := False`, `MouseCapture := False`, erase the line. Finish if closed. `PanelWidth := ClampPanelWidth(...)`. If the width changed: at design time `OwnerFormDesignerModified(Self)`; at runtime, if `EventsEnabled`, `FOnPanelResize` |
-| `CancelSplitterDrag` | Finish if not dragging. `FDragging := False`, erase the line, and restore `PanelWidth` if it differs from the start. `OnPanelResize` is not fired |
+| `UpdateRubberBand` | Shift `LineRect(0)` for `rsLine` or `SplitterRect` for `rsPattern` to the right by `FDragWidth - width at start` and `SetRubberBandRect` in screen coordinates |
+| `EndSplitterDrag(X)` | `FDragging := False`, `MouseCapture := False`, `FreeRubberBand`, `Invalidate` (return the blue line to the normal line). Finish if closed. `PanelWidth := ClampPanelWidth(...)`. If the width changed: at design time `OwnerFormDesignerModified(Self)`; at runtime, if `EventsEnabled`, `FOnPanelResize` |
+| `CancelSplitterDrag` | Finish if not dragging. `FDragging := False`, `FreeRubberBand`, `Invalidate`, and restore `PanelWidth` if it differs from the start. `OnPanelResize` is not fired |
 | `CaptureChanged` | After `inherited`, if dragging, the capture was lost, and the left button is still pressed (`GetKeyState(VK_LBUTTON) < 0`), `CancelSplitterDrag` (when lost via Alt+Tab etc.; if the button was released, the drag is ended by the MouseUp that follows) |
 
 - The line is a separate window (`CreateRubberband`), so it also appears above a WebView2 (same as TSplitter).
+- During dragging, besides the moving line (`HighlightColor`, thin), the splitter at its original position is also drawn as a blue line (`FDragging`). When the drag ends, it returns to the normal line (or the blue line if the mouse is over it).
+- The blue line is not shown at design time (at design time it stays the `clBtnShadow` line; the separate-window line during dragging is shown at design time too).
 
 ### 7.5 Design-time Mouse (CMDesignHitTest)
 
@@ -407,3 +426,22 @@ Received through `Application.AddOnKeyDownHandler`. Only keys that were not used
 | Shortcut keys do not work | Steps 1-3 of `AppKeyDown` (chapter 8). Check whether a menu, ActionList, or component is using the key |
 | The page order differs from the .lfm | `SetParent` (4.3), `SetControlIndex` in `MovePage` (5.7) |
 | The width is off at a different display scale | `DoAutoAdjustLayout` in both (4.3, 5.9) |
+| The panel width does not become larger than expected | `EffectiveMaxPanelWidth` (5.5): `MaxPanelWidth`, the form width, `BodyMinWidth`, the widths of the icon bar and the splitter |
+| The splitter line does not turn blue | `FSplitHot` (`MouseMove`, `MouseLeave`), `PaintSplitter` (chapter 6). It does not turn blue at design time |
+| The color of the line during dragging is different | Only `rsLine` uses `HighlightColor`; `rsPattern` is a dotted line (7.4) |
+
+## 11. Changes in This Version (1.1)
+
+| Item | Before (1.0) | 1.1 |
+|---|---|---|
+| `MinPanelWidth` | 0 or more | 1 or more (a value below 1 becomes 1) |
+| `MaxPanelWidth` | 0 means no limit. The limit is only this value | 0 means "no limit of its own". The limit is the smaller of this value and the limit decided by the form width (`EffectiveMaxPanelWidth`) |
+| Limit by the form | None (it could be made larger than the form) | Does not exceed the form's `ClientWidth` − `BodyMinWidth` − icon bar − splitter |
+| `BodyMinWidth` | None | New (default 50; scaled by the display scale) |
+| `HighlightColor` | None | New (default `clHighlight`). Color of the blue line of the splitter |
+| Splitter line (at run time) | Stays a gray 1px line | A blue line on mouse over and while dragging (same as TCSplitter) |
+| Line during dragging (`rsLine`) | A black line (the width of the splitter) | A thin line in `HighlightColor` |
+| Made public | - | `EffectiveMaxPanelWidth`, `ClampPanelWidth` (usable from tests and applications) |
+
+- Other behavior (opening and closing, order of events, dragging at design time, shortcut keys) does not change.
+- Verification: `test\tcSplitLine` (range and the limit while dragging), and the `tcSideBar` demo (blue line).

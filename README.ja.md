@@ -22,6 +22,7 @@
 | TCSideBar | Edge のようなアイコン列と開閉するパネル | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
 | TCExpandPanel・TCRollout | VS Code のエクスプローラーのような、タイトルバー付きの伸縮するパネル（上下左右・複数並べる・アニメーション・右側にボタンとメニュー・境界のドラッグで大きさを変える） | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
 | TCSplitter | マウスを乗せたとき・ドラッグ中に青い線が出る分割線（TSplitter と同じ使い方。色・カーソルを指定できる） | [Usage](docs/TCSplitter_Usage.md) | [Design](docs/TCSplitter_Design.md) |
+| TCPairSplitter | 2 つの側を持つ TPairSplitter と同じ使い方の分割線。側ごとに隠す・出すことができる（片方を隠すともう片方が全体に広がり、出すと元に戻る）。マウスを乗せたとき・ドラッグ中に青い線が出る。設計時も境目をドラッグできる | [Usage](docs/TCPairSplitter_Usage.md) | [Design](docs/TCPairSplitter_Design.md) |
 | TCPageControl・TCTitleBar | ブラウザのようなタブと、タブを並べられるタイトルバー | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | WebView2 を使ったタブ付きの Web ブラウザ | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor・TCMFindDialog | WebView2 と Monaco Editor によるエディタ（タブ・プレビュー・検索・印刷を内蔵）と、標準アクション 25 個 | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
@@ -244,6 +245,12 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 
 #### `TCSplitter`
 * 標準 `TSplitter` と同じ使い方で、**マウスを乗せたとき・ドラッグ中に青い線が出る**分割線。線の色（`HighlightColor`）とカーソル（`SplitCursor`）を指定でき、`OnMouseEnter`・`OnMouseLeave` も使える。
+
+#### `TCPairSplitter`
+* 標準の `TPairSplitter` と同じ使い方で、2 つの側（`Side1`・`Side2`）とその間の境目を持つ。
+* **側ごとに隠す・出すことができる**（`Side1.Visible := False`・`Show`・`Hide`）。片方を隠すともう片方が全体に広がり、出すと元に戻る。両方は隠せない（全体は `TCPairSplitter` の `Visible` で隠す）。
+* `TCSplitter` と同じ、**マウスを乗せたとき・ドラッグ中に青い線**が出る。線の色（`HighlightColor`）は設計時に変えられ、フォームデザイナで境目をドラッグできる。
+* ⚡ **ノーコード効果**: 置くだけで、隠す・出すができる 2 画面のレイアウトが完成します。
 
 #### `TCTitleBar` + `TCPageControl`
 * ウィンドウの**タイトルバー上にタブを直接配置**。

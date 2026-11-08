@@ -14,7 +14,7 @@ unit uCSideBar;
 interface
 
 uses
-  Classes, SysUtils, Types,
+  Classes, SysUtils, Types, Math,
   LCLType, LCLIntf, LCLProc, LMessages,
   Controls, Graphics, GraphType, Forms, Menus, ImgList, ExtCtrls, Themes;
 
@@ -104,6 +104,10 @@ type
     FDragStartWidth: Integer;
     FDragWidth: Integer;
     FRubberBand: HWND;
+    FBandBrush: HBRUSH;               // ドラッグ中の線の色（HighlightColor）のブラシ。線を消すときに解放する
+    FSplitHot: Boolean;               // マウスがスプリッターの上にある（青い線を出す）
+    FHighlightColor: TColor;          // スプリッターの青い線の色
+    FBodyMinWidth: Integer;           // フォームの中で、本体のために残す幅の下限
     FKeyHandlerAdded: Boolean;
     // 設計時：サイドバーが MouseUp を処理した後、デザイナが押下中の状態を残している（CMDesignHitTest 参照）
     FDesignerPressLeft: Boolean;
@@ -121,6 +125,12 @@ type
     procedure SetShowHeader(AValue: Boolean);
     procedure SetShowCloseButton(AValue: Boolean);
     procedure SetSplitterWidth(AValue: Integer);
+    procedure SetHighlightColor(AValue: TColor);
+    procedure SetBodyMinWidth(AValue: Integer);
+    procedure SetSplitHot(AValue: Boolean);
+    function SplitLineThickness: Integer;
+    function LineRect(AOffset: Integer): TRect;
+    procedure FreeRubberBand;
     procedure ImageListChange(Sender: TObject);
     procedure AppKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     // 状態の判定
@@ -137,7 +147,6 @@ type
     function PageAtIcon(X, Y: Integer): TCSideBarPage;
     function InCloseButton(X, Y: Integer): Boolean;
     function InSplitter(X, Y: Integer): Boolean;
-    function ClampPanelWidth(AValue: Integer): Integer;
     // 開閉
     function ChangeActivePage(NewPage: TCSideBarPage): Boolean;
     procedure SetActivePageSilently(NewPage: TCSideBarPage);
@@ -187,6 +196,11 @@ type
     procedure ClosePage;
     // コンポーネントエディタの「上へ移動」「下へ移動」で使う
     procedure MovePage(CurIndex, NewIndex: Integer);
+    // パネルの幅の上限：MaxPanelWidth（0 は自分の上限なし）と、フォームの幅から決まる上限（フォームの ClientWidth
+    // − BodyMinWidth − IconBarWidth − SplitterWidth）の、小さい方。1 以上
+    function EffectiveMaxPanelWidth: Integer;
+    // ドラッグで変えられる幅の範囲に収める（MinPanelWidth 以上、EffectiveMaxPanelWidth 以下。上限が優先）
+    function ClampPanelWidth(AValue: Integer): Integer;
     property Pages[Index: Integer]: TCSideBarPage read GetPage;
     property PageCount: Integer read GetPageCount;
     property ActivePageIndex: Integer read GetActivePageIndex write SetActivePageIndex;
@@ -199,6 +213,8 @@ type
     property MaxPanelWidth: Integer read FMaxPanelWidth write SetMaxPanelWidth default 600;
     property SplitterWidth: Integer read FSplitterWidth write SetSplitterWidth default 8;
     property ResizeStyle: TResizeStyle read FResizeStyle write FResizeStyle default rsLine;
+    property HighlightColor: TColor read FHighlightColor write SetHighlightColor default clHighlight;
+    property BodyMinWidth: Integer read FBodyMinWidth write SetBodyMinWidth default 50;
     property ShowHeader: Boolean read FShowHeader write SetShowHeader default True;
     property ShowCloseButton: Boolean read FShowCloseButton write SetShowCloseButton default True;
     property IconPopupMenu: TPopupMenu read FIconPopupMenu write SetIconPopupMenu;
@@ -387,6 +403,9 @@ begin
   FMaxPanelWidth := 600;
   FSplitterWidth := 8;
   FResizeStyle := rsLine;
+  FHighlightColor := clHighlight;
+  FBodyMinWidth := 50;
+  FBandBrush := 0;
   FShowHeader := True;
   FShowCloseButton := True;
   FRubberBand := 0;
@@ -410,11 +429,7 @@ begin
   if FKeyHandlerAdded and Assigned(Application) then
     Application.RemoveOnKeyDownHandler(@AppKeyDown);
   FKeyHandlerAdded := False;
-  if FRubberBand <> 0 then
-  begin
-    DestroyRubberBand(FRubberBand);
-    FRubberBand := 0;
-  end;
+  FreeRubberBand;
   // inherited の中で子のページの親が外れ、RemovePage が呼ばれるので、
   // FPages は inherited の後で解放する
   inherited Destroy;
@@ -548,16 +563,68 @@ begin
   Result := PtInRect(SplitterRect, Point(X, Y));
 end;
 
-{ ドラッグで変えられる幅の範囲に収める。MaxPanelWidth = 0 は上限なし }
+{ パネルの幅の上限。MaxPanelWidth（0 は自分の上限なし）と、フォームの幅から決まる上限の、小さい方。
+  フォームの上限は、サイドバーを置いたフォームの ClientWidth から、本体のために残す幅（BodyMinWidth）と、
+  アイコン列・スプリッターの幅を引いたもの。フォームが無ければ（まだ置かれていない）フォームの上限はない。1 以上 }
+function TCSideBar.EffectiveMaxPanelWidth: Integer;
+var
+  F: TCustomForm;
+begin
+  if FMaxPanelWidth > 0 then
+    Result := FMaxPanelWidth
+  else
+    Result := MaxInt;
+  F := GetParentForm(Self);
+  if F <> nil then
+    Result := Min(Result, F.ClientWidth - FBodyMinWidth - FIconBarWidth - FSplitterWidth);
+  if Result < 1 then
+    Result := 1;
+end;
+
+{ ドラッグで変えられる幅の範囲に収める。MinPanelWidth 以上、EffectiveMaxPanelWidth 以下。
+  下限が上限より大きいときは、上限（フォームより大きくしない）を優先する }
 function TCSideBar.ClampPanelWidth(AValue: Integer): Integer;
 begin
   Result := AValue;
   if Result < FMinPanelWidth then
     Result := FMinPanelWidth;
-  if (FMaxPanelWidth > 0) and (Result > FMaxPanelWidth) then
-    Result := FMaxPanelWidth;
-  if Result < 0 then
-    Result := 0;
+  if Result > EffectiveMaxPanelWidth then
+    Result := EffectiveMaxPanelWidth;
+  if Result < 1 then
+    Result := 1;
+end;
+
+{ スプリッターの青い線の太さ（96dpi で 2。TCSplitter と同じ） }
+function TCSideBar.SplitLineThickness: Integer;
+begin
+  Result := Max(1, Scale96ToFont(2));
+end;
+
+{ スプリッターの領域（クライアント座標）の中央に置く、青い線の領域。AOffset：横にずらす量（ドラッグ中の幅の変化） }
+function TCSideBar.LineRect(AOffset: Integer): TRect;
+var
+  S: TRect;
+  T, M: Integer;
+begin
+  S := SplitterRect;
+  T := Min(SplitLineThickness, Max(1, S.Right - S.Left));
+  M := S.Left + (S.Right - S.Left - T) div 2 + AOffset;
+  Result := Rect(M, S.Top, M + T, S.Bottom);
+end;
+
+{ ドラッグ中の線（別ウィンドウ）と、その色のブラシを解放する }
+procedure TCSideBar.FreeRubberBand;
+begin
+  if FRubberBand <> 0 then
+  begin
+    DestroyRubberBand(FRubberBand);
+    FRubberBand := 0;
+  end;
+  if FBandBrush <> 0 then
+  begin
+    DeleteObject(FBandBrush);
+    FBandBrush := 0;
+  end;
 end;
 
 { ---- プロパティ ---- }
@@ -647,16 +714,40 @@ begin
   Invalidate;
 end;
 
+{ 0 は、自分の上限なし（フォームの幅から決まる上限だけ）。1 以上はその値。負の値は 0 }
 procedure TCSideBar.SetMaxPanelWidth(AValue: Integer);
 begin
   if AValue < 0 then AValue := 0;
   FMaxPanelWidth := AValue;
 end;
 
+{ 下限は 1 以上 }
 procedure TCSideBar.SetMinPanelWidth(AValue: Integer);
 begin
-  if AValue < 0 then AValue := 0;
+  if AValue < 1 then AValue := 1;
   FMinPanelWidth := AValue;
+end;
+
+procedure TCSideBar.SetHighlightColor(AValue: TColor);
+begin
+  if FHighlightColor = AValue then Exit;
+  FHighlightColor := AValue;
+  Invalidate;
+end;
+
+{ 本体のために残す幅。0 以上 }
+procedure TCSideBar.SetBodyMinWidth(AValue: Integer);
+begin
+  if AValue < 0 then AValue := 0;
+  FBodyMinWidth := AValue;
+end;
+
+{ スプリッターの上にマウスがあるか（青い線を出す）。変わったときだけ描き直す }
+procedure TCSideBar.SetSplitHot(AValue: Boolean);
+begin
+  if FSplitHot = AValue then Exit;
+  FSplitHot := AValue;
+  Invalidate;
 end;
 
 { ShowHeader：ヘッダー（Caption と [×]）を出すか。
@@ -721,11 +812,7 @@ begin
     if FDragging then
     begin
       FDragging := False;
-      if FRubberBand <> 0 then
-      begin
-        DestroyRubberBand(FRubberBand);
-        FRubberBand := 0;
-      end;
+      FreeRubberBand;
     end;
   end;
   if not (csDestroying in ComponentState) then
@@ -991,6 +1078,7 @@ begin
     if FMaxPanelWidth > 0 then
       FMaxPanelWidth := Round(FMaxPanelWidth * AXProportion);
     FSplitterWidth := Round(FSplitterWidth * AXProportion);
+    FBodyMinWidth := Round(FBodyMinWidth * AXProportion);
     LayoutChanged;
   end;
 end;
@@ -1132,7 +1220,7 @@ begin
   end;
 end;
 
-{ スプリッター：中央に clBtnShadow の縦線 }
+{ スプリッター：中央に clBtnShadow の縦線。マウスを乗せたとき・ドラッグ中（実行時）は、HighlightColor の太い線（TCSplitter と同じ） }
 procedure TCSideBar.PaintSplitter;
 var
   S: TRect;
@@ -1140,6 +1228,13 @@ var
 begin
   S := SplitterRect;
   if S.Right <= S.Left then Exit;
+  if (FSplitHot or FDragging) and not (csDesigning in ComponentState) then
+  begin
+    Canvas.Brush.Style := bsSolid;
+    Canvas.Brush.Color := FHighlightColor;
+    Canvas.FillRect(LineRect(0));
+    Exit;
+  end;
   X := (S.Left + S.Right) div 2;
   Canvas.Pen.Style := psSolid;
   Canvas.Pen.Color := clBtnShadow;
@@ -1185,6 +1280,7 @@ begin
     Exit;
   end;
   SetHot(PageAtIcon(X, Y), InCloseButton(X, Y));
+  SetSplitHot(InSplitter(X, Y));
   if InSplitter(X, Y) then
     Cursor := crHSplit
   else
@@ -1231,6 +1327,7 @@ begin
   if not FDragging then
   begin
     SetHot(nil, False);
+    SetSplitHot(False);
     Cursor := crDefault;
   end;
 end;
@@ -1324,11 +1421,7 @@ var
 begin
   if FActivePage = nil then Exit;
   // 前のドラッグの線が何かの理由で残っていたら、先に消す（線のウィンドウが残り続けないように）
-  if FRubberBand <> 0 then
-  begin
-    DestroyRubberBand(FRubberBand);
-    FRubberBand := 0;
-  end;
+  FreeRubberBand;
   FDragging := True;
   // マウスをキャプチャする。実行時はボタンを押したとき LCL がキャプチャ済みだが、
   // 設計時はデザイナが MouseDown を直接呼ぶためキャプチャされない。
@@ -1338,14 +1431,22 @@ begin
   FDragStartX := X;
   FDragStartWidth := FActivePage.PanelWidth;
   FDragWidth := FDragStartWidth;
-  // rsLine・rsPattern：TSplitter と同じく、別ウィンドウの線を出す（WebView2 の上にも出る）
+  Invalidate;              // スプリッターを、ドラッグ中の青い線にする
+  // rsLine：HighlightColor の細い線（TCSplitter と同じ青い線）。rsPattern：点々の線（スプリッターの幅）。
+  // どちらも、TSplitter と同じく別ウィンドウの線で、WebView2 の上にも出る
   if FResizeStyle in [rsLine, rsPattern] then
   begin
     if FResizeStyle = rsLine then
-      BandBrush := HBRUSH(GetStockObject(BLACK_BRUSH))
+    begin
+      FBandBrush := CreateSolidBrush(ColorToRGB(FHighlightColor));
+      BandBrush := FBandBrush;
+      R := LineRect(0);
+    end
     else
+    begin
       BandBrush := ThemeServices.DottedBrush;
-    R := SplitterRect;
+      R := SplitterRect;
+    end;
     R.TopLeft := ClientToScreen(R.TopLeft);
     R.BottomRight := ClientToScreen(R.BottomRight);
     FRubberBand := CreateRubberband(R, BandBrush);
@@ -1372,7 +1473,10 @@ var
   R: TRect;
 begin
   if FRubberBand = 0 then Exit;
-  R := SplitterRect;
+  if FResizeStyle = rsLine then
+    R := LineRect(0)
+  else
+    R := SplitterRect;
   Types.OffsetRect(R, FDragWidth - FDragStartWidth, 0);
   R.TopLeft := ClientToScreen(R.TopLeft);
   R.BottomRight := ClientToScreen(R.BottomRight);
@@ -1384,11 +1488,8 @@ procedure TCSideBar.CancelSplitterDrag;
 begin
   if not FDragging then Exit;
   FDragging := False;
-  if FRubberBand <> 0 then
-  begin
-    DestroyRubberBand(FRubberBand);
-    FRubberBand := 0;
-  end;
+  FreeRubberBand;
+  Invalidate;
   if (FActivePage <> nil) and (FActivePage.PanelWidth <> FDragStartWidth) then
     FActivePage.PanelWidth := FDragStartWidth;   // rsUpdate でドラッグ中に変えた幅を戻す
 end;
@@ -1413,11 +1514,8 @@ var
 begin
   FDragging := False;
   MouseCapture := False;   // FDragging を先に False にするので、CaptureChanged では何もしない
-  if FRubberBand <> 0 then
-  begin
-    DestroyRubberBand(FRubberBand);
-    FRubberBand := 0;
-  end;
+  FreeRubberBand;
+  Invalidate;              // ドラッグ中の青い線を、普通の線に戻す
   if FActivePage = nil then Exit;
   FDragWidth := ClampPanelWidth(FDragStartWidth + (X - FDragStartX));
   FActivePage.PanelWidth := FDragWidth;

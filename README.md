@@ -22,6 +22,7 @@ Author: aotan083 / License: MIT
 | TCSideBar | An icon column like Edge's and a panel that opens and closes | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
 | TCExpandPanel / TCRollout | Expandable panels with title bars, like the VS Code Explorer (top, bottom, left, right; multiple panels can be stacked; animation; buttons and a menu on the right side; resize panels by dragging the boundary) | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
 | TCSplitter | A splitter that shows a blue line on hover and while dragging (used like TSplitter; the color and cursor can be set) | [Usage](docs/TCSplitter_Usage.md) | [Design](docs/TCSplitter_Design.md) |
+| TCPairSplitter | A TPairSplitter-style splitter with two sides, where each side can be hidden or shown (hiding one makes the other fill the whole area; showing it restores both). A blue line appears on mouse over and while dragging, and the splitter can also be dragged at design time | [Usage](docs/TCPairSplitter_Usage.md) | [Design](docs/TCPairSplitter_Design.md) |
 | TCPageControl / TCTitleBar | Browser-style tabs, and a title bar where tabs can be arranged | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
 | TCTabBrowser | A tabbed web browser using WebView2 | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor / TCMFindDialog | An editor based on WebView2 and Monaco Editor (with built-in tabs, preview, search, and printing), and 25 standard actions | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
@@ -242,6 +243,12 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 
 #### `TCSplitter`
 * A splitter used like the standard `TSplitter`, but it **shows a blue line on hover and while dragging**. The line color (`HighlightColor`) and the cursor (`SplitCursor`) can be set, and `OnMouseEnter` / `OnMouseLeave` are available.
+
+#### `TCPairSplitter`
+* Used like the standard `TPairSplitter`: two sides (`Side1`, `Side2`) with a splitter between them.
+* **Each side can be hidden or shown** (`Side1.Visible := False` / `Show` / `Hide`). Hiding one side makes the other fill the whole area, and showing it restores both. Both cannot be hidden (use the `Visible` of the `TCPairSplitter` instead).
+* **A blue line appears on mouse over and while dragging**, like `TCSplitter`. The line color (`HighlightColor`) can be set at design time, and the splitter can be dragged in the form designer.
+* ⚡ **No-code effect**: Place it, and a show/hide-able two-pane layout is complete.
 
 #### `TCTitleBar` + `TCPageControl`
 * **Places tabs directly on the window's title bar**.

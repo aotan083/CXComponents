@@ -1,8 +1,8 @@
 # TCSideBar 設計書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-08
+版: 1.1（スプリッターの青い線、パネルの幅の範囲を変えた）
 
 ---
 
@@ -13,7 +13,8 @@ Microsoft Edge のサイドバーのような「アイコン列＋開閉する�
 - アイコン列・見出し（Caption と［×］）・スプリッターは、TCSideBar が自分で描く。
 - 開いているページだけを表示する。
 - 幅は TCSideBar が自分で決める（閉じているときはアイコン列だけ）。
-- 色はシステム色だけを使う（ダーク／ライトはアプリ側の MetaDarkStyle などに任せる）。
+- 色はシステム色だけを使う（ダーク／ライトはアプリ側の MetaDarkStyle などに任せる）。スプリッターの青い線の色だけは、`HighlightColor`（既定は `clHighlight`）で指定できる。
+- パネルの幅は、フォームより大きくできない（フォームの幅から、本体のために残す幅 `BodyMinWidth` を引いた範囲に収める）。
 
 ## 2. ファイルとパッケージ
 
@@ -23,7 +24,7 @@ Microsoft Edge のサイドバーのような「アイコン列＋開閉する�
 | `uCSideBarReg.pas` | cxdsgn（設計時） | パレット [CX] への登録、コンポーネントエディタ `TCSideBarEditor` |
 | `csidebar_icon.lrs` | cxdsgn（設計時） | アイコン（`TCSideBar`・`TCSideBar_150`・`TCSideBar_200`）。`uCSideBarReg` の initialization で `{$I csidebar_icon.lrs}` |
 
-- `uCSideBar` の uses：`Classes, SysUtils, Types, LCLType, LCLIntf, LCLProc, LMessages, Controls, Graphics, GraphType, Forms, Menus, ImgList, ExtCtrls, Themes`
+- `uCSideBar` の uses：`Classes, SysUtils, Types, Math, LCLType, LCLIntf, LCLProc, LMessages, Controls, Graphics, GraphType, Forms, Menus, ImgList, ExtCtrls, Themes`
 - `uCSideBar` の initialization：`RegisterClass(TCSideBarPage)`（.lfm からページを読み込めるようにする）。
 - `uCSideBarReg` の uses：`Classes, SysUtils, LResources, ComponentEditors, PropEdits, uCSideBar`
 
@@ -135,10 +136,14 @@ end;
 | `FImageChangeLink` | `TChangeLink` | 作る | `OnChange := ImageListChange` |
 | `FImagesWidth` | `Integer` | 0 | アイコンの幅（100% の値のまま持つ） |
 | `FIconBarWidth` | `Integer` | 40 | アイコン列の幅 |
-| `FMinPanelWidth` | `Integer` | 150 | パネルの幅の下限 |
-| `FMaxPanelWidth` | `Integer` | 600 | パネルの幅の上限（0 は上限なし） |
+| `FMinPanelWidth` | `Integer` | 150 | パネルの幅の下限（1 以上） |
+| `FMaxPanelWidth` | `Integer` | 600 | パネルの幅の上限（0 は、自分の上限なし。フォームの幅から決まる上限だけ） |
 | `FSplitterWidth` | `Integer` | 8 | スプリッターの幅 |
 | `FResizeStyle` | `TResizeStyle` | `rsLine` | ドラッグ中の表示 |
+| `FHighlightColor` | `TColor` | `clHighlight` | スプリッターの青い線の色 |
+| `FBodyMinWidth` | `Integer` | 50 | フォームの中で、本体のために残す幅の下限 |
+| `FSplitHot` | `Boolean` | `False` | マウスがスプリッターの上にある（青い線を出す） |
+| `FBandBrush` | `HBRUSH` | 0 | ドラッグ中の線の色（`HighlightColor`）のブラシ。線を消すときに解放する |
 | `FShowHeader` | `Boolean` | `True` | 見出しを出すか |
 | `FShowCloseButton` | `Boolean` | `True` | ［×］を出すか |
 | `FIconPopupMenu` | `TPopupMenu` | nil | アイコン列の右クリックメニュー |
@@ -162,6 +167,8 @@ public
   procedure OpenPage(Index: Integer);
   procedure ClosePage;
   procedure MovePage(CurIndex, NewIndex: Integer);
+  function EffectiveMaxPanelWidth: Integer;
+  function ClampPanelWidth(AValue: Integer): Integer;
   property Pages[Index: Integer]: TCSideBarPage read GetPage;
   property PageCount: Integer read GetPageCount;
   property ActivePageIndex: Integer read GetActivePageIndex write SetActivePageIndex;
@@ -174,6 +181,8 @@ published
   property MaxPanelWidth: Integer read FMaxPanelWidth write SetMaxPanelWidth default 600;
   property SplitterWidth: Integer read FSplitterWidth write SetSplitterWidth default 8;
   property ResizeStyle: TResizeStyle read FResizeStyle write FResizeStyle default rsLine;
+  property HighlightColor: TColor read FHighlightColor write SetHighlightColor default clHighlight;
+  property BodyMinWidth: Integer read FBodyMinWidth write SetBodyMinWidth default 50;
   property ShowHeader: Boolean read FShowHeader write SetShowHeader default True;
   property ShowCloseButton: Boolean read FShowCloseButton write SetShowCloseButton default True;
   property IconPopupMenu: TPopupMenu read FIconPopupMenu write SetIconPopupMenu;
@@ -208,7 +217,7 @@ Create：
 Destroy：
 
 1. `FKeyHandlerAdded` なら `Application.RemoveOnKeyDownHandler(@AppKeyDown)`。
-2. `FRubberBand <> 0` なら `DestroyRubberBand`。
+2. `FreeRubberBand`（ドラッグ中の線と、その色のブラシを解放する）。
 3. `inherited Destroy`（この中で子のページの親が外れ、`RemovePage` が呼ばれる）。
 4. そのあとで `FImageChangeLink`・`FPages` を解放する。
 
@@ -232,7 +241,11 @@ Destroy：
 | `IconRect(P)` | `IconShown(P)` でなければ空。`FPages` を順に見て、`IconShown` のものだけ数え、`P` の行 `Row` で `Rect(0, Row * FIconBarWidth, FIconBarWidth, (Row + 1) * FIconBarWidth)` |
 | `PageAtIcon(X, Y)` | `FIconBarWidth <= 0`、`X` がアイコン列の外、`Y < 0` なら nil。`Y div FIconBarWidth` 行目の、`IconShown` のページ |
 | `InCloseButton`・`InSplitter` | `CloseButtonRect`・`SplitterRect` の中か |
-| `ClampPanelWidth(v)` | `v < FMinPanelWidth` なら下限。`FMaxPanelWidth > 0` で上限を超えれば上限。負なら 0 |
+| `EffectiveMaxPanelWidth` | 上限の元は、`FMaxPanelWidth > 0` ならその値、0 なら `MaxInt`。サイドバーを置いたフォーム（`GetParentForm`）があれば、`Min(元, フォームの ClientWidth − FBodyMinWidth − FIconBarWidth − FSplitterWidth)`。1 より小さければ 1 |
+| `ClampPanelWidth(v)` | `v < FMinPanelWidth` なら下限。`EffectiveMaxPanelWidth` を超えればそれ。1 より小さければ 1（下限が上限より大きいときは、上限が優先） |
+| `SplitLineThickness` | `Max(1, Scale96ToFont(2))`（TCSplitter と同じ太さ） |
+| `LineRect(オフセット)` | `SplitterRect` の中央に置く、`SplitLineThickness` の太さの縦の線の領域。オフセットだけ右にずらす（ドラッグ中の幅の変化） |
+| `FreeRubberBand` | ドラッグ中の線（別ウィンドウ）があれば `DestroyRubberBand`。`FBandBrush` があれば `DeleteObject` |
 
 ### 5.6 プロパティの読み書き
 
@@ -244,7 +257,11 @@ Destroy：
 | `SetActivePageIndex(v)` | `v < -1` か `v >= Count` なら何もしない。-1 なら `ChangeActivePage(nil)`、それ以外は `ChangeActivePage(FPages[v])` |
 | `SetActivePage(v)` | `csLoading` 中は `FActivePage := v` だけ（表示は `Loaded` で決める）。`v` がこのサイドバーのページでなければ何もしない。それ以外は `ChangeActivePage(v)` |
 | `SetIconBarWidth`・`SetSplitterWidth` | 負なら 0。変わったら入れて `LayoutChanged` |
-| `SetMinPanelWidth`・`SetMaxPanelWidth` | 負なら 0 にして入れる（描き直さない） |
+| `SetMinPanelWidth` | 1 より小さければ 1 にして入れる（描き直さない） |
+| `SetMaxPanelWidth` | 負なら 0 にして入れる（0 は、自分の上限なし。描き直さない） |
+| `SetHighlightColor` | 同じなら終わる。入れて `Invalidate` |
+| `SetBodyMinWidth` | 負なら 0。入れる（描き直さない） |
+| `SetSplitHot` | 同じなら終わる。入れて `Invalidate`（スプリッターの青い線を出す・消す） |
 | `SetImagesWidth` | 負なら 0。変わったら入れて `Invalidate` |
 | `SetImages` | 前のものから `UnRegisterChanges`・`RemoveFreeNotification`。新しいものに `FreeNotification`・`RegisterChanges`。`Invalidate` |
 | `SetIconPopupMenu` | 前のものから `RemoveFreeNotification`、新しいものに `FreeNotification` |
@@ -293,7 +310,7 @@ Destroy：
 | `Loaded` | `inherited` のあと、`FActivePage` が一覧にないか `CanOpenPage` でなければ nil。`UpdatePageVisibility`、`LayoutChanged`。イベントは出さない |
 | `AdjustClientRect` | `inherited` のあと、`Left += FIconBarWidth`。開いていれば、`ShowHeader` なら `Top += HeaderHeight`、`Right -= FSplitterWidth`。右が左より、下が上より小さくならないようにする。ページは `alClient` なので残りいっぱいに置かれる |
 | `CalculatePreferredSize` | 幅 = `FIconBarWidth`、開いていれば `+ FActivePage.PanelWidth + FSplitterWidth`。0 以下なら 1（0 以下は「指定なし」と扱われるため）。高さ 0（Align に任せる）。`ShowHeader` は関係しない |
-| `DoAutoAdjustLayout` | `inherited` のあと、`lapAutoAdjustWithoutHorizontalScrolling`・`lapAutoAdjustForDPI` なら、`FIconBarWidth`・`FMinPanelWidth`・`FMaxPanelWidth`（0 でなければ）・`FSplitterWidth` を `Round(値 * AXProportion)` にして `LayoutChanged`。`PanelWidth` はページ側、`ImagesWidth` は ImageList 側で扱う |
+| `DoAutoAdjustLayout` | `inherited` のあと、`lapAutoAdjustWithoutHorizontalScrolling`・`lapAutoAdjustForDPI` なら、`FIconBarWidth`・`FMinPanelWidth`・`FMaxPanelWidth`（0 でなければ）・`FSplitterWidth`・`FBodyMinWidth` を `Round(値 * AXProportion)` にして `LayoutChanged`。`PanelWidth` はページ側、`ImagesWidth` は ImageList 側で扱う |
 | `CMEnabledChanged` | `inherited` のあと `Invalidate` |
 
 ## 6. 描画
@@ -316,20 +333,20 @@ Destroy：
 3. `Font`、文字色 `clBtnText`、上下中央・1行・末尾を「…」・はみ出しを切る、で `FActivePage.Caption` を描く。
 4. ［×］：マウスが乗っていれば `clBtnHighlight` で塗る。`M := ［×］の幅 div 4` として、`clBtnText`・太さ `Scale96ToFont(1)`（最小 1）の線を2本引いて「×」にする。
 
-`PaintSplitter`：`SplitterRect` の中央に `clBtnShadow` の1px の縦線。
+`PaintSplitter`：`SplitterRect` が空なら終わる。実行時で、マウスがスプリッターの上（`FSplitHot`）またはドラッグ中（`FDragging`）なら、`LineRect(0)` を `FHighlightColor` で塗る（青い線。太さは `SplitLineThickness`）。それ以外（ふだん、設計時）は、`SplitterRect` の中央に `clBtnShadow` の1px の縦線。
 
 ## 7. マウス
 
 ### 7.1 MouseDown・MouseMove・MouseUp・MouseLeave
 
 - `MouseDown`：`inherited` のあと、左ボタンなら、`FDownPage := nil`、`FDownClose := False`。スプリッターの上なら `BeginSplitterDrag(X)`、［×］の上なら `FDownClose := True`、ほかは `FDownPage := PageAtIcon(X, Y)`。
-- `MouseMove`：`inherited` のあと、ドラッグ中なら `MoveSplitterDrag(X)` して終わる。ほかは `SetHot(PageAtIcon(X, Y), InCloseButton(X, Y))`、スプリッターの上なら `Cursor := crHSplit`、ほかは `crDefault`。
+- `MouseMove`：`inherited` のあと、ドラッグ中なら `MoveSplitterDrag(X)` して終わる。ほかは `SetHot(PageAtIcon(X, Y), InCloseButton(X, Y))`、`SetSplitHot(InSplitter(X, Y))`、スプリッターの上なら `Cursor := crHSplit`、ほかは `crDefault`。
 - `MouseUp`：`inherited` のあと、左ボタンでなければ終わる。
   1. ドラッグ中なら `EndSplitterDrag(X)`、設計時なら `FDesignerPressLeft := True`、終わる。
   2. `FDownClose` なら戻して、［×］の上で離し、開いていれば `ChangeActivePage(nil)`、終わる。
   3. `P := FDownPage`、`FDownPage := nil`。設計時なら `FDesignerPressLeft := True`。
   4. `P` があり、離した所も `P` のアイコンで、サイドバーが使え、設計時か `P.Enabled` なら `UserTogglePage(P)`。
-- `MouseLeave`：`inherited` のあと、ドラッグ中でなければ `SetHot(nil, False)`、`Cursor := crDefault`。
+- `MouseLeave`：`inherited` のあと、ドラッグ中でなければ `SetHot(nil, False)`、`SetSplitHot(False)`、`Cursor := crDefault`。
 - `SetHot(P, AClose)`：同じなら終わる。別のアイコンに移ったら `Application.CancelHint`（ヒントを出し直せるように）。入れて `Invalidate`。
 
 ### 7.2 右クリック（DoContextPopup）
@@ -344,14 +361,16 @@ Destroy：
 
 | 手続き | 処理 |
 |---|---|
-| `BeginSplitterDrag(X)` | 閉じていれば終わる。前の線が残っていたら消す。`FDragging := True`、`MouseCapture := True`（設計時はデザイナが MouseDown を直接呼ぶのでキャプチャされない。しないと、離したときに線のウィンドウが MouseUp を受けて線が残る）。開始位置・開始時の幅を覚える。`rsLine` なら黒（`GetStockObject(BLACK_BRUSH)`）、`rsPattern` なら `ThemeServices.DottedBrush` で、`SplitterRect` の画面座標に `CreateRubberband` |
+| `BeginSplitterDrag(X)` | 閉じていれば終わる。前の線が残っていたら `FreeRubberBand` で消す。`FDragging := True`、`MouseCapture := True`（設計時はデザイナが MouseDown を直接呼ぶのでキャプチャされない。しないと、離したときに線のウィンドウが MouseUp を受けて線が残る）。開始位置・開始時の幅を覚える。`Invalidate`（スプリッターを青い線にする）。`rsLine` なら `FBandBrush := CreateSolidBrush(ColorToRGB(FHighlightColor))` で、`LineRect(0)` の画面座標に、`rsPattern` なら `ThemeServices.DottedBrush` で、`SplitterRect` の画面座標に、`CreateRubberband` |
 | `MoveSplitterDrag(X)` | `FDragWidth := ClampPanelWidth(開始時の幅 + (X - 開始位置))`。`rsUpdate` なら `PanelWidth := FDragWidth`、`rsLine`・`rsPattern` なら `UpdateRubberBand`、`rsNone` は何もしない |
-| `UpdateRubberBand` | `SplitterRect` を `FDragWidth - 開始時の幅` だけ右にずらし、画面座標で `SetRubberBandRect` |
-| `EndSplitterDrag(X)` | `FDragging := False`、`MouseCapture := False`、線を消す。閉じていれば終わる。`PanelWidth := ClampPanelWidth(...)`。幅が変わっていれば、設計時は `OwnerFormDesignerModified(Self)`、実行時は `EventsEnabled` なら `FOnPanelResize` |
-| `CancelSplitterDrag` | ドラッグ中でなければ終わる。`FDragging := False`、線を消し、`PanelWidth` が開始時と違えば戻す。`OnPanelResize` は出さない |
+| `UpdateRubberBand` | `rsLine` なら `LineRect(0)`、`rsPattern` なら `SplitterRect` を、`FDragWidth - 開始時の幅` だけ右にずらし、画面座標で `SetRubberBandRect` |
+| `EndSplitterDrag(X)` | `FDragging := False`、`MouseCapture := False`、`FreeRubberBand`、`Invalidate`（青い線を普通の線に戻す）。閉じていれば終わる。`PanelWidth := ClampPanelWidth(...)`。幅が変わっていれば、設計時は `OwnerFormDesignerModified(Self)`、実行時は `EventsEnabled` なら `FOnPanelResize` |
+| `CancelSplitterDrag` | ドラッグ中でなければ終わる。`FDragging := False`、`FreeRubberBand`、`Invalidate`、`PanelWidth` が開始時と違えば戻す。`OnPanelResize` は出さない |
 | `CaptureChanged` | `inherited` のあと、ドラッグ中で、キャプチャが外れ、左ボタンがまだ押されている（`GetKeyState(VK_LBUTTON) < 0`）なら `CancelSplitterDrag`（Alt+Tab などで外れたとき。ボタンを離したときは、このあとの MouseUp で終える） |
 
 - 線は別ウィンドウ（`CreateRubberband`）なので、WebView2 の上にも出る（TSplitter と同じ）。
+- ドラッグ中は、動かしている線（`HighlightColor`、細い）のほかに、元の位置のスプリッターも青い線で描かれる（`FDragging`）。ドラッグを終えると、普通の線（またはマウスが乗っていれば青い線）に戻る。
+- 青い線は、設計時には出さない（設計時は `clBtnShadow` の線のまま。ドラッグ中の別ウィンドウの線は、設計時も出る）。
 
 ### 7.5 設計時のマウス（CMDesignHitTest）
 
@@ -407,3 +426,22 @@ Lazarus のデザイナには、(1) サイドバーが MouseUp を処理する�
 | ショートカットキーが効かない | `AppKeyDown` の 1〜3（8章）。メニュー・ActionList・部品がキーを使っていないか |
 | ページの順番が .lfm と違う | `SetParent`（4.3）、`MovePage` の `SetControlIndex`（5.7） |
 | 表示スケールで幅がずれる | 両方の `DoAutoAdjustLayout`（4.3、5.9） |
+| パネルの幅が、思った値より大きくならない | `EffectiveMaxPanelWidth`（5.5）：`MaxPanelWidth`、フォームの幅、`BodyMinWidth`、アイコン列・スプリッターの幅 |
+| スプリッターの線が青くならない | `FSplitHot`（`MouseMove`・`MouseLeave`）、`PaintSplitter`（6 章）。設計時は青くならない |
+| ドラッグ中の線の色が違う | `rsLine` のときだけ `HighlightColor`、`rsPattern` は点々の線（7.4） |
+
+## 11. この版の変更（1.1）
+
+| 項目 | 今まで（1.0） | 1.1 |
+|---|---|---|
+| `MinPanelWidth` | 0 以上 | 1 以上（1 より小さい値は 1） |
+| `MaxPanelWidth` | 0 は上限なし。上限はこの値だけ | 0 は「自分の上限なし」。上限は、この値と、フォームの幅から決まる上限（`EffectiveMaxPanelWidth`）の小さい方 |
+| フォームの上限 | なし（フォームより大きくできた） | フォームの `ClientWidth` − `BodyMinWidth` − アイコン列 − スプリッター を超えない |
+| `BodyMinWidth` | なし | 新規（既定は 50。表示スケールで拡大） |
+| `HighlightColor` | なし | 新規（既定は `clHighlight`）。スプリッターの青い線の色 |
+| スプリッターの線（実行時） | 灰色の 1px の線のまま | マウスを乗せたとき・ドラッグ中は青い線（TCSplitter と同じ） |
+| ドラッグ中の線（`rsLine`） | 黒い線（スプリッターの幅） | `HighlightColor` の細い線 |
+| 公開するもの | ― | `EffectiveMaxPanelWidth`・`ClampPanelWidth`（テスト・アプリから使える） |
+
+- ほかの動き（開閉・イベントの順番・設計時のドラッグ・ショートカット）は変えない。
+- 確認：`test\tcSplitLine`（範囲・ドラッグの上限）、デモ `tcSideBar`（青い線）。
