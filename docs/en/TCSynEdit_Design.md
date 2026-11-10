@@ -281,19 +281,21 @@ Order:
 
 The existing four (csThema, csBlack, csGray, csWhite) are as in 1.0. Only `ChangesPart.Visible := True` is added (so that the changed-line marks do not stay hidden when switching back from `csVSLight` or `csVSDark`).
 
+(Note) `Bg` (the background) of `csVSDark` is `CXDarkEditorBack` (`uCXLang`): if the brightness (0-255) of `ColorToRGB(clWindow)` is below 96 (an application with a dark display), that color; otherwise #1E1E1E. `ApplyVSStyle` calls it every time a color scheme is applied. The light color (#FFFFFE) is not changed.
+
 | Item | csThema | csBlack | csGray | csWhite | csVSLight | csVSDark |
 |---|---|---|---|---|---|---|
 | `Font.Color` | `clWindowText` | `clWhite` | `clWhite` | `clBlack` | #000000 | #D4D4D4 |
-| `Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| `Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg` (note) |
 | `BorderWidth` | 0 | 0 | unchanged | 0 | 0 | 0 |
 | `RightEdge` | 80 | 80 | 80 | 80 | 80 | 80 |
-| `RightEdgeColor` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| `RightEdgeColor` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg` (note) |
 | `SelectedColor` | background `clHighlight`, text `clHighlightText` | unchanged | unchanged | unchanged | background #ADD6FF, text `clNone` | background #264F78, text `clNone` |
 | `Gutter.Visible` | `True` | `True` | `True` | `True` | `True` | `True` |
-| `Gutter.Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| `Gutter.Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg` (note) |
 | `Gutter.SeparatorPart.Visible` | `False` | `False` | `False` | `False` | `False` | `False` |
 | `Gutter.ChangesPart.Visible` | `True` | `True` | `True` | `True` | `False` | `False` |
-| Line number background | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| Line number background | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg` (note) |
 | Line number text | `clGrayText` | `TColor($3B3B3B)` | `TColor($3B3B3B)` | `TColor($EEEEEE00)` | #237893 | #6E7681 |
 | Line number text on the caret line (`LineNumberPart.MarkupInfoCurrentLine`) | unchanged | unchanged | unchanged | unchanged | #0B216F (background `clNone`) | #C6C6C6 (background `clNone`) |
 | Line number thinning | unchanged | unchanged | `ShowOnlyLineNumbersMultiplesOf := 5` | unchanged | 1 | 1 |
@@ -456,6 +458,25 @@ All of them do nothing and return `False` or 0 if the search string is empty. Th
 | `SearchText` | `ACaseSensitive` -> `ssoMatchCase`, `AWholeWord` -> `ssoWholeWord`, `not AForward` -> `ssoBackwards` | `SearchReplace(s, '', opt) > 0` |
 | `ReplaceText` | `ssoReplace` + the same case/word options as above | `SearchReplace(s, r, opt) > 0` |
 | `ReplaceAllText` | `ssoReplace, ssoReplaceAll, ssoEntireScope` + the same as above | The value of `SearchReplace(s, r, opt)` (the number of replacements) |
+
+### 7.13 Line Selection in the Line-Number Column (MouseDown, MouseMove, MouseUp)
+
+As in TCMonacoEditor, clicking or dragging in the line-number column selects lines. In the standard SynEdit, pressing the line-number column does not select anything (it only raises the `emcOnMainGutterClick` event), so this is handled by `MouseDown`, `MouseMove`, and `MouseUp` (protected; overridden in `TCSynEdit`). The component inside TCsEditor (`TCsSynEdit`) inherits them, so it behaves the same.
+
+| Item | Contents |
+|---|---|
+| Fields | `FGutterSelecting` (dragging in the column), `FGutterAnchor` (the pressed line; a document line, 1-based) |
+| `InLineNumberPart(X)` | `Gutter.Visible` and `LineNumberPart.Visible`, and `X` is at least `LineNumberPart.Left` and below `Left + Width` |
+| `DocLineAtY(Y)` | `PixelsToLogicalPos(Point(Gutter.Width + 2, Y)).Y`. Returns the document line before wrapping, not the screen row. Kept within 1 to `Lines.Count` |
+| `SelectLinesFromAnchor(Cur)` | Let `Lo` be the smaller and `Hi` the larger of `FGutterAnchor` and `Cur`. `BlockBegin := (1, Lo)`; if `Hi < Lines.Count`, `BlockEnd := (1, Hi + 1)` (including the line break); for the last line, `BlockEnd := (line length + 1, Hi)` |
+| `MouseDown` | After `inherited`, with the left button, when there are lines and `InLineNumberPart(X)`: `L := DocLineAtY(Y)`. With `Shift`, the cursor line (`CaretY`) becomes `FGutterAnchor`; otherwise `L`. `FGutterSelecting := True`, `MouseCapture := True` (so it keeps receiving outside the column). `SelectLinesFromAnchor(L)` |
+| `MouseMove` | After `inherited`, if `FGutterSelecting`: if the left button is pressed, `SelectLinesFromAnchor(DocLineAtY(Y))`; if not (`MouseUp` did not arrive), stop dragging and `MouseCapture := False` |
+| `MouseUp` | After `inherited`, if `FGutterSelecting` and the left button, stop dragging and `MouseCapture := False` |
+
+- Pressing the button outside the column (in the body) does nothing here (the standard SynEdit behavior).
+- Auto-scrolling when dragging to the edge of the screen is not provided.
+- The selection is set directly in `BlockBegin` and `BlockEnd`. The cursor ends up at the end of the selection (`BlockEnd`).
+- With word wrap (`TLazSynEditLineWrapPlugin`) and full-width characters, the standard Shift+Up/Down selection may produce a broken selection range (a defect of SynEdit in Lazarus 5.0RC1; it also reproduces with the standard `TSynEdit`). Selecting in the line-number column sets the range directly, so it is not affected.
 
 ## 8. Right-click menu
 
@@ -639,3 +660,15 @@ Steps for building the code. Not included in the user manual.
 | `cSynedit.pas` | No.1 to 7 above. Add the highlighter units listed in Chapter 2 to uses |
 | `uCXReg.pas`, `cx_icons.lrs` | No change |
 | User manual `TCSynEdit_Usage.md` | Chapter 3 (two color schemes), Chapter 4 (extension table), 5.1 (`Language`), the note in 7.2 (No.8). The user manual is corrected last |
+
+## 12. Changes in This Version (1.2)
+
+| No | Item | Now (1.1) | After (1.2) | Reason | Risk |
+|---|---|---|---|---|---|
+| 1 | Background of `csVSDark` | Always #1E1E1E | In an application with a dark display (`clWindow` is dark), the color of `clWindow`; otherwise #1E1E1E (note in 7.4.1) | To match the background of the trees, lists, etc. on the same screen | In an application with a dark display, the background is no longer #1E1E1E. Light, and applications without a dark display, do not change |
+| 2 | Line-number column | Clicking or dragging does not select | Click selects a line, drag extends line by line, Shift+click selects from the cursor line (7.13) | To make the operation the same as TCMonacoEditor | Only adds behavior when the column is pressed (body operations do not change) |
+
+| File | Change |
+|---|---|
+| `cSynedit.pas` | No.1 and 2 above. Override `MouseDown`, `MouseMove`, and `MouseUp`, and add private fields and methods. Add `Controls` to uses |
+| `uCXLang.pas` | Add `CXDarkEditorBack` and `CXDarkEditorBackHex` (`CXLang_Design.md`, Chapter 12) |

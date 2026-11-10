@@ -409,7 +409,7 @@ Language=en
 | `PreviewFontSize` | `Integer` | 16 | プレビューの文字の大きさ（8〜48） |
 | `ColorScheme` | `TCMColorScheme` | `csEditor` | プレビューの配色。`csEditor`（エディタと同じ配色）／`csGitHub`（GitHub 風） |
 | `PreviewBackColorLight` | `TColor` | #FFFFFE | `csEditor` のときのプレビューの背景色（明るい配色） |
-| `PreviewBackColorDark` | `TColor` | #1E1E1E | 同（暗い配色） |
+| `PreviewBackColorDark` | `TColor` | #1E1E1E | 同（暗い配色）。既定値のときは、ダーク表示のアプリ（`clWindow` が暗い）では `clWindow` の色（ほかの部品と同じ色） |
 | `PreviewTextColorLight` | `TColor` | #000000 | プレビューの文字色（明るい配色） |
 | `PreviewTextColorDark` | `TColor` | #D4D4D4 | 同（暗い配色） |
 | `PreviewLinkColorLight` | `TColor` | #006AB1 | プレビューのリンクの色（明るい配色） |
@@ -582,18 +582,19 @@ Monaco に最初から入っているショートカットのうち、主なも�
 - `Theme = ctAuto`（既定値）なら、OS のダーク / ライトに従う。実行中に OS を切り替えても、エディタ・プレビュー・タブ・境目・背景がその場で塗り替わる。
 - `ctLight`・`ctDark` なら、OS に関係なくその配色で固定する。
 - タブ・境目・背景は、Windows 11 のエクスプローラーに近い配色にする。見えているタブは、エディタの背景と同じ色にして、本文とつながって見える。
+- （注）ダークの本文の背景（Monaco の背景）・見えているタブ・起動直後の背景は、ダーク表示のアプリ（MetaDarkStyle など。`clWindow` が暗い）では `clWindow` の色（ツリー・リストなど、ほかの部品の背景と同じ色）。そうでなければ #1E1E1E。ライトは変わらない。
 
 | 部分 | ダーク | ライト |
 |---|---|---|
 | タブの帯・選んでいないタブ | #2B2B2B | #F0F0F0 |
 | マウスを乗せたタブ | #383838 | #E5E5E5 |
-| 見えているタブ | #1E1E1E | #FFFFFF |
+| 見えているタブ | #1E1E1E（注） | #FFFFFF |
 | 見えているタブの文字 | #FFFFFF | #000000 |
 | 選んでいないタブの文字 | #C5C5C5 | #5C5C5C |
 | ［×］・スクロールの矢印 | #C5C5C5 | #5C5C5C |
 | 区切り線・タブの枠 | #3A3A3A | #D9D9D9 |
 | 境目 | #2B2B2B | #E5E5E5 |
-| 背景（起動直後に一瞬見える所） | #1E1E1E | #FFFFFF |
+| 背景（起動直後に一瞬見える所） | #1E1E1E（注） | #FFFFFF |
 
 - 検索で見つかった所は、エディタにフォーカスがない間（検索ダイアログを操作している間）、`HitColorLight`・`HitColorDark` で表示する。エディタをクリックすると、普通の選択の色に戻る。
 - カーソル行は、背景の色だけで目立たせる（枠線なし）。

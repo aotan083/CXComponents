@@ -52,7 +52,7 @@ The properties of TSplitter (`Align`, `MinSize`, `ResizeStyle`, `ResizeAnchor`, 
 
 | Property | Type | Read/Write | Default | Contents |
 |---|---|---|---|---|
-| `HighlightColor` | `TColor` | Read/Write | `clHighlight` | The color of the line. The default is the selection color of Windows, which changes with the theme and dark display. To fix a color, specify it |
+| `HighlightColor` | `TColor` | Read/Write | `clHighlight` | The color of the line. The default is the selection color of Windows, which changes with the theme and dark display. To fix a color, specify it. When the value is the default (`clHighlight`) and the Windows selection color is too dark (brightness 0-255 below 80, for example when the selection color is set to a dark gray with MetaDarkStyle), the line would be invisible on a dark background, so it is drawn in the accent blue (#0078D4) (`CXSplitLineColor` in `uCXLang`). If another color is specified, that color is used |
 | `SplitCursor` | `TCursor` | Read/Write | `crDefault` | The mouse cursor over the splitter. With `crDefault`, it is the same as TSplitter (a horizontal arrow when splitting left-right, a vertical arrow when splitting up-down). With any other value, that cursor is used |
 
 - To change the cursor, write `SplitCursor`, not `Cursor` (a value written to `Cursor` returns to the original when the splitting direction is changed).

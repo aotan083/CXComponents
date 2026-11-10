@@ -160,7 +160,7 @@ type
 
 1. `Color` で全体を塗る（側が覆っていない部分、つまり境目の領域が見える）。
 2. `BarRect` が空なら終わる。
-3. 実行時で、マウスが境目の上（`FHot`）またはドラッグ中（`FDragging`）なら、`HighlightColor` で、境目の中央に `Max(1, Scale96ToFont(cLineWidth96))` の太さの線（左右なら縦線、上下なら横線）を塗る。
+3. 実行時で、マウスが境目の上（`FHot`）またはドラッグ中（`FDragging`）なら、`CXSplitLineColor(HighlightColor)` で、境目の中央に `Max(1, Scale96ToFont(cLineWidth96))` の太さの線（左右なら縦線、上下なら横線）を塗る。
 4. そうでなければ（ふだん、設計時）、境目の中央に 1px の `clBtnShadow` の線。
 
 ### 5.7 マウス

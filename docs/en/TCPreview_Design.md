@@ -74,7 +74,8 @@ procedure PrintFor(ASource: TComponent);                    // Make that TCsEdit
 
 ```
 TCPreview (TCustomPanel)
- └ Preview (TCMMarkdownPreview)  ... fills the whole area (alClient). Created at runtime only
+ ├ Preview (TCMMarkdownPreview)  ... whole area (alClient). Created at run time only
+ └ Band (TCPreviewGrip)          ... thin band on the inner edge for resizing. Created at run time only (at design time TCPreview itself handles it; 4.5)
 ```
 
 - `Create`: after `inherited`, the inner `TCMMarkdownPreview` is created only if not `csDesigning` (runtime only) (`Parent := Self`, `Align := alClient`). It is not created at design time (WebView2 is not started).
@@ -88,10 +89,12 @@ TCPreview (TCustomPanel)
 | Name | Type | Default | Visibility | What is held internally / how it is passed |
 |---|---|---|---|---|
 | `Splitter` | `TSplitter` | nil | published | The boundary whose show/hide is synchronized (4.4). `FreeNotification` |
+| `AllowResize` | `Boolean` | `True` | published | Whether to show the resize band (4.5). `UpdateGrip` |
+| `HighlightColor` | `TColor` | `clHighlight` | published | Color of the blue line of the band (4.5). When it changes, the band and the component are redrawn |
 | `FontSize` | `Integer` | 16 | published | `FontSize` of the inner component (clamped to 8-48) |
 | `ColorScheme` | `TCMColorScheme` | `csEditor` | published | `FColorScheme` -> `ColorScheme` of the inner component (`csEditor` -> 'editor', `csGitHub` -> 'github') |
 | `BackColorLight` | `TColor` | `DefPreviewBackColorLight` (#FFFFFE) | published | Held as a TColor in `F...` and passed to `BackColorLight` of the inner component via `CMColorToHex` |
-| `BackColorDark` | `TColor` | `DefPreviewBackColorDark` (#1E1E1E) | published | Same as above |
+| `BackColorDark` | `TColor` | `DefPreviewBackColorDark` (#1E1E1E) | published | Same as above. However, `ApplyAll` passes `CMDarkBackColor(FBackColorDark)` (when it is the default value, in an application with a dark display it is the color of `clWindow`; `TCMonacoEditor_Design.md`, Chapter 14) |
 | `TextColorLight` | `TColor` | `DefPreviewTextColorLight` (#000000) | published | Same as above |
 | `TextColorDark` | `TColor` | `DefPreviewTextColorDark` (#D4D4D4) | published | Same as above |
 | `LinkColorLight` | `TColor` | `DefPreviewLinkColorLight` (#006AB1) | published | Same as above |
@@ -126,6 +129,53 @@ TCPreview (TCustomPanel)
 - When shown, if there is a source, `Refresh` (to reflect changes made while hidden).
 - `ShowPreview` of TCsEditor reads and writes `Visible` of this component (`TCsEditor_Design.md` chapter 9).
 - Boundary color: the `Color` of `Splitter` is set to match the Theme of the source (same color as the boundary inside TCMonacoEditor: dark #2B2B2B, light #E5E5E5). Whether it is dark is asked of the source TCsEditor (for `ctAuto`, the OS setting). If there is no source, the OS setting. It is applied when `Splitter` is selected, when the source changes, and on `SourceSwitched` (which is also sent when the color scheme is changed). A color set by the application is overwritten.
+
+### 4.5 Resize Band (AllowResize, HighlightColor)
+
+So that the size of TCPreview can be changed without the application placing a separate TSplitter. It looks the same as TCSplitter (`uCSplitter`): a blue line on mouse over and while dragging.
+
+**Placing the band (`UpdateGrip`)**
+
+| Item | Contents |
+|---|---|
+| Band | `TCPreviewGrip` (`TCustomControl`). Created only at run time, at the end of `Create` (`Parent := Self`). `csCaptureMouse` and `csNoDesignSelectable` |
+| Where | `FGrip.Align := alLeft` for `Align = alRight`, `alRight` for `alLeft`, `alTop` for `alBottom`, `alBottom` for `alTop`. Thickness `Scale96ToFont(5)`. The cursor is `crHSplit` for left/right and `crVSplit` for top/bottom |
+| Shown when | `FAllowResize` is true, `FSplitter = nil`, and `Align` is one of top, bottom, left, right. Otherwise `Visible := False` |
+| Called from | `Loaded`, `SetAlign`, `SetAllowResize`, `SetSplitter` |
+
+**Behavior of the band (`TCPreviewGrip`)**
+
+| Procedure | Processing |
+|---|---|
+| `Paint` | Fills everything with `Panel.GripColor` (a color following the Theme of the source: dark #2B2B2B, light #E5E5E5). If `FHot` or `FDragging`, paints a line of thickness `Max(1, Scale96ToFont(2))` at the center with `CXSplitLineColor(Panel.HighlightColor)` (vertical for left/right, horizontal for top/bottom) |
+| `MouseEnter`, `MouseLeave` | Change `FHot` and redraw |
+| `MouseDown` | With the left button: `FDragging := True`, `MouseCapture := True`; remembers the pressed position (screen coordinate on the axis) and the size of `TCPreview` (`Width` for left/right, `Height` for top/bottom). Redraws |
+| `MouseMove` | While dragging: `NewSize := Panel.CalcDragSize(start size, current position − start position)`. `Panel.Width := NewSize` for left/right, `Panel.Height := NewSize` for top/bottom |
+| `MouseUp`, `CaptureChanged` | End the drag. Redraw |
+
+**Size calculation (`CalcDragSize(AStartSize, ADelta)`; public)**
+
+| Item | Contents |
+|---|---|
+| Direction | `AStartSize − ADelta` for `alRight` and `alBottom` (the band is on the inner left/top, so moving left/up (`ADelta` negative) makes it larger). `AStartSize + ADelta` for `alLeft` and `alTop` |
+| Lower limit | `Scale96ToFont(100)` |
+| Upper limit | If there is a `Parent`, `Parent.ClientWidth` (`ClientHeight` for top/bottom) minus `Scale96ToFont(100)`, but at least the lower limit. No limit without a `Parent` |
+
+**At design time (TCPreview itself handles it)**
+
+At design time the band control is not created (the designer does not pass the mouse to a child control with `csNoDesignSelectable`). With the same rule as TCSideBar (see the explanation of CM_DESIGNHITTEST in `TCSideBar_Design.md`), TCPreview handles the drag itself.
+
+| Procedure | Processing |
+|---|---|
+| `DesignGripRect` | Location of the band (client coordinates). Empty if `AllowResize` is false, there is a `Splitter`, or `Align` is none of top, bottom, left, right. `Rect(0, 0, band thickness, Height)` for `alRight`, the right edge for `alLeft`, `Rect(0, 0, Width, band thickness)` for `alBottom`, the bottom edge for `alTop` |
+| `Paint` | In addition to the thin frame and the component name (as before), paints a line in `HighlightColor` (2px) at the center of the band (shows where it can be dragged and the color of the run-time line) |
+| `MouseDown` | At design time, with the left button over the band: `FDesignDragging := True`, `MouseCapture := True` (because the designer calls `MouseDown` directly and the mouse is not captured); remembers the start position and size |
+| `MouseMove` | While dragging, changes `Width` (`Height`) with `CalcDragSize`. Otherwise changes `FDesignHot` according to whether the mouse is over the band, and sets the cursor to `crHSplit`, `crVSplit`, or `crDefault` |
+| `MouseUp` | Ends the drag and calls `OwnerFormDesignerModified(Self)` (to save `Width` and `Height` in .lfm). `FDesignerPressLeft := True` |
+| `CMDesignHitTest` | 1 while dragging. Also 1 for movement without a button pressed after the drag ended, until the next button press (if passed to the designer, a selection frame appears). When a button is pressed, `FDesignerPressLeft := False`. Otherwise 1 over the band, 0 elsewhere (the designer selects a component) |
+
+- The run-time `FGrip` and the design-time processing use the same `CalcDragSize` (the same upper and lower limits).
+- The band color (`GripColor`) follows the Theme of the source (the same as the splitter color in 4.4). `HighlightColor` defaults to `clHighlight` (the Windows selection color). The color used to draw the line is `CXSplitLineColor` (the accent blue when the selection color is too dark; `CXLang_Design.md`, Chapter 12).
 
 ## 5. Processing
 
@@ -233,3 +283,11 @@ Steps for building the code. Not included in the user manual.
 | No | Chapter | 1.0 | 1.1 | Reason |
 |---|---|---|---|---|
 | 1 | 4.4 | The color of `Splitter` is not set | Set to match the Theme of the source | The boundary color did not change when the Theme was changed |
+
+**1.2 (2026-11-10)**
+
+| No | Chapter | 1.1 | 1.2 | Reason |
+|---|---|---|---|---|
+| 1 | 4.5 | The band line is always `clHighlight`. There is no band at design time | The color is decided by `HighlightColor` (default `clHighlight`). The band line is also shown at design time, and dragging changes the size | So that the line color can be changed at design time, and the width can be decided at design time |
+| 2 | 4.5 | The size calculation is inside `MouseMove` of the band | Moved out to `CalcDragSize` (public). The same calculation is used at run time and design time | To share it with the design-time drag (behavior is not changed) |
+| 3 | 4.2 | - | Add `AllowResize` and `HighlightColor` as published | Same as above |

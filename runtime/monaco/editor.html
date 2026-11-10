@@ -41,7 +41,7 @@
   require(['vs/editor/editor.main'], function () {
     var KM = monaco.KeyMod, KC = monaco.KeyCode;
     var ed, themeMode = 'auto', fontSize = 14;
-    var colors = { hitL: '#FFEE58', hitD: '#7D6608', curL: '#EAF2FF', curD: '#2C313C', selL: '#ADD6FF', selD: '#264F78' };   // 【2.13】selL・selD：選択範囲
+    var colors = { hitL: '#FFEE58', hitD: '#7D6608', curL: '#EAF2FF', curD: '#2C313C', selL: '#ADD6FF', selD: '#264F78', bgD: '#1e1e1e' };   // 【2.13】selL・selD：選択範囲
     var programmatic = 0, changeTimer = null;
     var overwrite = false, inOW = false, composing = false;
     var tabSize = 4;
@@ -59,12 +59,13 @@
         'editor.lineHighlightBackground': colors.curL,
         'editor.lineHighlightBorder': '#00000000' } });
       monaco.editor.defineTheme('cm-dark', { base: 'vs-dark', inherit: true, rules: [], colors: {
+        'editor.background': colors.bgD,                // 背景色（ほかの部品と同じ色）
         'editor.selectionBackground': colors.selD,          // 【2.13】
         'editor.inactiveSelectionBackground': colors.hitD,
         'editor.lineHighlightBackground': colors.curD,
         'editor.lineHighlightBorder': '#00000000' } });
       monaco.editor.setTheme(dark ? 'cm-dark' : 'cm-light');
-      document.body.style.background = dark ? '#1e1e1e' : '#fff';
+      document.body.style.background = dark ? colors.bgD : '#fff';
       document.documentElement.style.colorScheme = dark ? 'dark' : 'light';   // ページのスクロールバーの色を、OS ではなくテーマに合わせる
     }
     osDark.addEventListener('change', function () {
@@ -573,7 +574,8 @@
             case 'minimap':       ed.updateOptions({ minimap: { enabled: a[1] === '1' } }); break;
             case 'colors':
               colors = { hitL: a[1], hitD: a[2], curL: a[3], curD: a[4],
-                         selL: a[5] || colors.selL, selD: a[6] || colors.selD };   // 【2.13】
+                         selL: a[5] || colors.selL, selD: a[6] || colors.selD,   // 【2.13】
+                         bgD: a[7] || colors.bgD };            // ダークの背景色（Pascal から。ほかの部品と同じ色）
               applyTheme();
               break;
           }

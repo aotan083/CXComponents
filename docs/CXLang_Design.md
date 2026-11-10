@@ -462,3 +462,17 @@ TCFileTree は、このほかに、TCBookmark の `sBmUnsaved`・`sBmOpenError`�
 | 6 | `uCmdpreview.pas` | `opt lang` を送る（7.2） |
 | 7 | `preview.html` | `I18N`・`t(key)`・`opt` の `lang`（7.2） |
 | 8 | `editor.html`・`cxdsgn.lpk`・IDE 用の登録ユニット | 変更なし |
+
+## 12. uCXLang に足した関数（ダークの背景色）
+
+言語とは別に、ほかの部品から使える小さな関数を `uCXLang` に置いている（`CXCreateFileShared` と同じ置き場。uses が軽く、全部品が使えるため）。
+
+| 関数 | 中身 |
+|---|---|
+| `CXDarkEditorBack: TColor` | ダーク表示のときの、エディタ（TCMonacoEditor・TCsEditor・TCSynEdit・プレビュー）の背景色。`ColorToRGB(clWindow)` の明るさ（`(R*299 + G*587 + B*114) div 1000`）が 96 より小さければ（ダーク表示のアプリ）その色、そうでなければ #1E1E1E。システム色でなく RGB の値を返す |
+| `CXDarkEditorBackHex: string` | 上の色を '#rrggbb' にしたもの（ページ・JavaScript へ渡す形） |
+| `CXSplitLineColor(AColor: TColor): TColor` | 分割線（TCSplitter・TCSideBar・TCPairSplitter・TCPreview の境目）の、マウスを乗せたとき・ドラッグ中の線の色。`AColor = clHighlight`（各部品の `HighlightColor` の既定値）で、`ColorToRGB(clHighlight)` の明るさ（`(R*299 + G*587 + B*114) div 1000`）が 80 より小さければ、アクセントの青 #0078D4（`TColor($D47800)`）。そうでなければ、`ColorToRGB(AColor)` |
+
+- `uCXLang` の uses に `Graphics` を足す（`TColor` のため）。
+- ライト（`clWindow` が明るい）や、ダーク表示でない OS のダーク（`clWindow` が白）では、#1E1E1E。
+- `CXSplitLineColor` は、MetaDarkStyle で `COLOR_HIGHLIGHT`（選択色）を暗い灰色にした（例：#3A3A3A）アプリで、分割線が見えなくなるのを避けるためのもの。

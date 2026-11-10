@@ -333,7 +333,7 @@ Destroy：
 3. `Font`、文字色 `clBtnText`、上下中央・1行・末尾を「…」・はみ出しを切る、で `FActivePage.Caption` を描く。
 4. ［×］：マウスが乗っていれば `clBtnHighlight` で塗る。`M := ［×］の幅 div 4` として、`clBtnText`・太さ `Scale96ToFont(1)`（最小 1）の線を2本引いて「×」にする。
 
-`PaintSplitter`：`SplitterRect` が空なら終わる。実行時で、マウスがスプリッターの上（`FSplitHot`）またはドラッグ中（`FDragging`）なら、`LineRect(0)` を `FHighlightColor` で塗る（青い線。太さは `SplitLineThickness`）。それ以外（ふだん、設計時）は、`SplitterRect` の中央に `clBtnShadow` の1px の縦線。
+`PaintSplitter`：`SplitterRect` が空なら終わる。実行時で、マウスがスプリッターの上（`FSplitHot`）またはドラッグ中（`FDragging`）なら、`LineRect(0)` を `CXSplitLineColor(FHighlightColor)` で塗る（青い線。太さは `SplitLineThickness`）。それ以外（ふだん、設計時）は、`SplitterRect` の中央に `clBtnShadow` の1px の縦線。
 
 ## 7. マウス
 
@@ -361,7 +361,7 @@ Destroy：
 
 | 手続き | 処理 |
 |---|---|
-| `BeginSplitterDrag(X)` | 閉じていれば終わる。前の線が残っていたら `FreeRubberBand` で消す。`FDragging := True`、`MouseCapture := True`（設計時はデザイナが MouseDown を直接呼ぶのでキャプチャされない。しないと、離したときに線のウィンドウが MouseUp を受けて線が残る）。開始位置・開始時の幅を覚える。`Invalidate`（スプリッターを青い線にする）。`rsLine` なら `FBandBrush := CreateSolidBrush(ColorToRGB(FHighlightColor))` で、`LineRect(0)` の画面座標に、`rsPattern` なら `ThemeServices.DottedBrush` で、`SplitterRect` の画面座標に、`CreateRubberband` |
+| `BeginSplitterDrag(X)` | 閉じていれば終わる。前の線が残っていたら `FreeRubberBand` で消す。`FDragging := True`、`MouseCapture := True`（設計時はデザイナが MouseDown を直接呼ぶのでキャプチャされない。しないと、離したときに線のウィンドウが MouseUp を受けて線が残る）。開始位置・開始時の幅を覚える。`Invalidate`（スプリッターを青い線にする）。`rsLine` なら `FBandBrush := CreateSolidBrush(ColorToRGB(CXSplitLineColor(FHighlightColor)))` で、`LineRect(0)` の画面座標に、`rsPattern` なら `ThemeServices.DottedBrush` で、`SplitterRect` の画面座標に、`CreateRubberband` |
 | `MoveSplitterDrag(X)` | `FDragWidth := ClampPanelWidth(開始時の幅 + (X - 開始位置))`。`rsUpdate` なら `PanelWidth := FDragWidth`、`rsLine`・`rsPattern` なら `UpdateRubberBand`、`rsNone` は何もしない |
 | `UpdateRubberBand` | `rsLine` なら `LineRect(0)`、`rsPattern` なら `SplitterRect` を、`FDragWidth - 開始時の幅` だけ右にずらし、画面座標で `SetRubberBandRect` |
 | `EndSplitterDrag(X)` | `FDragging := False`、`MouseCapture := False`、`FreeRubberBand`、`Invalidate`（青い線を普通の線に戻す）。閉じていれば終わる。`PanelWidth := ClampPanelWidth(...)`。幅が変わっていれば、設計時は `OwnerFormDesignerModified(Self)`、実行時は `EventsEnabled` なら `FOnPanelResize` |

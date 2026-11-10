@@ -82,7 +82,7 @@ TCsEditor (TCustomPanel)
 - The inner components are created only at runtime. At design time (on the IDE), inner components are not created; `Paint` draws a thin frame and the component name (same as TCMonacoEditor).
 - Right after startup, one empty untitled tab is created (inside `Create`; runtime only).
 - `Text` and `Caption` of `TControl` are redeclared as public to hide them (they refer to the body and title of the visible tab). `csSetCaption` is removed from `ControlStyle`. `BevelOuter := bvNone`.
-- The background color (`Color`) follows `Theme` (dark #1E1E1E, light #FFFFFF; visible for a moment when tabs switch).
+- The background color (`Color`) follows `Theme` (dark is `CXDarkEditorBack`: in an application with a dark display (`clWindow` is dark), the color of `clWindow`, otherwise #1E1E1E; light #FFFFFF; visible for a moment when tabs switch). The visible tab (`CActive` in `ApplyTabColors`) uses the same color. The body background of the inner component is `ApplyVSStyle` of `TCSynEdit` (`TCSynEdit_Design.md` 7.4.1). Line selection in the line-number column is done by `TCSynEdit` (`TCSynEdit_Design.md` 7.13).
 - When created with `Create` in code, the component joins the form's close confirmation (`TCsFormHook`) at the moment `Parent` is set (same as TCMonacoEditor).
 
 ### 3.2 API and What It Calls Internally

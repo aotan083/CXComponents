@@ -20,6 +20,7 @@ uses
   Classes,
   SysUtils,
   Graphics,
+  Controls,
   Menus,
   LCLType,
   LCLIntf,
@@ -161,6 +162,8 @@ type
   TCSynEdit = class(TSynEdit)
   private
     FFileName: string;
+    FGutterSelecting: Boolean;  // 行番号の欄のドラッグで、行ごとに選んでいる（Monaco と同じ）
+    FGutterAnchor: Integer;     // そのとき、押した行（1 始まり。折り返しの行ではなく、文書の行）
     FEditStyle: TCEditStyle;
     FLanguage: string;          // 今の言語（7.2）。既定 'pascal'
     FEncodingType: TCFileEncoding;
@@ -247,6 +250,15 @@ type
   protected
     { 7.4 配色を当てる。継承した部品（TCsEditor の中の部品）が色を足せるように protected virtual }
     procedure ApplyEditStyle; virtual;
+
+    { 行番号の欄の、クリック・ドラッグで、行ごとに選ぶ（折り返しがあっても、文書の行ごと。TCMonacoEditor と同じ）。
+      欄の外でボタンを押したときは、何もしない（SynEdit の標準の動き） }
+    function InLineNumberPart(X: Integer): Boolean;
+    function DocLineAtY(Y: Integer): Integer;
+    procedure SelectLinesFromAnchor(ACurLine: Integer);
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
 
     { 1: FileName変更通知用メソッド }
     procedure OnFileNameChange(var sFileName: String); virtual;
@@ -502,7 +514,7 @@ var
 begin
   if ADark then
   begin
-    Bg := HexColor($1E, $1E, $1E);        Fg := HexColor($D4, $D4, $D4);
+    Bg := CXDarkEditorBack;               Fg := HexColor($D4, $D4, $D4);   // 背景は、ほかの部品と同じ色（uCXLang）
     LineNo := HexColor($6E, $76, $81);    LineNoCur := HexColor($C6, $C6, $C6);   // 行番号は本文より暗く（VS Code と同じ）
     FoldMark := HexColor($5A, $5A, $5A);  CurLine := HexColor($2C, $31, $3C);   // 折りたたみの印も暗く（Lazarus IDE に近い）
     Sel := HexColor($26, $4F, $78);       Bracket := HexColor($88, $88, $88);
@@ -875,6 +887,78 @@ begin
     LoadFromFile(AFiles[0]);   // イベント未設定なら先頭ファイルを開く
 end;
 
+
+{ 行番号の欄の、行番号の部分の上か }
+function TCSynEdit.InLineNumberPart(X: Integer): Boolean;
+begin
+  Result := Assigned(Gutter) and Gutter.Visible and Assigned(Gutter.LineNumberPart) and
+    Gutter.LineNumberPart.Visible and (X >= Gutter.LineNumberPart.Left) and
+    (X < Gutter.LineNumberPart.Left + Gutter.LineNumberPart.Width);
+end;
+
+{ 画面の縦の位置（Y）にある、文書の行（1 始まり）。折り返しの行ではなく、折り返す前の行。範囲外は、先頭・末尾の行に収める }
+function TCSynEdit.DocLineAtY(Y: Integer): Integer;
+begin
+  Result := PixelsToLogicalPos(Classes.Point(Gutter.Width + 2, Y)).Y;
+  if Result < 1 then Result := 1;
+  if Result > Lines.Count then Result := Lines.Count;
+end;
+
+{ 押した行（FGutterAnchor）から ACurLine までの、文書の行を、選ぶ。行末の改行も含める（最後の行は、行末まで） }
+procedure TCSynEdit.SelectLinesFromAnchor(ACurLine: Integer);
+var
+  Lo, Hi: Integer;
+begin
+  if Lines.Count = 0 then Exit;
+  if FGutterAnchor < ACurLine then Lo := FGutterAnchor else Lo := ACurLine;
+  if FGutterAnchor < ACurLine then Hi := ACurLine else Hi := FGutterAnchor;
+  BlockBegin := Classes.Point(1, Lo);
+  if Hi < Lines.Count then
+    BlockEnd := Classes.Point(1, Hi + 1)
+  else
+    BlockEnd := Classes.Point(Length(Lines[Hi - 1]) + 1, Hi);
+end;
+
+{ 行番号の欄を左ボタンで押したら、その行を選ぶ（Shift なら、カーソルの行から）。そのままドラッグすると、行ごとに広げる }
+procedure TCSynEdit.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  L: Integer;
+begin
+  inherited MouseDown(Button, Shift, X, Y);
+  if (Button <> mbLeft) or (Lines.Count = 0) or not InLineNumberPart(X) then Exit;
+  L := DocLineAtY(Y);
+  if ssShift in Shift then
+    FGutterAnchor := CaretY
+  else
+    FGutterAnchor := L;
+  if FGutterAnchor > Lines.Count then FGutterAnchor := Lines.Count;
+  FGutterSelecting := True;
+  MouseCapture := True;                    // 欄の外へ出ても、ドラッグを受け取る
+  SelectLinesFromAnchor(L);
+end;
+
+procedure TCSynEdit.MouseMove(Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseMove(Shift, X, Y);
+  if not FGutterSelecting then Exit;
+  if ssLeft in Shift then
+    SelectLinesFromAnchor(DocLineAtY(Y))
+  else
+  begin
+    FGutterSelecting := False;             // ボタンが離されたのに、MouseUp が届かなかった
+    MouseCapture := False;
+  end;
+end;
+
+procedure TCSynEdit.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseUp(Button, Shift, X, Y);
+  if FGutterSelecting and (Button = mbLeft) then
+  begin
+    FGutterSelecting := False;
+    MouseCapture := False;
+  end;
+end;
 
 { gutter（行番号の欄）の各部分の背景を、エディタの背景（Color）にそろえる。
   部分ごとの背景が決まっていないと、ダーク表示で、変更の印の欄などに、既定の色（白）が出ることがある }

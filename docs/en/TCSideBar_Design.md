@@ -333,7 +333,7 @@ Destroy:
 3. Draw `FActivePage.Caption` with `Font`, text color `clBtnText`, vertically centered, single line, end ellipsis ("..."), clipped on overflow.
 4. [x]: if the mouse is over it, fill with `clBtnHighlight`. With `M := width of [x] div 4`, draw two lines of `clBtnText` with thickness `Scale96ToFont(1)` (minimum 1) to form the "x".
 
-`PaintSplitter`: finish if `SplitterRect` is empty. At run time, if the mouse is over the splitter (`FSplitHot`) or it is being dragged (`FDragging`), fill `LineRect(0)` with `FHighlightColor` (the blue line; thickness `SplitLineThickness`). Otherwise (normally, and at design time), a 1px vertical line of `clBtnShadow` in the center of `SplitterRect`.
+`PaintSplitter`: finish if `SplitterRect` is empty. At run time, if the mouse is over the splitter (`FSplitHot`) or it is being dragged (`FDragging`), fill `LineRect(0)` with `CXSplitLineColor(FHighlightColor)` (the blue line; thickness `SplitLineThickness`). Otherwise (normally, and at design time), a 1px vertical line of `clBtnShadow` in the center of `SplitterRect`.
 
 ## 7. Mouse
 
@@ -361,7 +361,7 @@ After `inherited`, if the `Caption` of the page of the icon under the mouse is n
 
 | Procedure | Processing |
 |---|---|
-| `BeginSplitterDrag(X)` | Finish if closed. Erase any leftover previous line with `FreeRubberBand`. `FDragging := True`, `MouseCapture := True` (at design time the designer calls MouseDown directly, so there is no capture; without this, the line's window would receive MouseUp on release and the line would remain). Remember the start position and the width at start. `Invalidate` (make the splitter a blue line). `CreateRubberband`: for `rsLine`, with `FBandBrush := CreateSolidBrush(ColorToRGB(FHighlightColor))` at the screen coordinates of `LineRect(0)`; for `rsPattern`, with `ThemeServices.DottedBrush` at the screen coordinates of `SplitterRect` |
+| `BeginSplitterDrag(X)` | Finish if closed. Erase any leftover previous line with `FreeRubberBand`. `FDragging := True`, `MouseCapture := True` (at design time the designer calls MouseDown directly, so there is no capture; without this, the line's window would receive MouseUp on release and the line would remain). Remember the start position and the width at start. `Invalidate` (make the splitter a blue line). `CreateRubberband`: for `rsLine`, with `FBandBrush := CreateSolidBrush(ColorToRGB(CXSplitLineColor(FHighlightColor)))` at the screen coordinates of `LineRect(0)`; for `rsPattern`, with `ThemeServices.DottedBrush` at the screen coordinates of `SplitterRect` |
 | `MoveSplitterDrag(X)` | `FDragWidth := ClampPanelWidth(width at start + (X - start position))`. For `rsUpdate`, `PanelWidth := FDragWidth`; for `rsLine` and `rsPattern`, `UpdateRubberBand`; `rsNone` does nothing |
 | `UpdateRubberBand` | Shift `LineRect(0)` for `rsLine` or `SplitterRect` for `rsPattern` to the right by `FDragWidth - width at start` and `SetRubberBandRect` in screen coordinates |
 | `EndSplitterDrag(X)` | `FDragging := False`, `MouseCapture := False`, `FreeRubberBand`, `Invalidate` (return the blue line to the normal line). Finish if closed. `PanelWidth := ClampPanelWidth(...)`. If the width changed: at design time `OwnerFormDesignerModified(Self)`; at runtime, if `EventsEnabled`, `FOnPanelResize` |

@@ -186,6 +186,9 @@ type
 
 implementation
 
+uses
+  uCXLang;
+
 { TCSplitter }
 
 constructor TCSplitter.Create(TheOwner: TComponent);
@@ -283,7 +286,7 @@ begin
   if not (FHot or FDragging) then Exit;
   T := Max(1, Scale96ToFont(cLineWidth96));
   Canvas.Brush.Style := bsSolid;
-  Canvas.Brush.Color := FHighlightColor;
+  Canvas.Brush.Color := CXSplitLineColor(FHighlightColor);
   if ResizeAnchor in [akLeft, akRight] then
   begin
     M := (Width - T) div 2;                       // 縦の線（左右に分割）
@@ -662,7 +665,7 @@ begin
   if (FHot or FDragging) and not (csDesigning in ComponentState) then
   begin
     T := Max(1, Scale96ToFont(cLineWidth96));
-    Canvas.Brush.Color := FHighlightColor;
+    Canvas.Brush.Color := CXSplitLineColor(FHighlightColor);
     if FSplitterType = cpsHorizontal then
     begin
       M := R.Left + (R.Right - R.Left - T) div 2;

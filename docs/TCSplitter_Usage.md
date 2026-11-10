@@ -52,7 +52,7 @@ TSplitter のプロパティ（`Align`・`MinSize`・`ResizeStyle`・`ResizeAnch
 
 | プロパティ | 型 | 読み書き | 既定 | 中身 |
 |---|---|---|---|---|
-| `HighlightColor` | `TColor` | 読み書き | `clHighlight` | 線の色。既定は Windows の選択色で、テーマ・ダーク表示に合わせて変わる。固定したい色があれば、色を指定する |
+| `HighlightColor` | `TColor` | 読み書き | `clHighlight` | 線の色。既定は Windows の選択色で、テーマ・ダーク表示に合わせて変わる。固定したい色があれば、色を指定する。値が既定値（`clHighlight`）のとき、Windows の選択色が暗すぎる（明るさ 0〜255 が 80 より小さい。MetaDarkStyle で選択色を暗い灰色にしたときなど）と、暗い背景で見えないので、アクセントの青（#0078D4）で描く（`CXSplitLineColor`。`uCXLang`）。ほかの色を指定したときは、その色 |
 | `SplitCursor` | `TCursor` | 読み書き | `crDefault` | 分割線の上のマウスカーソル。`crDefault` のときは TSplitter と同じ（左右に分割するなら横向きの矢印、上下に分割するなら縦向きの矢印）。ほかの値を入れると、そのカーソルになる |
 
 - カーソルを変えるときは、`Cursor` ではなく `SplitCursor` に書く（`Cursor` に書いても、分割の向きを変えたときに元へ戻る）。

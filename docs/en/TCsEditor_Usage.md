@@ -416,6 +416,9 @@ Keys are received only by the editor that has focus. All of the following shortc
 | `Ctrl+Shift+[`, `Ctrl+Shift+]` | Fold / unfold |
 | `Ctrl+Enter` | Inserts an empty line below and moves there (indentation is the same as the current line) |
 | `Shift+Alt+Drag` | Selects a rectangular range |
+| Click the line-number column | Selects that whole line. Even with word wrap, the whole line before wrapping is selected (including the line break) |
+| Drag in the line-number column | Extends the selection line by line (upward or downward) |
+| `Shift`+click the line-number column | Selects from the cursor line to the clicked line |
 
 - Keys not listed here (SynEdit's default keys, etc.) do nothing in the editor. They are passed on to the form's shortcuts.
 - When `ReadOnly`, editing actions (moving lines, duplicating, commenting, inserting a line) do nothing.
@@ -513,10 +516,11 @@ Depending on the file type, the same Windows icon as in Explorer is shown automa
 - With `Theme = ctAuto` (default), it follows the OS dark/light setting. Even if the OS is switched while running, the body, tabs, scrollbar, minimap, background and preview are repainted on the spot.
 - With `ctLight` or `ctDark`, that color theme is fixed regardless of the OS.
 - Body colors are the same as VS Code (TCMonacoEditor) (light and dark).
+- (Note) The dark body background and the color of the visible tab are in an application with a dark display (such as MetaDarkStyle, where `clWindow` is dark), the color of `clWindow` (the same as the background of other components such as trees and lists); otherwise #1E1E1E. The light scheme does not change.
 
 | Part | Dark | Light |
 |---|---|---|
-| Body background | #1E1E1E | #FFFFFE |
+| Body background | #1E1E1E (note) | #FFFFFE |
 | Body text | #D4D4D4 | #000000 |
 | Reserved words | #569CD6 | #0000FF |
 | Strings | #CE9178 | #A31515 |
@@ -527,7 +531,7 @@ Depending on the file type, the same Windows icon as in Explorer is shown automa
 | Folding marks | #5A5A5A | #424242 |
 | Tab strip and unselected tabs | #2B2B2B | #F0F0F0 |
 | Tab under the mouse | #383838 | #E5E5E5 |
-| Visible tab | #1E1E1E | #FFFFFF |
+| Visible tab | #1E1E1E (note) | #FFFFFF |
 | Text of the visible tab | #FFFFFF | #000000 |
 | Text of unselected tabs | #C5C5C5 | #5C5C5C |
 | [×] and scroll arrows | #C5C5C5 | #5C5C5C |

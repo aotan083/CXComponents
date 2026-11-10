@@ -26,7 +26,7 @@ TCMonacoEditor is a fully offline editor component built on WebView2 and Monaco 
 
 | File | Package | Contents |
 |---|---|---|
-| `uCmonacos.pas` | cx (runtime) | `TCMonacoEditor` (the outer component), `TCMPage`, `TCMFormHook`, `TCMTabDragOutEvent`, functions `CMActiveEditor`, `CMSplitLine`, `CMColorToHex`. Tab detachment (sending and receiving; 4.11) |
+| `uCmonacos.pas` | cx (runtime) | `TCMonacoEditor` (the outer component), `TCMPage`, `TCMFormHook`, `TCMTabDragOutEvent`, functions `CMActiveEditor`, `CMSplitLine`, `CMColorToHex`, `CMDarkBackColor`. Tab detachment (sending and receiving; 4.11) |
 | `uCmmonacoview.pas` | cx (runtime) | `TCMMonacoView` (the inner component that displays Monaco), `TCMDocument`, `TCMMenuItem`. Reading and writing character encodings, language detection, string conversion functions `CMToHankaku`, `CMToZenkakuKatakana`, `CMToZenkakuHiragana` |
 | `uCmdpreview.pas` | cx (runtime) | `TCMMarkdownPreview` (preview). Printing |
 | `CMonacoTabs.pas` | cx (runtime) | `TCMTabBinder` (connects the view and ATTabs; also detects a tab being dragged out) and `TCMBinderDragOutEvent` |
@@ -192,7 +192,7 @@ TCMonacoEditor (TCustomPanel)
 | `DefCursorLineColorLight` | `$00FFF2EA` | #EAF2FF |
 | `DefCursorLineColorDark` | `$003C312C` | #2C313C |
 | `DefPreviewBackColorLight` | `$00FEFFFF` | #FFFFFE |
-| `DefPreviewBackColorDark` | `$001E1E1E` | #1E1E1E |
+| `DefPreviewBackColorDark` | `$001E1E1E` | #1E1E1E (when it is the default value, in an application with a dark display it becomes the color of `clWindow` through `CMDarkBackColor`; Chapter 14) |
 | `DefPreviewTextColorLight` | `$00000000` | #000000 |
 | `DefPreviewTextColorDark` | `$00D4D4D4` | #D4D4D4 |
 | `DefPreviewLinkColorLight` | `$00B16A00` | #006AB1 |
@@ -1058,3 +1058,15 @@ Steps for creating the code. Not included in the user manual.
 | 4 | Other files (`uCmonacos.pas`, `CMonacoTabs.pas`, `CMonacoPreview.pas`, `CMonacoFindDlg.pas`, `CMonacoActions.pas`, `editor.html`, `preview.html`, `uCPreview.pas`) | No change |
 
 - The published properties, methods and events are not changed.
+
+## 14. Changes in This Version (Dark Background Color)
+
+| No | Item | Now | After | Reason |
+|---|---|---|---|---|
+| 1 | Dark background of the editor (Monaco) | The `vs-dark` standard (#1E1E1E). The `body` background is also #1e1e1e | The color sent from Pascal (`colors.bgD`) is used for `editor.background` of the `cm-dark` theme and for the `body` background (`editor.html`). The color is `CXDarkEditorBack` (`uCXLang`): in an application with a dark display (`clWindow` is dark), the color of `clWindow`, otherwise #1E1E1E | To match the background of the trees, lists, etc. on the same screen |
+| 2 | `SendColors` (`uCmmonacoview.pas`) | Sends 6 colors | Adds the dark background color (`CXDarkEditorBackHex`) as the 7th. `editor.html` uses `a[7]` (or #1e1e1e if absent) | Same as above |
+| 3 | Visible tab (`CActive` in `ApplyThemeColors`) | #1E1E1E | `CXDarkEditorBack` | So it looks connected to the editor background |
+| 4 | Dark background of the preview | #1E1E1E (initial value in `uCmdpreview.pas`) | The initial value becomes `CXDarkEditorBackHex`. When `PreviewBackColorDark` is the default value (`DefPreviewBackColorDark`), it is passed as `CXDarkEditorBack` through `CMDarkBackColor`. If another color is specified, that color | Same as above |
+
+- `CMDarkBackColor(AColor)` (`uCmonacos.pas`): `CXDarkEditorBack` if `AColor = DefPreviewBackColorDark`, otherwise `AColor`.
+- The default values of the properties do not change (so reading `.lfm` is not affected). Light, and applications without a dark display, do not change.

@@ -618,6 +618,10 @@ procedure CMSplitLine(const S, Delims: string; SkipEmpty: Boolean; Quote: Char; 
   TColor は内部が 青・緑・赤 の順なので、赤・緑・青 の順に並べ替える }
 function CMColorToHex(AColor, ADefault: TColor): string;
 
+{ プレビューのダークの背景色。既定値（DefPreviewBackColorDark）のときは、ダーク表示のアプリでは、ほかの部品と同じ色（uCXLang の CXDarkEditorBack）。
+  ほかの色が指定されていれば、その色 }
+function CMDarkBackColor(AColor: TColor): TColor;
+
 implementation
 
 uses uCXLang, LazUTF8, StrUtils;
@@ -640,6 +644,11 @@ begin
   if (AColor = clDefault) or (AColor = clNone) then AColor := ADefault;
   C := ColorToRGB(AColor);                    { システム色を実際の色にする }
   Result := Format('#%.2X%.2X%.2X', [Red(C), Green(C), Blue(C)]);
+end;
+
+function CMDarkBackColor(AColor: TColor): TColor;
+begin
+  if AColor = DefPreviewBackColorDark then Result := CXDarkEditorBack else Result := AColor;
 end;
 
 procedure CMSplitLine(const S, Delims: string; SkipEmpty: Boolean; Quote: Char; Dest: TStrings);
@@ -1129,7 +1138,7 @@ begin
   begin
     CBar := TColor($202020);               { メニュー・タイトルバーと同じ }
     COver := TColor($2B2B2B);
-    CActive := TColor($1E1E1E);            { エディタの背景と同じ（タブと本文がつながって見える） }
+    CActive := CXDarkEditorBack;           { エディタの背景と同じ（タブと本文がつながって見える） }
     CFont := TColor($A0A0A0);              { 非アクティブは暗くして、アクティブと見分ける }
     CFontActive := TColor($FFFFFF);
     CLine := TColor($3A3A3A);
@@ -3076,7 +3085,7 @@ end;
 procedure TCMonacoEditor.SetPreviewBackColorDark(AValue: TColor);
 begin
   FPreviewBackColorDark := AValue;
-  FPreview.BackColorDark := CMColorToHex(AValue, DefPreviewBackColorDark);
+  FPreview.BackColorDark := CMColorToHex(CMDarkBackColor(AValue), DefPreviewBackColorDark);
 end;
 
 procedure TCMonacoEditor.SetPreviewTextColorLight(AValue: TColor);

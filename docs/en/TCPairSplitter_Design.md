@@ -160,7 +160,7 @@ After `inherited`, for `lapAutoAdjustWithoutHorizontalScrolling` and `lapAutoAdj
 
 1. Fills the whole with `Color` (the part not covered by the sides, that is, the splitter area, is visible).
 2. Finishes if `BarRect` is empty.
-3. At run time, if the mouse is over the splitter (`FHot`) or it is being dragged (`FDragging`), paints a line of thickness `Max(1, Scale96ToFont(cLineWidth96))` in `HighlightColor` at the center of the splitter (a vertical line if side by side, a horizontal line if top and bottom).
+3. At run time, if the mouse is over the splitter (`FHot`) or it is being dragged (`FDragging`), paints a line of thickness `Max(1, Scale96ToFont(cLineWidth96))` in `CXSplitLineColor(HighlightColor)` at the center of the splitter (a vertical line if side by side, a horizontal line if top and bottom).
 4. Otherwise (normally, and at design time), a 1px `clBtnShadow` line at the center of the splitter.
 
 ### 5.7 Mouse

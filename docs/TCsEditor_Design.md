@@ -82,7 +82,7 @@ TCsEditor（TCustomPanel）
 - 実行時だけ中の部品を作る。設計時（IDE の上）は中の部品を作らず、`Paint` で薄い枠と部品の名前を描く（TCMonacoEditor と同じ）。
 - 起動直後に 1 枚、空の無題のタブを作る（`Create` の中。実行時だけ）。
 - `TControl` の `Text`・`Caption` は、public で宣言し直して隠す（見えているタブの本文・タイトルにする）。`ControlStyle` から `csSetCaption` を外す。`BevelOuter := bvNone`。
-- 背景色（`Color`）は `Theme` に合わせる（ダーク #1E1E1E、ライト #FFFFFF。タブが切り替わる一瞬に見える所）。
+- 背景色（`Color`）は `Theme` に合わせる（ダークは `CXDarkEditorBack`：ダーク表示のアプリ（`clWindow` が暗い）では `clWindow` の色、そうでなければ #1E1E1E。ライト #FFFFFF。タブが切り替わる一瞬に見える所）。見えているタブ（`ApplyTabColors` の `CActive`）も同じ色。中の部品の本文の背景は `TCSynEdit` の `ApplyVSStyle`（`TCSynEdit_Design.md` 7.4.1）。行番号の欄での行選択は `TCSynEdit`（`TCSynEdit_Design.md` 7.13）が行う。
 - コードで `Create` したときは、`Parent` を設定した時点でフォームの終了の確認（`TCsFormHook`）に加わる（TCMonacoEditor と同じ）。
 
 ### 3.2 API と中で呼ぶもの

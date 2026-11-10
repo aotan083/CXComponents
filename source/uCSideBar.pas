@@ -1231,7 +1231,7 @@ begin
   if (FSplitHot or FDragging) and not (csDesigning in ComponentState) then
   begin
     Canvas.Brush.Style := bsSolid;
-    Canvas.Brush.Color := FHighlightColor;
+    Canvas.Brush.Color := CXSplitLineColor(FHighlightColor);
     Canvas.FillRect(LineRect(0));
     Exit;
   end;
@@ -1438,7 +1438,7 @@ begin
   begin
     if FResizeStyle = rsLine then
     begin
-      FBandBrush := CreateSolidBrush(ColorToRGB(FHighlightColor));
+      FBandBrush := CreateSolidBrush(ColorToRGB(CXSplitLineColor(FHighlightColor)));
       BandBrush := FBandBrush;
       R := LineRect(0);
     end

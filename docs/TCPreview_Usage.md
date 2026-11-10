@@ -74,9 +74,9 @@ TCsEditor の本文を、プレビュー（Markdown は文書、それ以外は�
 4. EXE と同じフォルダーに、2.1 のファイルを置く。
 5. 実行する。`Ctrl+Shift+V` でプレビューの表示・非表示が切り替わる。
 
-- `Splitter` を選ばないと、表示し直したときに境目がプレビューの隣に来ないため、幅を変えられなくなる。境目の `Align` は、プレビューと同じ向き（`alRight` など）にする。`alNone` にしない。
+- 幅は、`Splitter` を選ばなくても、プレビューの内側の端の帯をドラッグして変えられる（`AllowResize = True`。5.1）。TSplitter・TCSplitter を使うときは `Splitter` を選ぶ（そのときは帯は出ない）。`Splitter` を選ばないと、表示し直したときに境目がプレビューの隣に来ないため、幅を変えられなくなる。境目の `Align` は、プレビューと同じ向き（`alRight` など）にする。`alNone` にしない。TCSplitter を使うと、マウスを乗せたとき・ドラッグ中に青い線が出る。
 - `CPreview1.Visible = True` のまま `ShowPreview = False` にすると、起動時はプレビューが出ているのに `ShowPreview` は `False` になる。最初の `Ctrl+Shift+V` では画面が変わらない。
-- IDE の上（設計時）では WebView2 を起動しない。薄い枠と部品の名前だけが出る。
+- IDE の上（設計時）では WebView2 を起動しない。薄い枠と部品の名前だけが出る。幅を変える帯の線（`HighlightColor`）も出て、ドラッグして大きさを変えられる（5.1）。
 
 ### 2.1 実行時のファイル
 
@@ -184,10 +184,12 @@ TCPreview に表示するのは、「表示元」の TCsEditor の見えてい�
 | 名前 | 型 | 既定値 | 読み書き | 中身 |
 |---|---|---|---|---|
 | `Splitter` | `TSplitter` | nil | 読み・書き | プレビューと一緒に表示・非表示にする境目（5.1） |
+| `AllowResize` | `Boolean` | `True` | 読み・書き | プレビューの内側の端（`Align` が `alRight` なら左端）にある帯をドラッグして、大きさを変えられるか（5.1）。`Splitter` を選んでいるとき、`Align` が上下左右のどれでもないときは、帯は出ない |
+| `HighlightColor` | `TColor` | `clHighlight` | 読み・書き | 帯にマウスを乗せたとき・ドラッグ中の青い線の色。既定値は Windows の選択色で、テーマ・ダーク表示に合わせて変わる。設計時に変えられる。値が既定値（`clHighlight`）のとき、Windows の選択色が暗すぎる（明るさ 0〜255 が 80 より小さい。MetaDarkStyle で選択色を暗い灰色にしたときなど）と、暗い背景で見えないので、アクセントの青（#0078D4）で描く（`CXSplitLineColor`。`uCXLang`）。ほかの色を指定したときは、その色 |
 | `FontSize` | `Integer` | 16 | 読み・書き | 文字の大きさ（8〜48）。プレビューで `Ctrl+ホイール` を回すと、この値も変わる |
 | `ColorScheme` | `TCMColorScheme` | `csEditor` | 読み・書き | 配色。`csEditor`（エディタと同じ配色）／`csGitHub`（GitHub 風） |
 | `BackColorLight` | `TColor` | #FFFFFE | 読み・書き | `csEditor` のときの背景色（明るい配色） |
-| `BackColorDark` | `TColor` | #1E1E1E | 読み・書き | 同（暗い配色） |
+| `BackColorDark` | `TColor` | #1E1E1E | 読み・書き | 同（暗い配色）。既定値のときは、ダーク表示のアプリ（`clWindow` が暗い）では `clWindow` の色（ほかの部品と同じ色） |
 | `TextColorLight` | `TColor` | #000000 | 読み・書き | 文字色（明るい配色） |
 | `TextColorDark` | `TColor` | #D4D4D4 | 読み・書き | 同（暗い配色） |
 | `LinkColorLight` | `TColor` | #006AB1 | 読み・書き | リンクの色（明るい配色） |
@@ -226,6 +228,11 @@ TCPreview に表示するのは、「表示元」の TCsEditor の見えてい�
 - `Visible` を変えると（TCsEditor の `ShowPreview`・`Ctrl+Shift+V` を含む）、`Splitter` の `Visible` も同じになる。
 - 表示するたびに、境目をプレビューの隣に置き直す（`alRight` ならプレビューの左、`alLeft` なら右、`alBottom` なら上、`alTop` なら下）。
 - 境目の色は、表示元の配色に合わせて付ける（ダーク #2B2B2B、ライト #E5E5E5）。アプリが付けた色は上書きする。
+
+- 幅を変える帯：`AllowResize = True`（既定値）で、`Splitter` を選んでいなくて、`Align` が `alLeft`・`alRight`・`alTop`・`alBottom` のどれかのとき、プレビューの内側の端に、細い帯（5px。表示スケールで拡大）が出る。`alRight` なら左端、`alLeft` なら右端、`alBottom` なら上端、`alTop` なら下端。
+- 帯の色は、表示元の配色に合わせる（ダーク #2B2B2B、ライト #E5E5E5）。マウスを乗せたとき・ドラッグ中は、中央に `HighlightColor` の線（2px。表示スケールで拡大）が出て、カーソルが左右（上下）の矢印になる。
+- ドラッグすると、プレビューの幅（上下に置いたときは高さ）が変わる。`alRight`・`alBottom` は、左（上）へ動かすと大きくなる。大きさは、100px（表示スケールで換算）以上、親のクライアント領域から 100px を引いた大きさ以下に収まる。
+- 設計時（フォームデザイナ）も、同じ位置に `HighlightColor` の線が出て、ドラッグして幅（高さ）を変えられる。変えた大きさは、フォームを保存すると保存される。設計時は、マウスを乗せても線の色は変わらない。
 
 ### 5.2 メソッド
 

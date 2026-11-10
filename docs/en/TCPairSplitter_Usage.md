@@ -104,7 +104,7 @@ CPairSplitter1.Side2.Visible := True;       // CPairSplitter1.Side2.Show;
 | `SplitterType` | `TCPairSplitterType` | read/write | `cpsHorizontal` | Split direction. `cpsHorizontal`: side by side (side 1 on the left); `cpsVertical`: top and bottom (side 1 on top) |
 | `Position` | `Integer` | read/write | 45 | Size of side 1 (width if side by side, height if top and bottom). A value below 0 becomes 0. A value that is too large is fitted when displayed (4.3), but the value of `Position` itself does not change |
 | `SplitterWidth` | `Integer` | read/write | 5 | Thickness of the splitter (px at 100% display scale). A value below 1 becomes 1 |
-| `HighlightColor` | `TColor` | read/write | `clHighlight` | Color of the blue line on the splitter. The default is the Windows selection color, and follows the theme and dark mode |
+| `HighlightColor` | `TColor` | read/write | `clHighlight` | Color of the blue line on the splitter. The default is the Windows selection color, and follows the theme and dark mode. When the value is the default (`clHighlight`) and the Windows selection color is too dark (brightness 0-255 below 80, for example when the selection color is set to a dark gray with MetaDarkStyle), the line would be invisible on a dark background, so it is drawn in the accent blue (#0078D4) (`CXSplitLineColor` in `uCXLang`). If another color is specified, that color is used |
 | `SplitCursor` | `TCursor` | read/write | `crDefault` | Mouse cursor over the splitter. With `crDefault`, a horizontal arrow if side by side, a vertical arrow if top and bottom |
 | `Color` | `TColor` | read/write | `clBtnFace` | Background color of the splitter |
 | `Side1` | `TCPairSplitterSide` | read | ― | Side 1. For use at run time and in code |

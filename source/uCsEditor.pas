@@ -2485,7 +2485,7 @@ var
 begin
   if IsDarkTheme then
   begin
-    CBar := TColor($202020); COver := TColor($2B2B2B); CActive := TColor($1E1E1E);
+    CBar := TColor($202020); COver := TColor($2B2B2B); CActive := CXDarkEditorBack;
     CFont := TColor($A0A0A0); CFontActive := TColor($FFFFFF); CLine := TColor($3A3A3A);
   end
   else

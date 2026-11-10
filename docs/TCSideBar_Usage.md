@@ -101,7 +101,7 @@ Language=en
 | `MaxPanelWidth` | `Integer` | 読み・書き | スプリッターで変えられるパネルの幅の上限（既定値は 600）。0 なら、この値による上限はなし（フォームの幅による上限だけ）。パネルの幅は、この値と、フォームの幅による上限（下の説明）の、小さい方を超えない |
 | `BodyMinWidth` | `Integer` | 読み・書き | フォームの中で、本体（サイドバーの右の部品）のために残す幅（既定値は 50）。フォームの幅による上限の計算に使う。0 以上 |
 | `SplitterWidth` | `Integer` | 読み・書き | スプリッター（つかむ部分）の幅（既定値は 8） |
-| `HighlightColor` | `TColor` | 読み・書き | スプリッターの青い線の色（既定値は `clHighlight`。Windows の選択色で、テーマ・ダーク表示に合わせて変わる）。設計時に変えられる |
+| `HighlightColor` | `TColor` | 読み・書き | スプリッターの青い線の色（既定値は `clHighlight`。Windows の選択色で、テーマ・ダーク表示に合わせて変わる）。設計時に変えられる。値が既定値（`clHighlight`）のとき、Windows の選択色が暗すぎる（明るさ 0〜255 が 80 より小さい。MetaDarkStyle で選択色を暗い灰色にしたときなど）と、暗い背景で見えないので、アクセントの青（#0078D4）で描く（`CXSplitLineColor`。`uCXLang`）。ほかの色を指定したときは、その色 |
 | `ResizeStyle` | `TResizeStyle` | 読み・書き | スプリッターをドラッグしている間の表示。`rsLine`（既定値）：`HighlightColor` の細い線だけを動かし、離したときに幅を変える。`rsPattern`：点々の線だけを動かし、離したときに幅を変える。`rsUpdate`：ドラッグ中も幅を変える。`rsNone`：何も表示せず、離したときに幅を変える |
 | `ShowHeader` | `Boolean` | 読み・書き | 見出し（`Caption` と［×］）を出すか（既定値は `True`）。`False` で、ページがパネルの一番上から始まる |
 | `ShowCloseButton` | `Boolean` | 読み・書き | 見出しの右に［×］を出すか（既定値は `True`）。`ShowHeader = False` のときは出ない |

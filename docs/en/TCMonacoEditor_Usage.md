@@ -409,7 +409,7 @@ All of these target the visible tab.
 | `PreviewFontSize` | `Integer` | 16 | Font size of the preview (8 to 48) |
 | `ColorScheme` | `TCMColorScheme` | `csEditor` | Preview color scheme. `csEditor` (same colors as the editor) / `csGitHub` (GitHub style) |
 | `PreviewBackColorLight` | `TColor` | #FFFFFE | Preview background color when `csEditor` (light scheme) |
-| `PreviewBackColorDark` | `TColor` | #1E1E1E | Same (dark scheme) |
+| `PreviewBackColorDark` | `TColor` | #1E1E1E | Same (dark scheme). When it is the default value, in an application with a dark display (`clWindow` is dark) it is the color of `clWindow` (the same as other components) |
 | `PreviewTextColorLight` | `TColor` | #000000 | Preview text color (light scheme) |
 | `PreviewTextColorDark` | `TColor` | #D4D4D4 | Same (dark scheme) |
 | `PreviewLinkColorLight` | `TColor` | #006AB1 | Preview link color (light scheme) |
@@ -582,18 +582,19 @@ For each file type, the same Windows icon as in Explorer is automatically shown 
 - With `Theme = ctAuto` (default), it follows the OS dark/light setting. Even if the OS is switched while running, the editor, preview, tabs, splitter, and background are repainted immediately.
 - With `ctLight` or `ctDark`, the scheme is fixed regardless of the OS.
 - The tabs, splitter, and background use colors close to those of the Windows 11 File Explorer. The visible tab uses the same color as the editor background, so it looks connected to the body text.
+- (Note) The dark body background (the background of Monaco), the visible tab, and the background right after startup are in an application with a dark display (such as MetaDarkStyle, where `clWindow` is dark), the color of `clWindow` (the same as the background of other components such as trees and lists); otherwise #1E1E1E. The light scheme does not change.
 
 | Part | Dark | Light |
 |---|---|---|
 | Tab strip and unselected tabs | #2B2B2B | #F0F0F0 |
 | Tab under the mouse | #383838 | #E5E5E5 |
-| Visible tab | #1E1E1E | #FFFFFF |
+| Visible tab | #1E1E1E (note) | #FFFFFF |
 | Text of the visible tab | #FFFFFF | #000000 |
 | Text of unselected tabs | #C5C5C5 | #5C5C5C |
 | [×] and scroll arrows | #C5C5C5 | #5C5C5C |
 | Separator lines and tab borders | #3A3A3A | #D9D9D9 |
 | Splitter | #2B2B2B | #E5E5E5 |
-| Background (briefly visible right after startup) | #1E1E1E | #FFFFFF |
+| Background (briefly visible right after startup) | #1E1E1E (note) | #FFFFFF |
 
 - Search hits are displayed with `HitColorLight` / `HitColorDark` while the editor does not have focus (while you are working in the find dialog). When you click the editor, it returns to the normal selection color.
 - The cursor line is highlighted only by background color (no border).

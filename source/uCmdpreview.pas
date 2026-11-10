@@ -222,7 +222,7 @@ begin
   FMaxContentWidth := 0;
   FContentPadding := 26;
   FBackColorLight := '#fffffe';
-  FBackColorDark := '#1e1e1e';
+  FBackColorDark := CXDarkEditorBackHex;      { ダーク表示のアプリでは、ほかの部品と同じ色（uCXLang） }
   FTextColorLight := '#000000';
   FTextColorDark := '#d4d4d4';
   FLinkColorLight := '#006ab1';

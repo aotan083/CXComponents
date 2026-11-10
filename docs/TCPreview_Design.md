@@ -74,7 +74,8 @@ procedure PrintFor(ASource: TComponent);                    // その TCsEditor 
 
 ```
 TCPreview（TCustomPanel）
- └ プレビュー（TCMMarkdownPreview）  … 全面（alClient）。実行時だけ作る
+ ├ プレビュー（TCMMarkdownPreview）  … 全面（alClient）。実行時だけ作る
+ └ 帯（TCPreviewGrip）               … 内側の端の、幅を変える細い帯。実行時だけ作る（設計時は TCPreview 自身が扱う。4.5）
 ```
 
 - `Create`：`inherited` のあと、`csDesigning` でなければ（実行時だけ）中の `TCMMarkdownPreview` を作る（`Parent := Self`・`Align := alClient`）。設計時は作らない（WebView2 を起動しない）。
@@ -88,10 +89,12 @@ TCPreview（TCustomPanel）
 | 名前 | 型 | 既定値 | 公開 | 中で持つもの・渡し方 |
 |---|---|---|---|---|
 | `Splitter` | `TSplitter` | nil | published | 表示・非表示を合わせる境目（4.4）。`FreeNotification` |
+| `AllowResize` | `Boolean` | `True` | published | 幅を変える帯（4.5）を出すか。`UpdateGrip` |
+| `HighlightColor` | `TColor` | `clHighlight` | published | 帯の青い線の色（4.5）。変わったら帯と自分を描き直す |
 | `FontSize` | `Integer` | 16 | published | 中の `FontSize`（8〜48 に収める） |
 | `ColorScheme` | `TCMColorScheme` | `csEditor` | published | `FColorScheme` → 中の `ColorScheme`（`csEditor`→'editor'、`csGitHub`→'github'） |
 | `BackColorLight` | `TColor` | `DefPreviewBackColorLight`（#FFFFFE） | published | `F…` に TColor のまま持ち、中の `BackColorLight` へ `CMColorToHex` で渡す |
-| `BackColorDark` | `TColor` | `DefPreviewBackColorDark`（#1E1E1E） | published | 同上 |
+| `BackColorDark` | `TColor` | `DefPreviewBackColorDark`（#1E1E1E） | published | 同上。ただし `ApplyAll` は、`CMDarkBackColor(FBackColorDark)` を渡す（既定値のとき、ダーク表示のアプリでは `clWindow` の色。`TCMonacoEditor_Design.md` 14 章） |
 | `TextColorLight` | `TColor` | `DefPreviewTextColorLight`（#000000） | published | 同上 |
 | `TextColorDark` | `TColor` | `DefPreviewTextColorDark`（#D4D4D4） | published | 同上 |
 | `LinkColorLight` | `TColor` | `DefPreviewLinkColorLight`（#006AB1） | published | 同上 |
@@ -126,6 +129,53 @@ TCPreview（TCustomPanel）
 - 表示したとき、表示元があれば `Refresh`（隠れている間の変更を反映する）。
 - TCsEditor の `ShowPreview` は、この部品の `Visible` を読み書きする（`TCsEditor_Design.md` 9章）。
 - 境目の色：`Splitter` の `Color` を、表示元の Theme に合わせて付ける（TCMonacoEditor の中の境目と同じ色。ダーク #2B2B2B、ライト #E5E5E5）。ダークかどうかは表示元の TCsEditor に聞く（`ctAuto` なら OS の設定）。表示元が無ければ OS の設定。付けるのは、`Splitter` を選んだとき・表示元が変わったとき・`SourceSwitched`（配色を変えたときも来る）。アプリが付けた色は上書きする。
+
+### 4.5 幅を変える帯（AllowResize・HighlightColor）
+
+アプリが TSplitter を別に置かなくても、TCPreview の大きさを変えられるようにする。TCSplitter（`uCSplitter`）と同じ見た目（マウスを乗せたとき・ドラッグ中に青い線）にする。
+
+**帯の置き方（`UpdateGrip`）**
+
+| 項目 | 内容 |
+|---|---|
+| 帯 | `TCPreviewGrip`（`TCustomControl`）。実行時だけ、`Create` の最後に作る（`Parent := Self`）。`csCaptureMouse`・`csNoDesignSelectable` |
+| 置く場所 | `Align = alRight` なら `FGrip.Align := alLeft`、`alLeft` なら `alRight`、`alBottom` なら `alTop`、`alTop` なら `alBottom`。太さは `Scale96ToFont(5)`。カーソルは、左右なら `crHSplit`、上下なら `crVSplit` |
+| 出す条件 | `FAllowResize` が真で、`FSplitter = nil` で、`Align` が上下左右のどれか。そうでなければ `Visible := False` |
+| 呼ぶとき | `Loaded`、`SetAlign`、`SetAllowResize`、`SetSplitter` |
+
+**帯の動き（`TCPreviewGrip`）**
+
+| 手続き | 処理 |
+|---|---|
+| `Paint` | `Panel.GripColor`（表示元の Theme に合わせた色。ダーク #2B2B2B、ライト #E5E5E5）で全体を塗る。`FHot` か `FDragging` なら、中央に `Max(1, Scale96ToFont(2))` の太さの線を、`CXSplitLineColor(Panel.HighlightColor)` で塗る（左右なら縦線、上下なら横線） |
+| `MouseEnter`・`MouseLeave` | `FHot` を変えて描き直す |
+| `MouseDown` | 左ボタンで、`FDragging := True`、`MouseCapture := True`、押したときの位置（画面の、軸方向の座標）と `TCPreview` の大きさ（左右なら `Width`、上下なら `Height`）を覚える。描き直す |
+| `MouseMove` | ドラッグ中なら、`NewSize := Panel.CalcDragSize(開始時の大きさ, 今の位置 − 開始時の位置)`。左右なら `Panel.Width := NewSize`、上下なら `Panel.Height := NewSize` |
+| `MouseUp`・`CaptureChanged` | ドラッグを終える。描き直す |
+
+**大きさの計算（`CalcDragSize(AStartSize, ADelta)`。public）**
+
+| 項目 | 内容 |
+|---|---|
+| 向き | `Align` が `alRight`・`alBottom` なら `AStartSize − ADelta`（帯が内側の左・上にあるので、左・上へ動かす（`ADelta` が負）と大きくなる）。`alLeft`・`alTop` なら `AStartSize + ADelta` |
+| 下限 | `Scale96ToFont(100)` |
+| 上限 | `Parent` があれば、`Parent.ClientWidth`（上下なら `ClientHeight`）から `Scale96ToFont(100)` を引いた大きさ。ただし下限以上。`Parent` が無ければ制限なし |
+
+**設計時（TCPreview 自身が扱う）**
+
+設計時は、帯の部品は作らない（デザイナは `csNoDesignSelectable` の子の部品にマウスを渡さないため）。TCSideBar と同じ決まり（`TCSideBar_Design.md` の CM_DESIGNHITTEST の説明）で、TCPreview が自分でドラッグを処理する。
+
+| 手続き | 処理 |
+|---|---|
+| `DesignGripRect` | 帯の場所（クライアント座標）。`AllowResize` が偽・`Splitter` がある・`Align` が上下左右でない、のときは空。`alRight` なら `Rect(0, 0, 帯の太さ, Height)`、`alLeft` なら右端、`alBottom` なら `Rect(0, 0, Width, 帯の太さ)`、`alTop` なら下端 |
+| `Paint` | 薄い枠と部品の名前（今までどおり）に加えて、帯の中央に `HighlightColor` の線（2px）を塗る（ドラッグできる場所と、実行時の線の色が分かる） |
+| `MouseDown` | 設計時で左ボタン、帯の上なら、`FDesignDragging := True`、`MouseCapture := True`（デザイナは `MouseDown` を直接呼ぶのでキャプチャされないため）、開始位置・大きさを覚える |
+| `MouseMove` | ドラッグ中なら `CalcDragSize` で `Width`（`Height`）を変える。そうでなければ、帯の上かで `FDesignHot` を変え、カーソルを `crHSplit`・`crVSplit`・`crDefault` にする |
+| `MouseUp` | ドラッグを終え、`OwnerFormDesignerModified(Self)`（`Width`・`Height` を .lfm に保存するため）。`FDesignerPressLeft := True` |
+| `CMDesignHitTest` | ドラッグ中は 1。ドラッグを終えた後、次にボタンが押されるまでの、ボタンを押していない移動も 1（デザイナに渡すと、範囲選択の枠が出る）。ボタンが押されたら `FDesignerPressLeft := False`。それ以外は、帯の上なら 1、そうでなければ 0（デザイナが部品を選ぶ） |
+
+- 実行時の `FGrip` と設計時の処理は、同じ `CalcDragSize` を使う（上限・下限が同じ）。
+- 帯の色（`GripColor`）は、表示元の Theme に合わせる（4.4 の境目の色と同じ）。`HighlightColor` は、既定値 `clHighlight`（Windows の選択色）。線を描くときの色は `CXSplitLineColor`（選択色が暗すぎるときはアクセントの青。`CXLang_Design.md` 12 章）。
 
 ## 5. 処理
 
@@ -233,3 +283,11 @@ TCMonacoEditor の 7.3 と同じ流れ。
 | No | 章 | 1.0 | 1.1 | 理由 |
 |---|---|---|---|---|
 | 1 | 4.4 | `Splitter` の色は付けない | 表示元の Theme に合わせて付ける | Theme を変えても境目の色が変わらなかった |
+
+**1.2（2026-11-10）**
+
+| No | 章 | 1.1 | 1.2 | 理由 |
+|---|---|---|---|---|
+| 1 | 4.5 | 帯の線は、いつも `clHighlight`。設計時は帯が無い | `HighlightColor`（既定値 `clHighlight`）で色を決める。設計時にも帯の線が出て、ドラッグで大きさを変えられる | 線の色を設計時に変えられるようにするため。設計時にも幅を決められるようにするため |
+| 2 | 4.5 | 大きさの計算は、帯の `MouseMove` の中 | `CalcDragSize`（public）に出す。実行時と設計時で同じ計算を使う | 設計時のドラッグと共有するため（動きは変えない） |
+| 3 | 4.2 | ― | `AllowResize`・`HighlightColor` を published に足す | 同上 |

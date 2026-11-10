@@ -74,9 +74,9 @@ A component that displays the body text of a TCsEditor as a preview (a document 
 4. Place the files listed in 2.1 in the same folder as the EXE.
 5. Run it. `Ctrl+Shift+V` toggles the preview between shown and hidden.
 
-- If `Splitter` is not selected, the boundary will not come next to the preview when it is shown again, so the width can no longer be changed. Give the boundary an `Align` in the same direction as the preview (such as `alRight`). Do not use `alNone`.
+- The width can be changed without selecting `Splitter`, by dragging the band on the inner edge of the preview (`AllowResize = True`; 5.1). When you use a TSplitter or TCSplitter, select it in `Splitter` (the band is then not shown). If `Splitter` is not selected, the boundary will not come next to the preview when it is shown again, so the width can no longer be changed. Give the boundary an `Align` in the same direction as the preview (such as `alRight`). Do not use `alNone`. With a TCSplitter, a blue line appears on mouse over and while dragging.
 - If you leave `CPreview1.Visible = True` and set `ShowPreview = False`, the preview is shown at startup but `ShowPreview` is `False`. The first `Ctrl+Shift+V` does not change the screen.
-- WebView2 is not started inside the IDE (at design time). Only a thin frame and the component name are shown.
+- WebView2 is not started inside the IDE (at design time). Only a thin frame and the component name are shown. The line of the resize band (`HighlightColor`) is also shown, and you can drag it to change the size (5.1).
 
 ### 2.1 Runtime Files
 
@@ -184,10 +184,12 @@ What TCPreview displays is the visible tab of the "source" TCsEditor. The source
 | Name | Type | Default | Read/Write | Content |
 |---|---|---|---|---|
 | `Splitter` | `TSplitter` | nil | Read/Write | The boundary shown and hidden together with the preview (5.1) |
+| `AllowResize` | `Boolean` | `True` | Read/Write | Whether the size can be changed by dragging the band on the inner edge of the preview (the left edge when `Align` is `alRight`) (5.1). The band is not shown when `Splitter` is set, or when `Align` is none of top, bottom, left, or right |
+| `HighlightColor` | `TColor` | `clHighlight` | Read/Write | Color of the blue line shown when the mouse is over the band and while dragging. The default is the Windows selection color, which follows the theme and dark mode. It can be changed at design time. When the value is the default (`clHighlight`) and the Windows selection color is too dark (brightness 0-255 below 80, for example when the selection color is set to a dark gray with MetaDarkStyle), the line would be invisible on a dark background, so it is drawn in the accent blue (#0078D4) (`CXSplitLineColor` in `uCXLang`). If another color is specified, that color is used |
 | `FontSize` | `Integer` | 16 | Read/Write | Text size (8-48). Turning `Ctrl+Wheel` in the preview also changes this value |
 | `ColorScheme` | `TCMColorScheme` | `csEditor` | Read/Write | Color scheme. `csEditor` (same colors as the editor) / `csGitHub` (GitHub style) |
 | `BackColorLight` | `TColor` | #FFFFFE | Read/Write | Background color for `csEditor` (light scheme) |
-| `BackColorDark` | `TColor` | #1E1E1E | Read/Write | Same (dark scheme) |
+| `BackColorDark` | `TColor` | #1E1E1E | Read/Write | Same (dark scheme). When it is the default value, in an application with a dark display (`clWindow` is dark) it is the color of `clWindow` (the same as other components) |
 | `TextColorLight` | `TColor` | #000000 | Read/Write | Text color (light scheme) |
 | `TextColorDark` | `TColor` | #D4D4D4 | Read/Write | Same (dark scheme) |
 | `LinkColorLight` | `TColor` | #006AB1 | Read/Write | Link color (light scheme) |
@@ -226,6 +228,11 @@ What TCPreview displays is the visible tab of the "source" TCsEditor. The source
 - When `Visible` is changed (including `ShowPreview` and `Ctrl+Shift+V` of TCsEditor), `Visible` of `Splitter` becomes the same.
 - Each time it is shown, the boundary is placed again next to the preview (to the left of the preview for `alRight`, to the right for `alLeft`, above for `alBottom`, below for `alTop`).
 - The boundary color is set to match the color scheme of the source (dark #2B2B2B, light #E5E5E5). A color set by the application is overwritten.
+
+- Resize band: when `AllowResize = True` (default), `Splitter` is not set, and `Align` is `alLeft`, `alRight`, `alTop`, or `alBottom`, a thin band (5px, enlarged by the display scale) is shown on the inner edge of the preview: the left edge for `alRight`, the right edge for `alLeft`, the top edge for `alBottom`, the bottom edge for `alTop`.
+- The band color follows the color scheme of the source (dark #2B2B2B, light #E5E5E5). When the mouse is over it and while dragging, a line in `HighlightColor` (2px, enlarged by the display scale) is shown at the center, and the cursor becomes a horizontal (vertical) arrow.
+- Dragging changes the width of the preview (the height when placed at the top or bottom). For `alRight` and `alBottom`, moving left (up) makes it larger. The size stays at least 100px (converted by the display scale) and at most the client area of the parent minus 100px.
+- At design time (in the form designer), the line in `HighlightColor` is shown at the same position, and you can drag it to change the width (height). The changed size is saved when the form is saved. At design time, the line color does not change on mouse over.
 
 ### 5.2 Methods
 

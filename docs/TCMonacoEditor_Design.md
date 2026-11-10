@@ -26,7 +26,7 @@ TCMonacoEditor は、フォームに貼るだけで使える、WebView2 と Mona
 
 | ファイル | パッケージ | 中身 |
 |---|---|---|
-| `uCmonacos.pas` | cx（実行時） | `TCMonacoEditor`（外側の部品）・`TCMPage`・`TCMFormHook`・`TCMTabDragOutEvent`、関数 `CMActiveEditor`・`CMSplitLine`・`CMColorToHex`。タブの分離（送る・受ける。4.11） |
+| `uCmonacos.pas` | cx（実行時） | `TCMonacoEditor`（外側の部品）・`TCMPage`・`TCMFormHook`・`TCMTabDragOutEvent`、関数 `CMActiveEditor`・`CMSplitLine`・`CMColorToHex`・`CMDarkBackColor`。タブの分離（送る・受ける。4.11） |
 | `uCmmonacoview.pas` | cx（実行時） | `TCMMonacoView`（Monaco を表示する中の部品）・`TCMDocument`・`TCMMenuItem`。文字コードの読み書き、言語の判定、文字列の変換関数 `CMToHankaku`・`CMToZenkakuKatakana`・`CMToZenkakuHiragana` |
 | `uCmdpreview.pas` | cx（実行時） | `TCMMarkdownPreview`（プレビュー）。印刷 |
 | `CMonacoTabs.pas` | cx（実行時） | `TCMTabBinder`（view と ATTabs をつなぐ。タブを外へ出したことの検知も行う）・`TCMBinderDragOutEvent` |
@@ -192,7 +192,7 @@ TCMonacoEditor（TCustomPanel）
 | `DefCursorLineColorLight` | `$00FFF2EA` | #EAF2FF |
 | `DefCursorLineColorDark` | `$003C312C` | #2C313C |
 | `DefPreviewBackColorLight` | `$00FEFFFF` | #FFFFFE |
-| `DefPreviewBackColorDark` | `$001E1E1E` | #1E1E1E |
+| `DefPreviewBackColorDark` | `$001E1E1E` | #1E1E1E（既定値のとき、ダーク表示のアプリでは `CMDarkBackColor` により `clWindow` の色。14 章） |
 | `DefPreviewTextColorLight` | `$00000000` | #000000 |
 | `DefPreviewTextColorDark` | `$00D4D4D4` | #D4D4D4 |
 | `DefPreviewLinkColorLight` | `$00B16A00` | #006AB1 |
@@ -1058,3 +1058,15 @@ end;
 | 4 | ほかのファイル（`uCmonacos.pas`・`CMonacoTabs.pas`・`CMonacoPreview.pas`・`CMonacoFindDlg.pas`・`CMonacoActions.pas`・`editor.html`・`preview.html`・`uCPreview.pas`） | 変更なし |
 
 - 公開しているプロパティ・メソッド・イベントは変えない。
+
+## 14. この版の変更（ダークの背景色）
+
+| No | 項目 | 今 | 変更後 | 理由 |
+|---|---|---|---|---|
+| 1 | エディタ（Monaco）のダークの背景 | `vs-dark` の標準（#1E1E1E）。`body` の背景も #1e1e1e | Pascal から送る色（`colors.bgD`）を、`cm-dark` テーマの `editor.background` と `body` の背景に使う（`editor.html`）。色は `CXDarkEditorBack`（`uCXLang`）：ダーク表示のアプリ（`clWindow` が暗い）では `clWindow` の色、そうでなければ #1E1E1E | 同じ画面のツリー・リストなどと背景をそろえるため |
+| 2 | `SendColors`（`uCmmonacoview.pas`） | 6 個の色を送る | 7 個目に、ダークの背景色（`CXDarkEditorBackHex`）を足す。`editor.html` は `a[7]`（なければ #1e1e1e） | 同上 |
+| 3 | 見えているタブ（`ApplyThemeColors` の `CActive`） | #1E1E1E | `CXDarkEditorBack` | エディタの背景とつながって見えるため |
+| 4 | プレビューのダークの背景 | #1E1E1E（`uCmdpreview.pas` の初期値） | 初期値を `CXDarkEditorBackHex` にする。`PreviewBackColorDark` が既定値（`DefPreviewBackColorDark`）のときは、`CMDarkBackColor` で `CXDarkEditorBack` にして渡す。それ以外の色が指定されていれば、その色 | 同上 |
+
+- `CMDarkBackColor(AColor)`（`uCmonacos.pas`）：`AColor = DefPreviewBackColorDark` なら `CXDarkEditorBack`、そうでなければ `AColor`。
+- プロパティの既定値は変えない（`.lfm` の読み込みに影響しない）。ライトと、ダーク表示でないアプリは変わらない。

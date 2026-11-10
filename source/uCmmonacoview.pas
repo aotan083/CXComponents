@@ -1024,10 +1024,11 @@ begin
 end;
 
 procedure TCMMonacoView.SendColors;
+
 begin
   SendCmd('opt' + SEP + 'colors' + SEP + FHitColorLight + SEP + FHitColorDark + SEP +
     FCursorLineColorLight + SEP + FCursorLineColorDark + SEP +
-    FSelectionColorLight + SEP + FSelectionColorDark);   { 【2.13】 }
+    FSelectionColorLight + SEP + FSelectionColorDark + SEP + CXDarkEditorBackHex);   { 【2.13】。最後はダークの背景色 }
 end;
 
 procedure TCMMonacoView.ApplyAllOptions;

@@ -104,7 +104,7 @@ CPairSplitter1.Side2.Visible := True;       // CPairSplitter1.Side2.Show;
 | `SplitterType` | `TCPairSplitterType` | 読み・書き | `cpsHorizontal` | 分ける向き。`cpsHorizontal`：左右に分ける（側 1 が左）、`cpsVertical`：上下に分ける（側 1 が上） |
 | `Position` | `Integer` | 読み・書き | 45 | 側 1 の大きさ（左右なら幅、上下なら高さ）。0 より小さい値は 0 になる。大きすぎる値は、表示のときに収める（4.3）が、`Position` の値は変わらない |
 | `SplitterWidth` | `Integer` | 読み・書き | 5 | 境目の太さ（表示スケール 100% のときの px）。1 より小さい値は 1 になる |
-| `HighlightColor` | `TColor` | 読み・書き | `clHighlight` | 境目の青い線の色。既定は Windows の選択色で、テーマ・ダーク表示に合わせて変わる |
+| `HighlightColor` | `TColor` | 読み・書き | `clHighlight` | 境目の青い線の色。既定は Windows の選択色で、テーマ・ダーク表示に合わせて変わる。値が既定値（`clHighlight`）のとき、Windows の選択色が暗すぎる（明るさ 0〜255 が 80 より小さい。MetaDarkStyle で選択色を暗い灰色にしたときなど）と、暗い背景で見えないので、アクセントの青（#0078D4）で描く（`CXSplitLineColor`。`uCXLang`）。ほかの色を指定したときは、その色 |
 | `SplitCursor` | `TCursor` | 読み・書き | `crDefault` | 境目の上のマウスカーソル。`crDefault` のときは、左右に分けるなら横向きの矢印、上下に分けるなら縦向きの矢印 |
 | `Color` | `TColor` | 読み・書き | `clBtnFace` | 境目の背景の色 |
 | `Side1` | `TCPairSplitterSide` | 読み | ― | 側 1。実行時と、コードで使う |

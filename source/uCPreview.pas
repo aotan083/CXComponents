@@ -14,7 +14,7 @@ unit uCPreview;
 interface
 
 uses
-  Classes, SysUtils, Types, Math, Controls, Graphics, ExtCtrls, Forms, Dialogs,
+  Classes, SysUtils, Types, Math, Controls, Graphics, ExtCtrls, Forms, Dialogs, LCLType, LCLProc, LMessages,
   ucmdpreview, CMonacoPreview, uCmonacos;
 
 type
@@ -67,6 +67,13 @@ type
     FSplitter: TSplitter;
     FGrip: TCPreviewGrip;                { 内側の端の、幅を変える帯（実行時だけ） }
     FAllowResize: Boolean;
+    FHighlightColor: TColor;             { 幅を変える帯の青い線の色 }
+    { 設計時：フォームデザイナの上で、帯をドラッグして大きさを変える（実行時は FGrip が行う） }
+    FDesignHot: Boolean;
+    FDesignDragging: Boolean;
+    FDesignStartPos: Integer;
+    FDesignStartSize: Integer;
+    FDesignerPressLeft: Boolean;
     FShowRequested: Boolean;             { TCsEditor が、ShowPreview = True で出すよう求めた }
     FFontSize: Integer;
     FColorScheme: TCMColorScheme;
@@ -112,11 +119,19 @@ type
     procedure PlaceSplitter;
     procedure ApplySplitterColor;
     procedure SetAllowResize(AValue: Boolean);
+    procedure SetHighlightColor(AValue: TColor);
     procedure UpdateGrip;
+    function DesignGripRect: TRect;
+    function DesignAxisPos: Integer;
   protected
     procedure Loaded; override;
     procedure SetAlign(Value: TAlign); override;
     procedure Paint; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseLeave; override;
+    procedure CMDesignHitTest(var Message: TCMDesignHitTest); message CM_DESIGNHITTEST;
     procedure VisibleChanged; override;
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
@@ -126,6 +141,11 @@ type
     procedure RequestShow;
     { 境目の色（表示元の Theme に合わせる。ダーク #2B2B2B、ライト #E5E5E5） }
     function GripColor: TColor;
+    { 帯をドラッグしたときの、新しい大きさ。AStartSize：ドラッグを始めたときの大きさ（Align が alLeft・alRight なら幅、
+      alTop・alBottom なら高さ）、ADelta：マウスが動いた量（画面。右・下が正）。alRight・alBottom は、
+      帯が内側（左・上）にあるので、左（上）へ動かす（ADelta が負）と大きくなる。
+      小さい方の限界は 100px（表示スケールで換算）、大きい方の限界は、親のクライアント領域から 100px 残した大きさ }
+    function CalcDragSize(AStartSize, ADelta: Integer): Integer;
     { 表示元にする。違う表示元なら、すぐに Refresh（3.2） }
     procedure SetSource(ASource: TComponent);
     { 本文が変わった。表示元なら DelayMs 待って Refresh }
@@ -147,6 +167,7 @@ type
   published
     property Splitter: TSplitter read FSplitter write SetSplitter;
     property AllowResize: Boolean read FAllowResize write SetAllowResize default True;
+    property HighlightColor: TColor read FHighlightColor write SetHighlightColor default clHighlight;
     property FontSize: Integer read FFontSize write SetFontSize default 16;
     property ColorScheme: TCMColorScheme read FColorScheme write SetColorScheme default csEditor;
     property BackColorLight: TColor read FBackColorLight write SetBackColorLight default DefPreviewBackColorLight;
@@ -175,7 +196,7 @@ type
 implementation
 
 uses
-  LCLIntf, uCsEditor;
+  LCLIntf, uCsEditor, uCXLang;
 
 var
   GShownErrors: TStringList = nil;   { 既定のエラー表示で、表示済みのメッセージ（同じものは 1 回だけ） }
@@ -206,6 +227,7 @@ begin
   FSyncScroll := ssBoth;
   FDelayMs := 300;
   FAllowResize := True;
+  FHighlightColor := clHighlight;
   FOpenQueue := TStringList.Create;
   FErrQueue := TStringList.Create;
 
@@ -307,7 +329,142 @@ begin
   FGrip.Invalidate;
 end;
 
+procedure TCPreview.SetHighlightColor(AValue: TColor);
+begin
+  if FHighlightColor = AValue then Exit;
+  FHighlightColor := AValue;
+  if FGrip <> nil then FGrip.Invalidate;
+  Invalidate;
+end;
+
+function TCPreview.CalcDragSize(AStartSize, ADelta: Integer): Integer;
+var
+  MinSz, MaxSz, ParentSz: Integer;
+begin
+  if Align in [alRight, alBottom] then Result := AStartSize - ADelta else Result := AStartSize + ADelta;
+  MinSz := Scale96ToFont(100);
+  if Parent <> nil then
+  begin
+    if Align in [alLeft, alRight] then ParentSz := Parent.ClientWidth else ParentSz := Parent.ClientHeight;
+    MaxSz := Max(MinSz, ParentSz - Scale96ToFont(100));
+  end
+  else MaxSz := MaxInt;
+  Result := Max(MinSz, Min(Result, MaxSz));
+end;
+
+{ ---------- 設計時：帯のドラッグ ---------- }
+
+{ 帯の場所（クライアント座標）。使えないとき（AllowResize が False・境目がある・Align が上下左右でない）は空 }
+function TCPreview.DesignGripRect: TRect;
+var
+  Sz: Integer;
+begin
+  Result := Rect(0, 0, 0, 0);
+  if not FAllowResize or (FSplitter <> nil) then Exit;
+  Sz := Scale96ToFont(5);
+  case Align of
+    alRight: Result := Rect(0, 0, Sz, Height);
+    alLeft: Result := Rect(Width - Sz, 0, Width, Height);
+    alBottom: Result := Rect(0, 0, Width, Sz);
+    alTop: Result := Rect(0, Height - Sz, Width, Height);
+  end;
+end;
+
+function TCPreview.DesignAxisPos: Integer;
+begin
+  if Align in [alLeft, alRight] then Result := Mouse.CursorPos.X else Result := Mouse.CursorPos.Y;
+end;
+
+procedure TCPreview.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseDown(Button, Shift, X, Y);
+  if not (csDesigning in ComponentState) or (Button <> mbLeft) then Exit;
+  if PtInRect(DesignGripRect, Point(X, Y)) then
+  begin
+    FDesignDragging := True;
+    MouseCapture := True;      { デザイナは MouseDown を直接呼ぶので、キャプチャしておく }
+    FDesignStartPos := DesignAxisPos;
+    if Align in [alLeft, alRight] then FDesignStartSize := Width else FDesignStartSize := Height;
+    Invalidate;
+  end;
+end;
+
+procedure TCPreview.MouseMove(Shift: TShiftState; X, Y: Integer);
+var
+  Hot: Boolean;
+  NewSize: Integer;
+begin
+  inherited MouseMove(Shift, X, Y);
+  if not (csDesigning in ComponentState) then Exit;
+  if FDesignDragging then
+  begin
+    NewSize := CalcDragSize(FDesignStartSize, DesignAxisPos - FDesignStartPos);
+    if Align in [alLeft, alRight] then Width := NewSize else Height := NewSize;
+    Exit;
+  end;
+  Hot := PtInRect(DesignGripRect, Point(X, Y));
+  if Hot <> FDesignHot then
+  begin
+    FDesignHot := Hot;
+    Invalidate;
+  end;
+  if Hot then
+  begin
+    if Align in [alLeft, alRight] then Cursor := crHSplit else Cursor := crVSplit;
+  end
+  else Cursor := crDefault;
+end;
+
+procedure TCPreview.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseUp(Button, Shift, X, Y);
+  if not (csDesigning in ComponentState) then Exit;
+  if (Button = mbLeft) and FDesignDragging then
+  begin
+    FDesignDragging := False;
+    MouseCapture := False;
+    Invalidate;
+    OwnerFormDesignerModified(Self);        { .lfm に Width・Height を保存するため }
+    FDesignerPressLeft := True;             { デザイナは、この MouseUp の後に押下中の状態を残す（CMDesignHitTest 参照） }
+  end;
+end;
+
+procedure TCPreview.MouseLeave;
+begin
+  inherited MouseLeave;
+  if FDesignHot then
+  begin
+    FDesignHot := False;
+    Invalidate;
+  end;
+end;
+
+{ 設計時に、マウス操作を渡す場所。TCSideBar と同じ決まり（TCSideBar の CMDesignHitTest の説明を参照）：
+  帯のドラッグ中は、どこでも 1。ドラッグを終えた後、次にボタンが押されるまでの、ボタンを押していない移動も 1
+  （デザイナに渡さないことで、残っている押下中の状態から範囲選択の枠を出させない）。それ以外は、帯の上なら 1、
+  そうでなければ 0（デザイナが部品を選ぶ） }
+procedure TCPreview.CMDesignHitTest(var Message: TCMDesignHitTest);
+const
+  cMouseButtons = MK_LBUTTON or MK_RBUTTON or MK_MBUTTON;
+var
+  ButtonsDown: Boolean;
+begin
+  ButtonsDown := (Message.Keys and cMouseButtons) <> 0;
+  if ButtonsDown then FDesignerPressLeft := False;
+  if FDesignDragging then
+    Message.Result := 1
+  else if FDesignerPressLeft and not ButtonsDown then
+    Message.Result := 1
+  else if PtInRect(DesignGripRect, Point(Message.XPos, Message.YPos)) then
+    Message.Result := 1
+  else
+    Message.Result := 0;
+end;
+
 procedure TCPreview.Paint;
+var
+  G: TRect;
+  T: Integer;
 begin
   inherited Paint;
   if not (csDesigning in ComponentState) then Exit;
@@ -318,6 +475,18 @@ begin
   Canvas.Rectangle(0, 0, Width, Height);
   Canvas.Font.Color := clGrayText;
   Canvas.TextOut(8, 8, Name + ' : TCPreview');
+  { 設計時：幅を変える帯の中央に、HighlightColor の線（ドラッグできる場所と、実行時の線の色が分かる） }
+  G := DesignGripRect;
+  if G.Right > G.Left then
+  begin
+    T := Max(1, Scale96ToFont(2));
+    Canvas.Brush.Style := bsSolid;
+    Canvas.Brush.Color := CXSplitLineColor(FHighlightColor);
+    if Align in [alLeft, alRight] then
+      Canvas.FillRect(Rect(G.Left + (G.Right - G.Left - T) div 2, G.Top, G.Left + (G.Right - G.Left - T) div 2 + T, G.Bottom))
+    else
+      Canvas.FillRect(Rect(G.Left, G.Top + (G.Bottom - G.Top - T) div 2, G.Right, G.Top + (G.Bottom - G.Top - T) div 2 + T));
+  end;
 end;
 
 procedure TCPreview.Notification(AComponent: TComponent; Operation: TOperation);
@@ -342,7 +511,7 @@ begin
   FPreview.FontSize := FFontSize;
   if FColorScheme = csGitHub then FPreview.ColorScheme := 'github' else FPreview.ColorScheme := 'editor';
   FPreview.BackColorLight := CMColorToHex(FBackColorLight, DefPreviewBackColorLight);
-  FPreview.BackColorDark := CMColorToHex(FBackColorDark, DefPreviewBackColorDark);
+  FPreview.BackColorDark := CMColorToHex(CMDarkBackColor(FBackColorDark), DefPreviewBackColorDark);
   FPreview.TextColorLight := CMColorToHex(FTextColorLight, DefPreviewTextColorLight);
   FPreview.TextColorDark := CMColorToHex(FTextColorDark, DefPreviewTextColorDark);
   FPreview.LinkColorLight := CMColorToHex(FLinkColorLight, DefPreviewLinkColorLight);
@@ -703,7 +872,7 @@ begin
   if FHot or FDragging then
   begin
     T := Max(1, Scale96ToFont(2));
-    Canvas.Brush.Color := clHighlight;           { TCSplitter と同じ青い線 }
+    Canvas.Brush.Color := CXSplitLineColor(Panel.HighlightColor);  { TCSplitter と同じ青い線（色は HighlightColor） }
     if Panel.Align in [alLeft, alRight] then
     begin
       M := (Width - T) div 2;
@@ -753,23 +922,12 @@ end;
   大きい方の限界は、親のクライアント領域から、ほかの部品のために 100px 残した大きさ }
 procedure TCPreviewGrip.MouseMove(Shift: TShiftState; X, Y: Integer);
 var
-  D, NewSize, MinSz, MaxSz, ParentSz: Integer;
-  Horz: Boolean;
+  NewSize: Integer;
 begin
   inherited MouseMove(Shift, X, Y);
   if not FDragging then Exit;
-  Horz := Panel.Align in [alLeft, alRight];
-  D := AxisPos - FStartPos;
-  if Panel.Align in [alRight, alBottom] then NewSize := FStartSize - D else NewSize := FStartSize + D;
-  MinSz := Scale96ToFont(100);
-  if Panel.Parent <> nil then
-  begin
-    if Horz then ParentSz := Panel.Parent.ClientWidth else ParentSz := Panel.Parent.ClientHeight;
-    MaxSz := Max(MinSz, ParentSz - Scale96ToFont(100));
-  end
-  else MaxSz := MaxInt;
-  NewSize := Max(MinSz, Min(NewSize, MaxSz));
-  if Horz then Panel.Width := NewSize else Panel.Height := NewSize;
+  NewSize := Panel.CalcDragSize(FStartSize, AxisPos - FStartPos);
+  if Panel.Align in [alLeft, alRight] then Panel.Width := NewSize else Panel.Height := NewSize;
 end;
 
 procedure TCPreviewGrip.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);

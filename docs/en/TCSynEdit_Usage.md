@@ -114,9 +114,11 @@ Language=en
 
 **Main colors of csVSLight and csVSDark**
 
+(Note) The background of `csVSDark` (body, left column, and right-edge guide line) is in an application with a dark display (such as MetaDarkStyle, where `clWindow` is dark), the color of `clWindow` (the same as the background of other components such as trees and lists); otherwise #1E1E1E. The light scheme does not change.
+
 | Item | csVSLight | csVSDark |
 |---|---|---|
-| Background | #FFFFFE | #1E1E1E |
+| Background | #FFFFFE | #1E1E1E (note) |
 | Text | #000000 | #D4D4D4 |
 | Reserved word | #0000FF | #569CD6 |
 | String | #A31515 | #CE9178 |
@@ -401,6 +403,9 @@ Other keys are the same as in TSynEdit.
 | Ctrl+wheel up | Make the characters larger (up to 72 pt) |
 | Ctrl+wheel down | Make the characters smaller (down to 6 pt) |
 | Drop a file | Open it (when `OnDropFilesEvent` is set, only the event is raised) |
+| Click the line-number column | Selects that whole line. Even with word wrap, the whole line before wrapping is selected (including the line break; the last line up to its end) |
+| Drag in the line-number column | Extends the selection line by line (upward or downward; it continues outside the column) |
+| Shift+click the line-number column | Selects from the cursor line to the clicked line |
 
 ### 8.3 Right-click menu
 

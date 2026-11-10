@@ -281,19 +281,21 @@ Loaded：`inherited` のあと `ApplyEditStyle`（読み込みが終わってか
 
 既存の 4 つ（csThema・csBlack・csGray・csWhite）は 1.0 のまま。`ChangesPart.Visible := True` だけを足す（`csVSLight`・`csVSDark` から戻したときに、変更行の印が消えたままにならないように）。
 
+（注）`csVSDark` の `Bg`（背景）は `CXDarkEditorBack`（`uCXLang`）。`ColorToRGB(clWindow)` の明るさ（0〜255）が 96 より小さければ（ダーク表示のアプリ）その色、そうでなければ #1E1E1E。`ApplyVSStyle` が、配色を当てるたびに呼ぶ。ライト（#FFFFFE）は変えない。
+
 | 項目 | csThema | csBlack | csGray | csWhite | csVSLight | csVSDark |
 |---|---|---|---|---|---|---|
 | `Font.Color` | `clWindowText` | `clWhite` | `clWhite` | `clBlack` | #000000 | #D4D4D4 |
-| `Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| `Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg`（注） |
 | `BorderWidth` | 0 | 0 | 変えない | 0 | 0 | 0 |
 | `RightEdge` | 80 | 80 | 80 | 80 | 80 | 80 |
-| `RightEdgeColor` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| `RightEdgeColor` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg`（注） |
 | `SelectedColor` | 背景 `clHighlight`・文字 `clHighlightText` | 変えない | 変えない | 変えない | 背景 #ADD6FF・文字 `clNone` | 背景 #264F78・文字 `clNone` |
 | `Gutter.Visible` | `True` | `True` | `True` | `True` | `True` | `True` |
-| `Gutter.Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| `Gutter.Color` | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg`（注） |
 | `Gutter.SeparatorPart.Visible` | `False` | `False` | `False` | `False` | `False` | `False` |
 | `Gutter.ChangesPart.Visible` | `True` | `True` | `True` | `True` | `False` | `False` |
-| 行番号の背景 | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | #1E1E1E |
+| 行番号の背景 | `clWindow` | `clBlack` | `clBlack` | `clWhite` | #FFFFFE | `Bg`（注） |
 | 行番号の文字 | `clGrayText` | `TColor($3B3B3B)` | `TColor($3B3B3B)` | `TColor($EEEEEE00)` | #237893 | #6E7681 |
 | カーソル行の行番号の文字（`LineNumberPart.MarkupInfoCurrentLine`） | 変えない | 変えない | 変えない | 変えない | #0B216F（背景 `clNone`） | #C6C6C6（背景 `clNone`） |
 | 行番号の間引き | 変えない | 変えない | `ShowOnlyLineNumbersMultiplesOf := 5` | 変えない | 1 | 1 |
@@ -456,6 +458,25 @@ Loaded：`inherited` のあと `ApplyEditStyle`（読み込みが終わってか
 | `SearchText` | `ACaseSensitive` → `ssoMatchCase`、`AWholeWord` → `ssoWholeWord`、`not AForward` → `ssoBackwards` | `SearchReplace(s, '', opt) > 0` |
 | `ReplaceText` | `ssoReplace` ＋ 上と同じ大文字小文字・単語 | `SearchReplace(s, r, opt) > 0` |
 | `ReplaceAllText` | `ssoReplace, ssoReplaceAll, ssoEntireScope` ＋ 上と同じ | `SearchReplace(s, r, opt)` の値（置き換えた数） |
+
+### 7.13 行番号の欄での行選択（MouseDown・MouseMove・MouseUp）
+
+TCMonacoEditor と同じく、行番号の欄をクリック・ドラッグして、行ごとに選ぶ。SynEdit の標準では、行番号の欄を押しても選択は起きない（`emcOnMainGutterClick` のイベントだけ）ため、`MouseDown`・`MouseMove`・`MouseUp`（protected。`TCSynEdit` で上書き）で処理する。TCsEditor の中の部品（`TCsSynEdit`）も継いでいるので、同じ動きになる。
+
+| 項目 | 内容 |
+|---|---|
+| フィールド | `FGutterSelecting`（欄でドラッグ中か）、`FGutterAnchor`（押した行。文書の行・1 始まり） |
+| `InLineNumberPart(X)` | `Gutter.Visible`・`LineNumberPart.Visible` で、`X` が `LineNumberPart.Left` 以上、`Left + Width` 未満か |
+| `DocLineAtY(Y)` | `PixelsToLogicalPos(Point(Gutter.Width + 2, Y)).Y`。折り返しの行（画面の行）ではなく、折り返す前の文書の行を返す。1 〜 `Lines.Count` に収める |
+| `SelectLinesFromAnchor(Cur)` | `FGutterAnchor` と `Cur` の小さい方を `Lo`、大きい方を `Hi` とする。`BlockBegin := (1, Lo)`、`Hi < Lines.Count` なら `BlockEnd := (1, Hi + 1)`（行末の改行を含む）、最後の行なら `BlockEnd := (行の長さ + 1, Hi)` |
+| `MouseDown` | `inherited` のあと、左ボタンで、行があり、`InLineNumberPart(X)` なら：`L := DocLineAtY(Y)`。`Shift` ならカーソルの行（`CaretY`）、そうでなければ `L` を `FGutterAnchor` にする。`FGutterSelecting := True`、`MouseCapture := True`（欄の外へ出ても受け取る）。`SelectLinesFromAnchor(L)` |
+| `MouseMove` | `inherited` のあと、`FGutterSelecting` なら、左ボタンが押されていれば `SelectLinesFromAnchor(DocLineAtY(Y))`。押されていなければ（`MouseUp` が届かなかった）、ドラッグをやめて `MouseCapture := False` |
+| `MouseUp` | `inherited` のあと、`FGutterSelecting` で左ボタンなら、ドラッグをやめて `MouseCapture := False` |
+
+- 欄の外（本文）でボタンを押したときは、何もしない（SynEdit の標準の動き）。
+- 画面の端へドラッグしたときの、自動スクロールは作らない。
+- 選択は `BlockBegin`・`BlockEnd` に直接入れる。カーソルの位置は、選択の終わり（`BlockEnd`）になる。
+- 折り返し（`TLazSynEditLineWrapPlugin`）と全角の文字があるとき、標準の Shift+↑↓ の選択は、選択の範囲が壊れることがある（Lazarus 5.0RC1 の SynEdit の不具合。標準の `TSynEdit` でも再現する）。行番号の欄での選択は、範囲を直接入れるので、この影響を受けない。
 
 ## 8. 右クリックメニュー
 
@@ -639,3 +660,15 @@ TCMdTokenKind = (mtText, mtSpace, mtHeading, mtStrong, mtEmphasis, mtCode,
 | `cSynedit.pas` | 上の No.1〜7。uses に 2章の色分けのユニットを足す |
 | `uCXReg.pas`・`cx_icons.lrs` | 変更なし |
 | 取説 `TCSynEdit_Usage.md` | 3章（配色 2 つ）、4章（拡張子の表）、5.1（`Language`）、7.2 の注意（No.8）。取説は最後に直す |
+
+## 12. この版の変更（1.2）
+
+| No | 項目 | 今（1.1） | 変更後（1.2） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | `csVSDark` の背景 | いつも #1E1E1E | ダーク表示のアプリ（`clWindow` が暗い）では `clWindow` の色。そうでなければ #1E1E1E（7.4.1 の注） | 同じ画面のツリー・リストなどと背景をそろえるため | ダーク表示のアプリでは、背景が #1E1E1E でなくなる。ライトと、ダーク表示でないアプリは変わらない |
+| 2 | 行番号の欄 | クリック・ドラッグしても、選択は起きない | クリックで行を選び、ドラッグで行ごとに広げる。Shift+クリックで、カーソルの行から選ぶ（7.13） | TCMonacoEditor と同じ操作にするため | 欄を押したときの動きが増えるだけ（本文の操作は変わらない） |
+
+| ファイル | 変更 |
+|---|---|
+| `cSynedit.pas` | 上の No.1・2。`MouseDown`・`MouseMove`・`MouseUp` の上書きと、private のフィールド・メソッドを足す。uses に `Controls` を足す |
+| `uCXLang.pas` | `CXDarkEditorBack`・`CXDarkEditorBackHex` を足す（`CXLang_Design.md` 12章） |

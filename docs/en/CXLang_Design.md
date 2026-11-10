@@ -462,3 +462,17 @@ Steps for writing the code. Not included in the usage guide.
 | 6 | `uCmdpreview.pas` | Send `opt lang` (7.2) |
 | 7 | `preview.html` | `I18N`, `t(key)`, and `lang` in `opt` (7.2) |
 | 8 | `editor.html`, `cxdsgn.lpk`, IDE registration units | Unchanged |
+
+## 12. Functions Added to uCXLang (Dark Background Color)
+
+Apart from the language, small functions that other components can use are placed in `uCXLang` (the same place as `CXCreateFileShared`: its uses is light and every component can use it).
+
+| Function | Contents |
+|---|---|
+| `CXDarkEditorBack: TColor` | The background color of the editors (TCMonacoEditor, TCsEditor, TCSynEdit, and the preview) in dark display. If the brightness of `ColorToRGB(clWindow)` (`(R*299 + G*587 + B*114) div 1000`) is below 96 (an application with a dark display), that color; otherwise #1E1E1E. It returns an RGB value, not a system color |
+| `CXDarkEditorBackHex: string` | The color above as '#rrggbb' (the form passed to pages and JavaScript) |
+| `CXSplitLineColor(AColor: TColor): TColor` | The color of the line of a splitter (the boundary of TCSplitter, TCSideBar, TCPairSplitter, and TCPreview) on mouse over and while dragging. If `AColor = clHighlight` (the default of `HighlightColor` of each component) and the brightness of `ColorToRGB(clHighlight)` (`(R*299 + G*587 + B*114) div 1000`) is below 80, the accent blue #0078D4 (`TColor($D47800)`); otherwise `ColorToRGB(AColor)` |
+
+- `Graphics` is added to the uses of `uCXLang` (for `TColor`).
+- In light display, or with an OS dark mode without a dark-styled application (`clWindow` is white), it is #1E1E1E.
+- `CXSplitLineColor` avoids invisible splitter lines in applications where `COLOR_HIGHLIGHT` (the selection color) is set to a dark gray (for example #3A3A3A) with MetaDarkStyle.

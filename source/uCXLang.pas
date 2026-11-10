@@ -26,7 +26,7 @@ unit uCXLang;
 interface
 
 uses
-  Classes;
+  Classes, Graphics;
 
 type
   { 言語。cx 全体で 1 つ }
@@ -89,6 +89,20 @@ function CXT(AId: TCXStr): string;
   それでも開けなければ、つかんでいるアプリ名を添えた EFCreateError にする（相手が書き込みを許さないとき）。
   使う側は、これまでどおり try ... finally で Free する。 }
 function CXCreateFileShared(const AFileName: string): TFileStream;
+
+{ ダーク表示のときの、エディタ（TCMonacoEditor・TCsEditor・TCSynEdit）の背景色。
+  ダーク表示のアプリ（MetaDarkStyle など。clWindow が暗い）なら、clWindow の色（ツリー・リストなど、ほかの部品の背景と同じ色）。
+  そうでなければ #1E1E1E（VS Code の色） }
+function CXDarkEditorBack: TColor;
+
+{ 上の色を '#rrggbb' にしたもの（ページ・JavaScript へ渡す形） }
+function CXDarkEditorBackHex: string;
+
+{ 分割線（TCSplitter・TCSideBar・TCPairSplitter・TCPreview の境目）の、マウスを乗せたとき・ドラッグ中の線の色。
+  AColor が clHighlight（既定値）のとき、Windows の選択色が暗すぎる（明るさ 0〜255 が 80 より小さい。MetaDarkStyle で選択色を暗い灰色にしたときなど）と、
+  暗い背景で見えないので、アクセントの青（#0078D4。TCMonacoEditor のタブのアクセントと同じ）にする。それ以外の色は、そのまま。
+  戻り値は RGB の値（システム色ではない） }
+function CXSplitLineColor(AColor: TColor): TColor;
 
 { そのファイルを今開いているアプリ名（'a.exe, b.exe'）。Windows の再起動マネージャーで調べる。調べられないときは '' }
 function CXFileHolders(const AFileName: string): string;
@@ -685,6 +699,37 @@ begin
   except
     Result := '';                    { 調べられなくても、保存の失敗はそのまま伝える }
   end;
+end;
+
+function CXDarkEditorBack: TColor;
+var
+  C: LongInt;
+begin
+  C := ColorToRGB(clWindow);
+  { 明るさ（0〜255）が 96 より小さければ、暗いとみなす }
+  if ((C and $FF) * 299 + ((C shr 8) and $FF) * 587 + ((C shr 16) and $FF) * 114) div 1000 < 96 then
+    Result := TColor(C)
+  else
+    Result := TColor($1E1E1E);
+end;
+
+function CXDarkEditorBackHex: string;
+var
+  C: LongInt;
+begin
+  C := LongInt(CXDarkEditorBack);
+  Result := '#' + IntToHex(C and $FF, 2) + IntToHex((C shr 8) and $FF, 2) + IntToHex((C shr 16) and $FF, 2);
+end;
+
+function CXSplitLineColor(AColor: TColor): TColor;
+var
+  C: LongInt;
+begin
+  C := ColorToRGB(AColor);
+  Result := TColor(C);
+  if AColor = clHighlight then
+    if ((C and $FF) * 299 + ((C shr 8) and $FF) * 587 + ((C shr 16) and $FF) * 114) div 1000 < 80 then
+      Result := TColor($D47800);        { #0078D4 }
 end;
 
 function CXCreateFileShared(const AFileName: string): TFileStream;
