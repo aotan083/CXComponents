@@ -1,8 +1,8 @@
 # TCListView User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.2
+Date: 2026-11-17
+Version: 1.3
 
 ---
 
@@ -92,6 +92,7 @@ Language=en
 | 1 | Size | File size (bytes, kB, MB, GB) |
 | 2 | Type | Extension. "Folder" for folders |
 | 3 | Date modified | YYYY/MM/DD HH:NN |
+| 4 | Folder | A column shown only in the search result view (5.5). The folder that contains the item |
 
 ### 3.2 View Styles
 
@@ -123,6 +124,7 @@ Language=en
 | `MaxHistory` | `Integer` | Read/write | Upper limit of the back/forward history (default 20; minimum 2). When exceeded, the oldest entries are deleted. Run time only |
 | `SortColumn` | `Integer` | Read | The column being sorted (default 2). 0: Name, 1: Size, 2: Type, 3: Date modified. Run time only |
 | `SortAscending` | `Boolean` | Read | `True` if ascending. Run time only |
+| `ResultsMode` | `Boolean` | Read | `True` while the search result view (5.5) is shown. Run time only |
 
 ### 4.2 Inherited from TShellListView
 
@@ -192,6 +194,10 @@ Language=en
 | `CanGoBack` | - | `Boolean` | `True` if it can go back |
 | `CanGoForward` | - | `Boolean` | `True` if it can go forward |
 | `ClearHistory` | - | - | Clears the history (leaves only the folder being displayed) |
+| `GetHistory` | `AList: TStrings` | `Integer` | Puts the whole history into `AList` as full paths, newest visit first (the newest is at the top; forward history is included). `AList` is cleared first. Returns the index in `AList` of the folder being displayed (-1 if there is no history). After going back, the forward history is listed before (at smaller indexes than) the folder being displayed |
+| `GoToHistory` | `AIndex: Integer; const APath: string` | `Boolean` | Moves to the folder at index `AIndex` of the `AList` from `GetHistory`. `APath` is for confirmation; if it differs from `AList[AIndex]`, nothing happens. Folders that no longer exist on the way are skipped. Returns `True` if it moved. Returns `False` if the index is out of range or equal to the folder being displayed |
+| `AddFolderLink` | `AEvent: TNotifyEvent` | - | Registers a handler that is notified when "the folder being displayed changed" (6.1). The same handler is registered only once |
+| `RemoveFolderLink` | `AEvent: TNotifyEvent` | - | Removes a registered handler |
 
 - If you move to a different folder after going back, the forward history is cleared (the same as Explorer).
 
@@ -221,7 +227,26 @@ Language=en
 | `GetSelectedPaths` | `AList: TStrings` | - | Puts the full paths of all selected items into `AList` (`AList` is emptied first) |
 | `SelectNewItemsOnNextRefresh` | - | - | Selects newly appeared items the next time the display is refreshed. Used when the application has created a file, for example (10.9) |
 
-### 5.5 Unit Functions
+### 5.5 Search Result View
+
+Used to show a list of found files in this component's list (TCSearchBox uses it; you can also show the results of your own search).
+
+| Name | Parameters | Return value | Contents |
+|---|---|---|---|
+| `BeginResults` | `const AFolder: string` | - | Switches to the search result view. Clears all items and adds the fifth column "Folder". `Root` does not change. `AFolder`: the folder that was searched. If the view is already the search result view, only the contents are cleared. Sorting becomes name ascending. Monitoring of folder changes stops |
+| `AddResult` | `const APath: string` | - | Adds one result. Only in the search result view (otherwise nothing happens). Paths that do not exist or cannot be read are skipped |
+| `AddResults` | `AList: TStrings` | - | Adds results in a batch (one full path per line). Otherwise the same as `AddResult` |
+| `EndResults` | - | - | Ends the search result view and returns to the contents of the folder that was searched (nothing happens in the normal view). When it ends, `OnFolderChanged` fires |
+
+- Behavior in the search result view:
+  - The location of each item is shown to the right of the name (the fifth column). You can also sort by the fifth column. Folders still come first.
+  - Double-click / Enter: for a folder, moves to that folder (the search result view ends). For a file, opens it.
+  - Any operation that moves to another folder (`NavigateTo`, `NavigateUp`, `GoBack`, `GoForward`, selecting in the tree, and so on) ends the search result view.
+  - Copy, cut, delete, rename, and dragging out work as in the normal view. After a delete or rename, the items in the list are updated too.
+  - Pasting, dropping (as the receiving side), and creating new items (Ctrl+Shift+N) are not possible. F5 does not reload either.
+  - A right-click on an empty area shows a menu with only "View" and "Sort".
+
+### 5.6 Unit Functions
 
 | Name | Parameters | Return value | Contents |
 |---|---|---|---|
@@ -236,6 +261,7 @@ Language=en
 | `OnFolderChanged` | `Sender: TObject` | The folder being displayed (`Root`) changed |
 | `OnSelectionChanged` | `Sender: TObject` | The selected items changed |
 
+- Components that work together (TCAddressBar, TCSearchBox, and so on) learn of the change not through `OnFolderChanged` but through a handler registered with `AddFolderLink`. `OnFolderChanged` stays free for your application. The registered handlers are called right after `OnFolderChanged`.
 - Both fire once per change, regardless of the reason for the change (mouse, key, tree, code). They fire when the application is idle (at idle time).
 - `OnFolderChanged` fires on double-click, Enter, BackSpace, selection in the tree, `NavigateTo`, `NavigateUp`, `GoBack`, `GoForward` (including the mouse back/forward buttons), and when the folder being displayed disappears and the view moves to the parent. It does not fire on F5 or automatic refresh.
 - `OnSelectionChanged` consolidates multi-selection changes by Shift, Ctrl, and Ctrl+A into one. It also fires right after moving to another folder (the selection is gone). It does not fire if the selection does not change on an automatic refresh.

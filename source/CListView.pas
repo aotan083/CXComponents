@@ -24,9 +24,21 @@ type
     DateStr: string; // 更新日時（YYYY/MM/DD HH:NN）
   end;
 
+  // 検索結果の項目情報（検索結果の表示のとき、各項目の Data に入れる）
+  TCResultInfo = class
+  public
+    FullPath: string;  // 項目のフルパス
+    IsDir: Boolean;
+  end;
+
   TCListView = class(TShellListView)
   private
     FOnFolderChanged: TNotifyEvent;    // フォルダー変更イベント
+    FFolderLinks: array of TNotifyEvent; // フォルダーが変わった知らせの受け手（AddFolderLink）
+    // --- 検索結果の表示 ---
+    FResultsMode: Boolean;             // 検索結果を出している
+    FResultFolder: string;             // 検索したフォルダー（結果の表示を終えたら、ここの中身に戻る）
+    FResultInfos: TFPList;             // 検索結果の項目情報（TCResultInfo。この部品が持つ）
     FOnSelectionChanged: TNotifyEvent; // 選択変更イベント
     FLastRoot: string;                 // 前回通知時の Root（変更検出用）
     FSelectionDirty: Boolean;          // 選択変更の通知待ちフラグ
@@ -82,7 +94,16 @@ type
     function GetAutoFitNameColumn: Boolean;
     procedure SetAutoFitNameColumn(AValue: Boolean);
 
-    procedure NotifyFolderChanged; // フォルダー変更イベントの呼び出し
+    procedure NotifyFolderChanged; // フォルダー変更イベントの呼び出し（OnFolderChanged のあとに、受け手へも知らせる）
+    // 項目のフルパス。検索結果の表示のときは、項目が持つパス。通常の表示のときは GetPathFromItem と同じ
+    function ItemPath(AItem: TListItem): string;
+    // 検索結果の表示をやめる（列・項目情報を片づけるだけ。中身の読み直し・知らせはしない）
+    procedure LeaveResultsMode;
+    procedure ClearResultInfos;
+    // 検索結果の表示：名前を変えた項目の、名前とパスを書き換える
+    procedure ApplyResultRename(const AOldPath, ANewName: string);
+    // 検索結果の背景の右クリック：「表示」「並べ替え」だけのメニュー
+    procedure ShowResultsBackgroundMenu(const APoint: TPoint);
     // Root と選択の変化を検出して、イベントをまとめて1回ずつ発行する
     procedure CheckStateChanged;
     procedure InternalAppIdle(Sender: TObject; var Done: Boolean);
@@ -192,6 +213,27 @@ type
     function CanGoForward: Boolean;
     // 履歴を消去する（現在のフォルダーだけを残す）
     procedure ClearHistory;
+    // 履歴の全部を、訪れた新しい順（先頭がいちばん新しい。進む側も含む）にフルパスで AList へ入れる。
+    // 今のフォルダーの、AList の中の番号を返す（履歴がなければ -1）
+    function GetHistory(AList: TStrings): Integer;
+    // GetHistory の AList の AIndex 番目のフォルダーへ移る（APath は確認用。AList[AIndex] と違えば何もしない）。
+    // 今の番号との差の回数だけ、戻る（AIndex が大きいとき）／進む（小さいとき）を続けて呼ぶのと同じ。
+    // 移れたら True。範囲外・今と同じ番号は False
+    function GoToHistory(AIndex: Integer; const APath: string): Boolean;
+    // --- フォルダーが変わった知らせの受け口（OnFolderChanged は、利用者のもの。部品どうしの連動は、こちらを使う） ---
+    procedure AddFolderLink(AEvent: TNotifyEvent);
+    procedure RemoveFolderLink(AEvent: TNotifyEvent);
+    // --- 検索結果の表示 ---
+    // 検索結果を出しているか
+    property ResultsMode: Boolean read FResultsMode;
+    // 検索結果の表示にする。項目を消し、5 列目「フォルダー」を足す。Root は変えない（AFolder：検索したフォルダー）。
+    // すでに表示中なら、中身だけ消す
+    procedure BeginResults(const AFolder: string);
+    // 結果を足す（検索結果の表示のときだけ。ない・読めないパスは飛ばす）
+    procedure AddResult(const APath: string);
+    procedure AddResults(AList: TStrings);
+    // 検索結果の表示を終え、検索したフォルダーの中身に戻る（通常の表示のときは何もしない）。終えたら、フォルダーが変わった知らせを出す
+    procedure EndResults;
     // --- 表示形式・並べ替え ---
     // 表示形式を切り替える（vsReport = 詳細、vsIcon = 大アイコン、vsSmallIcon = 小アイコン、vsList = 一覧）。
     // ViewStyle に直接設定してもよい（アイドル時に検出して表示を作り直す）
@@ -302,6 +344,7 @@ begin
   FItemInfo.OwnsObjects := True;
   FItemInfoRoot := '';
 
+  FResultInfos := TFPList.Create;
   FHistory := TStringList.Create;
   FHistIndex := -1;
   FHistSkip := '';
@@ -357,6 +400,8 @@ begin
   Application.RemoveAsyncCalls(Self);
   Application.RemoveOnIdleHandler(@InternalAppIdle);
   inherited Destroy;
+  ClearResultInfos;
+  FreeAndNil(FResultInfos);
   FreeAndNil(FItemInfo);
   FreeAndNil(FPendingChanges);
   FreeAndNil(FHistory);
@@ -397,6 +442,7 @@ begin
   UnregisterFolderNotify;
   if csDesigning in ComponentState then Exit;
   if not HandleAllocated then Exit;
+  if FResultsMode then Exit;   // 検索結果の表示のあいだは、監視しない
   if (Root = '') or not DirectoryExists(Root) then Exit;
 
   FNotifyRoot := Root;
@@ -712,7 +758,9 @@ begin
     // 成功時の表示更新はフォルダー変更監視に任せる。
     // 失敗時はシェルが理由を表示するので、表示を元に戻すため読み直す
     if not ShellRenameItem(Handle, Job.OldPath, Job.NewName) then
-      DoAsyncRefresh(0);
+      DoAsyncRefresh(0)
+    else if FResultsMode then
+      ApplyResultRename(Job.OldPath, Job.NewName);
   finally
     Job.Free;
   end;
@@ -772,9 +820,49 @@ begin
 end;
 
 procedure TCListView.NotifyFolderChanged;
+var
+  Links: array of TNotifyEvent;
+  I: Integer;
 begin
   if Assigned(FOnFolderChanged) then
     FOnFolderChanged(Self);
+  // 受け手の中で AddFolderLink・RemoveFolderLink が呼ばれても大丈夫なように、写しに対して呼ぶ
+  Links := Copy(FFolderLinks);
+  for I := 0 to High(Links) do
+    Links[I](Self);
+end;
+
+procedure TCListView.AddFolderLink(AEvent: TNotifyEvent);
+var
+  I: Integer;
+begin
+  if not Assigned(AEvent) then Exit;
+  for I := 0 to High(FFolderLinks) do
+    if CompareMem(@FFolderLinks[I], @AEvent, SizeOf(TNotifyEvent)) then Exit;   // 同じものは 1 つだけ
+  SetLength(FFolderLinks, Length(FFolderLinks) + 1);
+  FFolderLinks[High(FFolderLinks)] := AEvent;
+end;
+
+procedure TCListView.RemoveFolderLink(AEvent: TNotifyEvent);
+var
+  I, J: Integer;
+begin
+  for I := 0 to High(FFolderLinks) do
+    if CompareMem(@FFolderLinks[I], @AEvent, SizeOf(TNotifyEvent)) then
+    begin
+      for J := I to High(FFolderLinks) - 1 do
+        FFolderLinks[J] := FFolderLinks[J + 1];
+      SetLength(FFolderLinks, Length(FFolderLinks) - 1);
+      Exit;
+    end;
+end;
+
+function TCListView.ItemPath(AItem: TListItem): string;
+begin
+  if FResultsMode and (AItem <> nil) and (AItem.Data <> nil) then
+    Result := TCResultInfo(AItem.Data).FullPath
+  else
+    Result := GetPathFromItem(AItem);
 end;
 
 procedure TCListView.CheckStateChanged;
@@ -785,6 +873,8 @@ begin
   if not SameText(ExcludeTrailingPathDelimiter(Root), ExcludeTrailingPathDelimiter(FLastRoot)) then
   begin
     FLastRoot := Root;
+    // ツリーなどで、外から Root が変わった：検索結果の表示は終わり（中身は、基底が読み直し済み）
+    if FResultsMode then LeaveResultsMode;
     RecordHistory(Root);
     FSelectionDirty := True; // フォルダーが変われば選択も変わる
     // 監視対象を新しいフォルダーに付け替える
@@ -831,6 +921,12 @@ function TCListView.NavigateTo(const APath: string): Boolean;
 begin
   Result := False;
   if (APath = '') or not DirectoryExists(APath) then Exit;
+  if FResultsMode then
+  begin
+    // 検索結果の表示を終えて、検索したフォルダーの中身に戻る。行き先が同じフォルダーなら、それで終わり
+    EndResults;
+    if SameText(ExcludeTrailingPathDelimiter(APath), ExcludeTrailingPathDelimiter(Root)) then Exit(True);
+  end;
   if SameText(ExcludeTrailingPathDelimiter(APath), ExcludeTrailingPathDelimiter(Root)) then Exit;
 
   Root := APath;
@@ -895,6 +991,7 @@ begin
     begin
       FHistIndex := i;
       FHistSkip := P;
+      if FResultsMode then LeaveResultsMode;
       Root := IncludeTrailingPathDelimiter(P);
       Exit(True);
     end;
@@ -934,6 +1031,38 @@ begin
   FHistIndex := -1;
   FHistSkip := '';
   RecordHistory(Root);
+end;
+
+function TCListView.GetHistory(AList: TStrings): Integer;
+var
+  I, N: Integer;
+begin
+  AList.Clear;
+  N := FHistory.Count;
+  for I := N - 1 downto 0 do
+    AList.Add(FHistory[I]);
+  if (N = 0) or (FHistIndex < 0) then Exit(-1);
+  Result := N - 1 - FHistIndex;
+end;
+
+function TCListView.GoToHistory(AIndex: Integer; const APath: string): Boolean;
+var
+  N, Cur: Integer;
+  Target: string;
+  Step: Integer;
+begin
+  Result := False;
+  N := FHistory.Count;
+  Cur := N - 1 - FHistIndex;
+  if (FHistIndex < 0) or (AIndex < 0) or (AIndex >= N) or (AIndex = Cur) then Exit;
+  Target := FHistory[N - 1 - AIndex];
+  if not SameText(ExcludeTrailingPathDelimiter(APath), ExcludeTrailingPathDelimiter(Target)) then Exit;
+  // AIndex が大きいほど古い。古い方へは戻る、新しい方へは進む
+  if AIndex > Cur then Step := -1 else Step := +1;
+  // 途中のフォルダーが消えていれば、HistoryGo が履歴から外して飛ばす。目的のフォルダーに着くか、行き止まりまで
+  while not SameText(ExcludeTrailingPathDelimiter(Root), ExcludeTrailingPathDelimiter(Target)) do
+    if not HistoryGo(Step) then Break;
+  Result := SameText(ExcludeTrailingPathDelimiter(Root), ExcludeTrailingPathDelimiter(Target));
 end;
 
 procedure TCListView.SetMaxHistory(AValue: Integer);
@@ -988,7 +1117,7 @@ begin
   begin
     if Items[i].Selected then
     begin
-      Path := GetPathFromItem(Items[i]);
+      Path := ItemPath(Items[i]);
       if Path <> '' then
         AList.Add(Path);
     end;
@@ -1048,6 +1177,8 @@ begin
     // Windows エクスプローラーのファイル名列と同様、
     // 残りスペースをそのまま「名前」列に割り当てる
     NewNameWidth := ClientWidth - (Columns[1].Width + Columns[2].Width + Columns[3].Width) - ColumnMargin;
+    if FResultsMode and (Columns.Count > 4) then
+      Dec(NewNameWidth, Columns[4].Width);   // 検索結果の表示：5 列目「フォルダー」の分
     if NewNameWidth < MinNameWidth then
       NewNameWidth := MinNameWidth;
 
@@ -1243,7 +1374,7 @@ begin
   TargetItem := nil;
   for i := 0 to Items.Count - 1 do
   begin
-    if SameText(GetPathFromItem(Items[i]), APath) then
+    if SameText(ItemPath(Items[i]), APath) then
     begin
       TargetItem := Items[i];
       Break;
@@ -1271,10 +1402,19 @@ begin
   if (Item1 = nil) or (Item2 = nil) then Exit;
 
   // フォルダー判定はキャッシュから行う（ディスクへ問い合わせない）
-  Info1 := TCItemInfo(FindItemInfo(Item1.Caption));
-  Info2 := TCItemInfo(FindItemInfo(Item2.Caption));
-  if Info1 <> nil then IsDir1 := Info1.IsDir else IsDir1 := DirectoryExists(GetPathFromItem(Item1));
-  if Info2 <> nil then IsDir2 := Info2.IsDir else IsDir2 := DirectoryExists(GetPathFromItem(Item2));
+  if FResultsMode then
+  begin
+    // 検索結果の表示：項目が持つ情報から（同じ名前が別のフォルダーにあるので、名前では探さない）
+    IsDir1 := (Item1.Data <> nil) and TCResultInfo(Item1.Data).IsDir;
+    IsDir2 := (Item2.Data <> nil) and TCResultInfo(Item2.Data).IsDir;
+  end
+  else
+  begin
+    Info1 := TCItemInfo(FindItemInfo(Item1.Caption));
+    Info2 := TCItemInfo(FindItemInfo(Item2.Caption));
+    if Info1 <> nil then IsDir1 := Info1.IsDir else IsDir1 := DirectoryExists(ItemPath(Item1));
+    if Info2 <> nil then IsDir2 := Info2.IsDir else IsDir2 := DirectoryExists(ItemPath(Item2));
+  end;
 
   if IsDir1 and not IsDir2 then
     Exit(-1);
@@ -1333,7 +1473,7 @@ procedure TCListView.DoAsyncSort({%H-}Data: PtrInt);
 begin
   FSortPending := False;
   if csDestroying in ComponentState then Exit;
-  PopulateFileDateTimes;
+  if not FResultsMode then PopulateFileDateTimes;
   ApplySort;
 end;
 
@@ -1399,7 +1539,7 @@ begin
   SelItem := Selected;
   if SelItem <> nil then
   begin
-    Result := GetPathFromItem(SelItem);
+    Result := ItemPath(SelItem);
   end;
 end;
 
@@ -1428,7 +1568,7 @@ begin
 
   if TargetItem <> nil then
   begin
-    Path := GetPathFromItem(TargetItem);
+    Path := ItemPath(TargetItem);
     if Path <> '' then
     begin
       if DirectoryExists(Path) then
@@ -1479,7 +1619,7 @@ begin
 
   // 変更前のパスは表示名ではなく、項目が持つ実際のパスから取得する。
   // 変更後のパスも実ファイル名を元に組み立てる（Item.Caption はこの時点ではまだ変更前の表示名）。
-  OldPath := GetPathFromItem(Item);
+  OldPath := ItemPath(Item);
   if OldPath = '' then Exit;
 
   NewPath := BuildRenamedPath(OldPath, Item.Caption, S);
@@ -1552,9 +1692,248 @@ begin
   // 表示の作り直しは CheckStateChanged（アイドル時）で行う
 end;
 
+
+// ---------------------------------------------------------------
+// 検索結果の表示（TCSearchBox_Design.md 7 章）
+// ---------------------------------------------------------------
+
+procedure TCListView.ClearResultInfos;
+var
+  I: Integer;
+begin
+  if FResultInfos = nil then Exit;
+  for I := 0 to FResultInfos.Count - 1 do
+    TCResultInfo(FResultInfos[I]).Free;
+  FResultInfos.Clear;
+end;
+
+// 5 列目「フォルダー」を消し、項目情報を片づけて、検索結果の表示をやめる。中身の読み直し・知らせはしない
+procedure TCListView.LeaveResultsMode;
+begin
+  if not FResultsMode then Exit;
+  FResultsMode := False;
+  Items.BeginUpdate;
+  try
+    Items.Clear;
+    ClearResultInfos;
+    if Columns.Count > 4 then Columns.Delete(4);
+  finally
+    Items.EndUpdate;
+  end;
+  // 通常の表示では、名前の列の幅を、残りの幅に合わせ直す
+  if HandleAllocated and not FColumnResizePending and (not FUserSizedColumns) then
+  begin
+    FLastColWidths[0] := -1;
+    FColumnResizePending := True;
+    Application.QueueAsyncCall(@DoAsyncColumnResize, 0);
+  end;
+  FSelectionDirty := True;
+end;
+
+procedure TCListView.BeginResults(const AFolder: string);
+var
+  Col: TListColumn;
+begin
+  if csDestroying in ComponentState then Exit;
+  if not FResultsMode then
+  begin
+    // 直前に Root を変えていて、まだ検出されていないと、あとで「外から Root が変わった」と見なされて、
+    // 結果の表示が終わってしまう。先に、今の状態を検出しておく
+    CheckStateChanged;
+    // フォルダーの変更の監視を止める（検索結果の表示のあいだは、読み直さない）
+    FNotifyTimer.Enabled := False;
+    FPendingChanges.Clear;
+    FNeedFullRefresh := False;
+    UnregisterFolderNotify;
+    FResultsMode := True;
+    Col := Columns.Add;
+    Col.Caption := CXT(sLvColFolder);
+    Col.Width := 300;
+    Col.Alignment := taLeftJustify;
+  end;
+  FResultFolder := AFolder;
+  Items.BeginUpdate;
+  try
+    Items.Clear;
+    ClearResultInfos;
+  finally
+    Items.EndUpdate;
+  end;
+  // 並べ替えは、名前の昇順にする
+  FSortColumn := 0;
+  FSortAscending := True;
+  FSelectionDirty := True;
+  // 名前の列の幅を、5 列目の分だけ狭める
+  if HandleAllocated and not FColumnResizePending and (not FUserSizedColumns) then
+  begin
+    FLastColWidths[0] := -1;
+    FColumnResizePending := True;
+    Application.QueueAsyncCall(@DoAsyncColumnResize, 0);
+  end;
+end;
+
+procedure TCListView.AddResult(const APath: string);
+var
+  L: TStringList;
+begin
+  if not FResultsMode then Exit;
+  L := TStringList.Create;
+  try
+    L.Add(APath);
+    AddResults(L);
+  finally
+    L.Free;
+  end;
+end;
+
+procedure TCListView.AddResults(AList: TStrings);
+var
+  I: Integer;
+  P, Folder, FileNm: string;
+  FD: WIN32_FIND_DATAW;
+  H: HANDLE;
+  Info: TCResultInfo;
+  Item: TShellListItem;
+  SR: TSearchRec;
+  LocalFT: TFileTime;
+  ST: TSystemTime;
+  DateStr: string;
+  IsDir: Boolean;
+begin
+  if (not FResultsMode) or (AList = nil) then Exit;
+  Items.BeginUpdate;
+  try
+    for I := 0 to AList.Count - 1 do
+    begin
+      P := ExcludeTrailingPathDelimiter(AList[I]);
+      if P = '' then Continue;
+      // ファイルの情報を取る（ないパス・読めないパスは飛ばす）
+      FD := Default(WIN32_FIND_DATAW);
+      H := FindFirstFileW(PWideChar(ShellLongPathW(P)), FD);
+      if H = INVALID_HANDLE_VALUE then Continue;
+      Windows.FindClose(H);
+      IsDir := (FD.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) <> 0;
+      FileNm := ExtractFileName(P);
+      Folder := ExcludeTrailingPathDelimiter(ExtractFilePath(P));
+
+      Info := TCResultInfo.Create;
+      Info.FullPath := P;
+      Info.IsDir := IsDir;
+      FResultInfos.Add(Info);
+
+      Item := TShellListItem(Items.Add);
+      Item.Caption := FileNm;
+      Item.Data := Info;
+      // 基底の「サイズ」の書き方を使うため、TSearchRec を作る
+      SR := Default(TSearchRec);
+      SR.Name := FileNm;
+      SR.Attr := FD.dwFileAttributes;
+      SR.Size := (Int64(FD.nFileSizeHigh) shl 32) or FD.nFileSizeLow;
+      Item.FileInfo := SR;
+
+      DateStr := '';
+      if FileTimeToLocalFileTime(FD.ftLastWriteTime, LocalFT) and FileTimeToSystemTime(LocalFT, ST) then
+        DateStr := Format('%.4d/%.2d/%.2d %.2d:%.2d', [ST.wYear, ST.wMonth, ST.wDay, ST.wHour, ST.wMinute]);
+
+      // 列：サイズ・種類・更新日時・フォルダー
+      if IsDir then
+        Item.SubItems.Add('')
+      else
+        Item.SubItems.Add(GetCellText(Item, TShellListColumn(Columns[1]), FileNm));
+      if IsDir then
+        Item.SubItems.Add(CXT(sLvFolderType))
+      else
+        Item.SubItems.Add(ExtractFileExt(FileNm));
+      Item.SubItems.Add(DateStr);
+      Item.SubItems.Add(Folder);
+
+      // アイコン
+      if UseBuiltInIcons then
+      begin
+        if (ViewStyle = vsIcon) and (LargeImages = nil) then
+          Item.ImageIndex := GetBuiltInImageIndex(P, True)
+        else if (ViewStyle <> vsIcon) and (SmallImages = nil) then
+          Item.ImageIndex := GetBuiltInImageIndex(P, False);
+      end;
+    end;
+  finally
+    Items.EndUpdate;
+  end;
+  // 追加のあと、今の並べ替えの順に直す
+  if AList.Count > 0 then ApplySort;
+end;
+
+procedure TCListView.EndResults;
+var
+  Folder: string;
+begin
+  if not FResultsMode then Exit;
+  Folder := FResultFolder;
+  LeaveResultsMode;
+  // 検索したフォルダーの中身を読み直す（読み直しの書き方は DoAsyncRefresh と同じ）
+  if Folder <> '' then
+  begin
+    Root := '';
+    Root := Folder;
+  end;
+  PopulateFileDateTimes;
+  ApplySort;
+  RegisterFolderNotify;
+  FLastRoot := Root;
+  NotifyFolderChanged;
+end;
+
+procedure TCListView.ApplyResultRename(const AOldPath, ANewName: string);
+var
+  I: Integer;
+  Info: TCResultInfo;
+  NewPath: string;
+begin
+  for I := 0 to Items.Count - 1 do
+  begin
+    if Items[I].Data = nil then Continue;
+    Info := TCResultInfo(Items[I].Data);
+    if SameText(Info.FullPath, AOldPath) then
+    begin
+      NewPath := IncludeTrailingPathDelimiter(ExtractFilePath(Info.FullPath)) + ANewName;
+      Info.FullPath := NewPath;
+      Items[I].Caption := ANewName;
+      Exit;
+    end;
+  end;
+end;
+
+// 検索結果の背景の右クリック：「表示」「並べ替え」だけ（「新規作成」「貼り付け」は、置き場所がないので出さない）
+procedure TCListView.ShowResultsBackgroundMenu(const APoint: TPoint);
+var
+  M: HMENU;
+  Cmd: UINT;
+  ScreenPt: TPoint;
+begin
+  M := CreatePopupMenu;
+  if M = 0 then Exit;
+  try
+    AddViewSortMenus(M, 1);
+    ScreenPt := ClientToScreen(APoint);
+    Cmd := UINT(TrackPopupMenu(M, TPM_RETURNCMD or TPM_RIGHTBUTTON, ScreenPt.X, ScreenPt.Y, 0, Handle, nil));
+    case Cmd of
+      1: SetView(vsIcon);
+      2: SetView(vsSmallIcon);
+      3: SetView(vsList);
+      4: SetView(vsReport);
+      5..8: SortBy(Integer(Cmd) - 5, FSortAscending);
+      9: SortBy(FSortColumn, True);
+      10: SortBy(FSortColumn, False);
+    end;
+  finally
+    DestroyMenu(M);
+  end;
+end;
+
 procedure TCListView.SortBy(AColumn: Integer; AAscending: Boolean);
 begin
-  if (AColumn < 0) or (AColumn > 3) then Exit;
+  if (AColumn < 0) or (AColumn > 3) then
+    if not (FResultsMode and (AColumn = 4)) then Exit;
   FSortColumn := AColumn;
   FSortAscending := AAscending;
   ApplySort;
@@ -1721,9 +2100,11 @@ begin
   if Item <> nil then
   begin
     Selected := Item;
-    Path := GetPathFromItem(Item);
+    Path := ItemPath(Item);
     DisplayShellContextMenu(Path, MousePos, False);
   end
+  else if FResultsMode then
+    ShowResultsBackgroundMenu(MousePos)
   else
   begin
     Path := Root;
@@ -1752,9 +2133,12 @@ begin
   // 3. Ctrl + Shift + N で新規フォルダー作成
   else if (ssCtrl in Shift) and (ssShift in Shift) and (Key = VK_N) then
   begin
-    CreatedPath := CreateNewFolderInRoot;
-    if CreatedPath <> '' then
-      FocusAndRenamePath(CreatedPath);
+    if not FResultsMode then
+    begin
+      CreatedPath := CreateNewFolderInRoot;
+      if CreatedPath <> '' then
+        FocusAndRenamePath(CreatedPath);
+    end;
     Key := 0;
   end
   // 表示形式の切り替え（エクスプローラーと同じキー）
@@ -1826,12 +2210,26 @@ begin
   for i := 0 to Items.Count - 1 do
   begin
     if Items[i].Selected then
-      DeletePaths := DeletePaths + GetPathFromItem(Items[i]) + #0;
+      DeletePaths := DeletePaths + ItemPath(Items[i]) + #0;
   end;
 
   // 表示の更新はフォルダー変更監視に任せる
   if DeletePaths <> '' then
     PerformFileOperation(FO_DELETE, DeletePaths, '', not APermanent);
+
+  // 検索結果の表示は、監視していないので、なくなった項目を自分で外す
+  if FResultsMode then
+  begin
+    Items.BeginUpdate;
+    try
+      for i := Items.Count - 1 downto 0 do
+        if Items[i].Selected and (Items[i].Data <> nil) then
+          if not (FileExists(ItemPath(Items[i])) or DirectoryExists(ItemPath(Items[i]))) then
+            Items.Delete(i);
+    finally
+      Items.EndUpdate;
+    end;
+  end;
 end;
 
 procedure TCListView.CopySelected;
@@ -1865,6 +2263,7 @@ end;
 procedure TCListView.PasteToRoot;
 begin
   if Root = '' then Exit;
+  if FResultsMode then Exit;   // 検索結果の表示：貼り付ける場所がない
   // 貼り付けた項目は、監視による更新時に選択状態にする
   SelectNewItemsOnNextRefresh;
   // 同じフォルダーへの貼り付けは、シェルが「〜 - コピー」の名前で複製する
@@ -1906,6 +2305,7 @@ var
 begin
   if not HandleAllocated then Exit;
   if csDestroying in ComponentState then Exit;
+  if FResultsMode then Exit;   // 検索結果の表示：読み直さない（結果を消さないため）
 
   SelectNew := FSelectNewItems;
   FSelectNewItems := False;
@@ -1920,16 +2320,16 @@ begin
     // 1. 更新前の状態を記憶
     GetSelectedPaths(SelectedPaths);
     if ItemFocused <> nil then
-      FocusedPath := GetPathFromItem(ItemFocused)
+      FocusedPath := ItemPath(ItemFocused)
     else
       FocusedPath := '';
     if TopItem <> nil then
-      TopPath := GetPathFromItem(TopItem)
+      TopPath := ItemPath(TopItem)
     else
       TopPath := '';
     if SelectNew then
       for i := 0 to Items.Count - 1 do
-        OldPaths.Add(GetPathFromItem(Items[i]));
+        OldPaths.Add(ItemPath(Items[i]));
 
     SendMessage(Handle, WM_SETREDRAW, WPARAM(False), 0);
     try
@@ -1953,7 +2353,7 @@ begin
         FocusedPath := '';
         for i := 0 to Items.Count - 1 do
         begin
-          P := GetPathFromItem(Items[i]);
+          P := ItemPath(Items[i]);
           if OldPaths.IndexOf(P) < 0 then
             SelectedPaths.Add(P);
         end;
@@ -1965,7 +2365,7 @@ begin
       RestoredCount := 0;
       for i := 0 to Items.Count - 1 do
       begin
-        P := GetPathFromItem(Items[i]);
+        P := ItemPath(Items[i]);
         if SelectedPaths.IndexOf(P) >= 0 then
         begin
           Items[i].Selected := True;
@@ -2126,6 +2526,7 @@ var
 begin
   Result := '';
   if (Root = '') or not HandleAllocated then Exit;
+  if FResultsMode then Exit;   // 検索結果の表示：受け取る場所がない
   FOleDragOver := True;
   FDragTimer.Enabled := True; // 端での自動スクロール
 
@@ -2136,7 +2537,7 @@ begin
   Hilite := nil;
   if Item <> nil then
   begin
-    P := GetPathFromItem(Item);
+    P := ItemPath(Item);
     if (P <> '') and (DirectoryExists(P) or SameText(ExtractFileExt(P), '.zip')) then
     begin
       Result := P;

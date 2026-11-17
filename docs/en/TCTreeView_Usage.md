@@ -1,8 +1,8 @@
 # TCTreeView User Manual
 
 Author: aotan083
-Date: 2026-11-05
-Version: 1.2
+Date: 2026-11-17
+Version: 1.3
 
 ---
 
@@ -200,6 +200,8 @@ Language=en
 | `PasteToSelectedFolder` | - | - | Pastes into the selected folder (same as Ctrl+V) |
 | `DeleteSelectedFolder` | `APermanent: Boolean = False` | - | Deletes the selected folder. `False`: to the Recycle Bin. `True`: deletes permanently. A confirmation is shown. Drives, shortcuts, and groups are excluded |
 | `RenameSelectedFolder` | - | - | Starts renaming the selected folder (same as F2). Drives, shortcuts, and groups are excluded |
+| `AddFolderLink` | `AEvent: TNotifyEvent` | - | Registers a handler that is notified when "the selected folder changed". Used for working together with TCAddressBar, TCSearchBox, and so on. `OnChange` stays free for your application. The same handler is registered only once |
+| `RemoveFolderLink` | `AEvent: TNotifyEvent` | - | Removes a registered handler |
 
 ### 5.2 Unit Functions
 

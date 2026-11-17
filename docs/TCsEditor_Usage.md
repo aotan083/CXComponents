@@ -1,8 +1,8 @@
 # TCsEditor 取扱説明書
 
 作者: aotan083
-日付: 2026-11-04
-版: 1.1
+日付: 2026-11-17
+版: 1.2
 
 ---
 
@@ -224,6 +224,7 @@ Language=en
 | `CanRedo` | `Boolean` | 読み | Redo（やり直し）できるか |
 | `GetCursorPos` | `out ALine, AColumn: Integer` | ― | カーソルの位置。行と桁は 1 から。桁は UTF-16 単位 |
 | `SetCursorPos` | `ALine, AColumn: Integer` | ― | カーソルを動かす |
+| `TagJump` | `const ALine: string = ''` | `Boolean` | タグジャンプ。「パス(行番号): 文字」の 1 行（`TCGrepFile` の結果の形）を渡すと、そのファイルを開いて（すでに開いていれば、そのタブへ）、その行へ飛ぶ。`ALine` を省略すると、カーソル行の文字（`LineText`）を使う。飛べたら `True`。形式でない行・フルパスでない・ファイルがない・開けない、のときは `False`（何も変わらない）。行番号がファイルの行数より大きいときは、最後の行へ飛ぶ |
 | `SetSelection` | `ALine1, AColumn1, ALine2, AColumn2: Integer` | ― | 範囲を選ぶ。カーソルは終わりの位置 |
 | `LineText` | `string` | 読み | カーソル行の文字列（改行は含まない）。13章 |
 | `LineWords` | `TStrings` | 読み | カーソル行を単語に分けた一覧（0 から数える）。`Free` しない。13章 |

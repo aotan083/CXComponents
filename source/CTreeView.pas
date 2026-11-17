@@ -103,6 +103,7 @@ type
     // 現在表示（展開）されているノードだけをまとめて更新（F5）
     procedure DoRefreshVisibleNodes;
   private
+    FFolderLinks: array of TNotifyEvent;   // 選択フォルダーが変わった知らせの受け手（AddFolderLink）
     FInXButton: Boolean; // WM_XBUTTONUP の処理中（同時に届く WM_APPCOMMAND を二重に処理しない）
     // マウスの戻る／進むボタン：リンクした TCListView の履歴で移動する（ADir：-1 = 戻る、+1 = 進む）
     procedure TreeHistoryGo(ADir: Integer);
@@ -157,6 +158,7 @@ type
     function CanExpand(Node: TTreeNode): Boolean; override;
     function NodeHasChildren(Node: TTreeNode): Boolean; override;
     procedure DoSelectionChanged; override;
+    procedure DoSelectionChangedCore;   // 今までの DoSelectionChanged の中身（その後に、受け手へ知らせる）
     function DrawBuiltInIcon(ANode: TTreeNode; ARect: TRect): TSize; override;
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
     procedure DoContextPopup(MousePos: TPoint; var Handled: Boolean); override;
@@ -195,6 +197,9 @@ type
     function IsShortcutNode(Node: TTreeNode): Boolean;
     // 選択中のフォルダー。設定すると、ドライブ（PC）の配下をたどって展開・選択する
     property Path: string read GetCPath write SetCPath;
+    // 選択が変わった知らせの受け口（OnChange は、利用者のもの。部品どうしの連動は、こちらを使う）
+    procedure AddFolderLink(AEvent: TNotifyEvent);
+    procedure RemoveFolderLink(AEvent: TNotifyEvent);
   published
     // 近道ノードの表示（既定はすべて表示）
     property ShowQuickAccess: Boolean read FShowQuickAccess write SetShowQuickAccess default True;
@@ -1103,7 +1108,44 @@ begin
   Result := inherited NodeHasChildren(Node);
 end;
 
+procedure TCTreeView.AddFolderLink(AEvent: TNotifyEvent);
+var
+  I: Integer;
+begin
+  if not Assigned(AEvent) then Exit;
+  for I := 0 to High(FFolderLinks) do
+    if CompareMem(@FFolderLinks[I], @AEvent, SizeOf(TNotifyEvent)) then Exit;   // 同じものは 1 つだけ
+  SetLength(FFolderLinks, Length(FFolderLinks) + 1);
+  FFolderLinks[High(FFolderLinks)] := AEvent;
+end;
+
+procedure TCTreeView.RemoveFolderLink(AEvent: TNotifyEvent);
+var
+  I, J: Integer;
+begin
+  for I := 0 to High(FFolderLinks) do
+    if CompareMem(@FFolderLinks[I], @AEvent, SizeOf(TNotifyEvent)) then
+    begin
+      for J := I to High(FFolderLinks) - 1 do
+        FFolderLinks[J] := FFolderLinks[J + 1];
+      SetLength(FFolderLinks, Length(FFolderLinks) - 1);
+      Exit;
+    end;
+end;
+
 procedure TCTreeView.DoSelectionChanged;
+var
+  Links: array of TNotifyEvent;
+  I: Integer;
+begin
+  DoSelectionChangedCore;
+  // 受け手の中で AddFolderLink・RemoveFolderLink が呼ばれても大丈夫なように、写しに対して呼ぶ
+  Links := Copy(FFolderLinks);
+  for I := 0 to High(Links) do
+    Links[I](Self);
+end;
+
+procedure TCTreeView.DoSelectionChangedCore;
 var
   N: TCTreeNode;
 begin

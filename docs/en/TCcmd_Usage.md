@@ -1,8 +1,8 @@
 # TCcmd User Manual
 
 Author: aotan083
-Date: 2026-11-07
-Version: 1.0
+Date: 2026-11-17
+Version: 1.1
 
 ---
 
@@ -47,7 +47,7 @@ A component that runs cmd.exe, PowerShell, ssh, and similar programs inside a fo
 3. Run. When the screen is ready, `cmd.exe` starts automatically (`AutoStart = True`).
 
 - At design time (in the IDE), neither WebView2 nor the shell is started. Only a thin frame and the component name appear.
-- To use another shell, write `powershell.exe` or `ssh.exe` in `Shell`, and arguments in `Params`.
+- To use another shell, write `powershell.exe` or `ssh.exe` in `Shell`, and arguments in `Params`. `sh`, `bash`, `csh`, and so on can also be run by writing them in `Shell`, as long as their executables are installed (for example `bash.exe` of Git for Windows, or `wsl.exe` of WSL) (7.2).
 
 ### 2.1 Runtime Files
 
@@ -136,7 +136,7 @@ The right-click menu, the exit message, and error messages appear in Japanese or
 
 | Name | Type | Default | Contents |
 |---|---|---|---|
-| `Shell` | `string` | `cmd.exe` | The program to run (`powershell.exe`, `ssh.exe`; a full path is also allowed). If empty, `cmd.exe` |
+| `Shell` | `string` | `cmd.exe` | The program to run (`powershell.exe`, `ssh.exe`, `bash.exe`; a full path is also allowed). Any program that runs in a console will do. If empty, `cmd.exe` |
 | `Params` | `string` | '' | Startup arguments (e.g. `-NoLogo`). Appended after `Shell` |
 | `WorkDir` | `string` | '' | Working folder. If empty, the EXE's folder |
 | `Environment` | `TStrings` | empty | Environment variables to add or override (`name=value`). Others are inherited from the application |
@@ -258,6 +258,22 @@ Cmd1.WorkDir := 'C:\work';
 Cmd1.Environment.Add('MY_VAR=abc');
 Cmd1.Restart;
 ```
+
+#### Use bash or ssh
+
+```pascal
+Cmd1.Shell := 'C:\Program Files\Git\bin\bash.exe';   // bash of Git for Windows (a path with spaces is quoted automatically)
+Cmd1.Params := '--login -i';
+Cmd1.Restart;
+
+// Connect to a server with ssh (after connecting, you can edit files with vi)
+Cmd1.Shell := 'ssh.exe';
+Cmd1.Params := 'user@host';
+Cmd1.Restart;
+```
+
+- The program written in `Shell` must already be installed (the component does not include it).
+- After connecting, you can send commands with `Cmd1.Execute('...')`, so you can also write out a script and run it.
 
 ### 7.3 Run a Command and Receive the Result
 

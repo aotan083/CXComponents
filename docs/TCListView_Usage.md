@@ -1,8 +1,8 @@
 # TCListView 取扱説明書
 
 作者: aotan083
-日付: 2026-11-04
-版: 1.2
+日付: 2026-11-17
+版: 1.3
 
 ---
 
@@ -92,6 +92,7 @@ Language=en
 | 1 | サイズ | ファイルの大きさ（bytes・kB・MB・GB） |
 | 2 | 種類 | 拡張子。フォルダーは「フォルダ」 |
 | 3 | 更新日時 | YYYY/MM/DD HH:NN |
+| 4 | フォルダー | 検索結果の表示（5.5）のときだけ出る列。その項目があるフォルダー |
 
 ### 3.2 表示形式
 
@@ -123,6 +124,7 @@ Language=en
 | `MaxHistory` | `Integer` | 読み・書き | 戻る・進むの履歴の上限（既定値は 20。最小は 2）。超えたら古いものから消す。実行時だけ |
 | `SortColumn` | `Integer` | 読み | 並べ替えている列（既定値は 2）。0：名前、1：サイズ、2：種類、3：更新日時。実行時だけ |
 | `SortAscending` | `Boolean` | 読み | 昇順なら `True`。実行時だけ |
+| `ResultsMode` | `Boolean` | 読み | 検索結果の表示（5.5）をしているなら `True`。実行時だけ |
 
 ### 4.2 TShellListView から引き継いだもの
 
@@ -192,6 +194,10 @@ Language=en
 | `CanGoBack` | ― | `Boolean` | 戻れるなら `True` |
 | `CanGoForward` | ― | `Boolean` | 進めるなら `True` |
 | `ClearHistory` | ― | ― | 履歴を消す（表示中のフォルダーだけ残す） |
+| `GetHistory` | `AList: TStrings` | `Integer` | 履歴の全部を、訪れた新しい順（先頭がいちばん新しい。進む側も含む）に、フルパスで `AList` に入れる（先に `AList` を空にする）。表示中のフォルダーの、`AList` の中の番号を返す（履歴がなければ -1）。戻った後は、表示中のフォルダーより前（番号が小さい側）に、進める履歴が並ぶ |
+| `GoToHistory` | `AIndex: Integer; const APath: string` | `Boolean` | `GetHistory` の `AList` の `AIndex` 番目のフォルダーへ移る。`APath` は確認用で、`AList[AIndex]` と違えば何もしない。途中のフォルダーがなくなっていれば、飛ばして移る。移れたら `True`。番号が範囲外・表示中のフォルダーと同じなら `False` |
+| `AddFolderLink` | `AEvent: TNotifyEvent` | ― | 「表示中のフォルダーが変わった」ときの知らせを受ける手続きを登録する（6.1）。同じものは 1 つだけ登録される |
+| `RemoveFolderLink` | `AEvent: TNotifyEvent` | ― | 登録した手続きを外す |
 
 - 戻った後に別のフォルダーへ移ると、進む側の履歴は消える（エクスプローラーと同じ）。
 
@@ -221,7 +227,26 @@ Language=en
 | `GetSelectedPaths` | `AList: TStrings` | ― | 選んでいるすべての項目のフルパスを `AList` に入れる（先に `AList` を空にする） |
 | `SelectNewItemsOnNextRefresh` | ― | ― | 次に表示を更新したとき、新しく現れた項目を選ぶ。アプリでファイルを作ったときなどに使う（10.9） |
 
-### 5.5 ユニットの関数
+### 5.5 検索結果の表示
+
+見つけたファイルの一覧を、この部品の一覧に出すときに使う（TCSearchBox が使っている。自分で探した結果を出すこともできる）。
+
+| 名前 | 引数 | 戻り値 | 中身 |
+|---|---|---|---|
+| `BeginResults` | `const AFolder: string` | ― | 検索結果の表示にする。項目をすべて消し、5 列目「フォルダー」を足す。`Root` は変えない。`AFolder`：探したフォルダー。すでに検索結果の表示なら、中身だけ消す。並べ替えは、名前の昇順になる。フォルダーの変更の監視は止まる |
+| `AddResult` | `const APath: string` | ― | 結果を 1 件足す。検索結果の表示のときだけ（そうでなければ何もしない）。ないパス・読めないパスは飛ばす |
+| `AddResults` | `AList: TStrings` | ― | 結果をまとめて足す（フルパスを 1 行に 1 つ）。そのほかは `AddResult` と同じ |
+| `EndResults` | ― | ― | 検索結果の表示を終え、探したフォルダーの中身に戻る（通常の表示のときは何もしない）。終えたら、`OnFolderChanged` を出す |
+
+- 検索結果の表示のときの動き：
+  - 名前の下に、場所が出る（5 列目）。5 列目でも並べ替えられる。フォルダーが先、という並びは同じ。
+  - ダブルクリック・Enter：フォルダーなら、そのフォルダーへ移る（検索結果の表示は終わる）。ファイルなら、開く。
+  - `NavigateTo`・`NavigateUp`・`GoBack`・`GoForward`、ツリーでの選択など、フォルダーを移る操作をすると、検索結果の表示は終わる。
+  - コピー・切り取り・削除・名前の変更・ドラッグして出すことは、通常の表示と同じようにできる。削除・名前の変更をしたら、一覧の項目も更新される。
+  - 貼り付け・ドロップ（受ける側）・新規作成（Ctrl+Shift+N）はできない。F5 でも読み直さない。
+  - 何もない所での右クリックは、「表示」「並べ替え」だけのメニューになる。
+
+### 5.6 ユニットの関数
 
 | 名前 | 引数 | 戻り値 | 中身 |
 |---|---|---|---|
@@ -236,6 +261,7 @@ Language=en
 | `OnFolderChanged` | `Sender: TObject` | 表示中のフォルダー（`Root`）が変わった |
 | `OnSelectionChanged` | `Sender: TObject` | 選んでいる項目が変わった |
 
+- 部品どうしの連動（TCAddressBar・TCSearchBox など）は、`OnFolderChanged` ではなく、`AddFolderLink` で登録した手続きで知る。`OnFolderChanged` は、アプリのものとして空けておける。`OnFolderChanged` の直後に、登録した手続きが呼ばれる。
 - どちらも、変わった理由（マウス、キー、ツリー、コード）に関係なく、変わるたびに1回ずつ出る。アプリの手が空いたとき（アイドル時）に出る。
 - `OnFolderChanged` は、ダブルクリック・Enter・BackSpace・ツリーでの選択・`NavigateTo`・`NavigateUp`・`GoBack`・`GoForward`（マウスの戻る・進むボタンを含む）・表示中のフォルダーが消えて親へ移ったときに出る。F5 や自動更新では出ない。
 - `OnSelectionChanged` は、Shift・Ctrl・Ctrl+A での複数選択の変化を1回にまとめる。フォルダーを移った直後（選択がなくなる）にも出る。自動更新で選択が変わらなければ出ない。

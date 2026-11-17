@@ -15,6 +15,10 @@
 |---|---|---|---|
 | TCTreeView | エクスプローラーの左側と同じフォルダーのツリー | [Usage](docs/TCTreeView_Usage.md) | [Design](docs/TCTreeView_Design.md) |
 | TCListView | エクスプローラーの右側と同じファイルの一覧 | [Usage](docs/TCListView_Usage.md) | [Design](docs/TCListView_Design.md) |
+| TCAddressBar | エクスプローラーのアドレスバー（パンくず・「>」で下のフォルダーの一覧・パスの入力・戻る/進む/上へ/更新・最近の場所）。TCListView・TCTreeView とつなぐだけで動く | [Usage](docs/TCAddressBar_Usage.md) | [Design](docs/TCAddressBar_Design.md) |
+| TCSearchBox | エクスプローラーの検索ボックス。Enter でフォルダーの中を名前で探し（部分一致・ワイルドカード・正規表現）、結果を TCListView に出す。TCListView・TCTreeView とつなぐだけで動く | [Usage](docs/TCSearchBox_Usage.md) | [Design](docs/TCSearchBox_Design.md) |
+| TCFindFile | ファイル・フォルダーを名前で探す部品（画面なし）。別スレッドで探し、見つかったものを少しずつ届ける。TCSearchBox が使っている。単独でも使える | [Usage](docs/TCFindFile_Usage.md) | [Design](docs/TCFindFile_Design.md) |
+| TCGrepFile | フォルダーの中のファイルを、中身の文字で探す（grep 検索）部品（画面なし）。ファイルの名前（`*.pas;*.lfm`）で絞り、部分一致・正規表現で行を探す。結果は「パス(行番号): 文字」の形で、`OnFound` で受け取るか、ファイルへ書き出す。TCMonacoEditor・TCsEditor の `TagJump` で、その行へ飛べる | [Usage](docs/TCGrepFile_Usage.md) | [Design](docs/TCGrepFile_Design.md) |
 | TCFileTree | 指定したフォルダーを根にして、フォルダーとファイルを 1 本のツリーに並べる（VS Code のエクスプローラーのように使える。TCListView は不要。TCMonacoEditor・TCsEditor・TCTabBrowser とつなぐだけで、ダブルクリックや右クリックで開ける） | [Usage](docs/TCFileTree_Usage.md) | [Design](docs/TCFileTree_Design.md) |
 | TCSynEdit | TSynEdit に、ファイルの読み書き・配色（VS Code のライト・ダークを含む）・拡張子に合わせた色分け（Markdown を含む）・右クリックメニューを足したエディタ | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
 | TCCheckListBox | チェックを 1 つだけにできる TCheckListBox | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
@@ -142,6 +146,7 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 | 機能・動作 | 従来のLazarus開発 | CXComponents（ノーコード） |
 | :--- | :--- | :--- |
 | **Windows Explorer同等のファイル操作** | Shell API呼び出し、D&D、移動/コピー処理を数千行自作 | **コード0行**（`TCTreeView` / `TCListView` を貼るだけ） |
+| **アドレスバー・検索ボックス** | パンくず・フォルダーの一覧・入力・履歴、別スレッドの検索と結果の表示を自作 | **コード0行**（`TCAddressBar` / `TCSearchBox` を貼って、一覧・ツリーを選ぶだけ） |
 | **タブの分離・ドッキング（Tear-off / Tear-on）** | フォーム生成、イベントハンドラ、ドッキング処理を自作 | **コード0行**（`TCSEditor` / `TCMonacoEditor` で標準動作） |
 | **26言語ハイライト対応エディタ** | SynEditの個別設定やエンコーディング判別コードを記述 | **コード0行**（`TCSynEdit` / `TCSEditor` を置くだけ） |
 | **Markdown & Mermaid図プレビュー** | 外部描画エンジンの組み込み・同期スクロールコードの記述 | **コード0行**（`TCPreview` を配置するだけ） |
@@ -173,6 +178,27 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * Windows Theme（ダークモード/ライトモード）に完全追従。
 * ⚡ **ノーコード効果**: フォームに貼るだけで、本格的なエクスプローラー機能があなたのアプリの標準機能になります。
 
+#### `TCAddressBar`
+* エクスプローラーのアドレスバーと同じ、**パンくず**（名前をクリックで移動、「>」でその下のフォルダーの一覧）。幅が足りないときは「...」にまとまる。
+* クリックして**パスを直接入力**できる（Ctrl+L・Alt+D・F4）。`"` 付き・環境変数（`%USERPROFILE%`）・`/` 区切りも受ける。
+* **戻る・進む・上へ・更新**、右端の「v」で**最近の場所**（履歴）の一覧。Alt+←・Alt+→・Alt+↑・F5 に対応。
+* `TCListView`・`TCTreeView` のどちらか（または両方）を選ぶだけで連動し、一覧・ツリーで移ったときも、自動で変わる。
+* ⚡ **ノーコード効果**: 貼って、一覧とツリーを選ぶだけで、エクスプローラーと同じアドレスバーが付きます。
+
+#### `TCGrepFile`
+* **ファイルの中身で探す（grep 検索）**。対象のファイルを名前（`*.pas;*.lfm`）で絞り、行ごとに、部分一致・正規表現で探す。
+* 文字コード（UTF-8・UTF-16・Shift-JIS）は自動で判定。バイナリと大きすぎるファイルは飛ばす。別スレッドで探すので、画面は止まらない。
+* 結果は「パス(行番号): 文字」の形（タグジャンプに使える形）。`OnFound` で受け取るか、ファイルへ書き出す（`OutputMode`）。あとから `SaveResults` で保存もできる。
+* `TCMonacoEditor`・`TCsEditor` の `TagJump` に、結果の 1 行を渡すと、そのファイルを開いて、その行へ飛ぶ。
+* ⚡ **ノーコード効果**: 置いて、フォルダーと探す文字を決めるだけで、grep 検索が付きます。
+
+#### `TCSearchBox` / `TCFindFile`
+* エクスプローラーの検索ボックスと同じ操作。**Enter でフォルダーの中を、名前で探す**（入力のたびには探さない）。
+* 探し方は、**部分一致・ワイルドカード（`*.pas;*.lfm`）・正規表現**。大文字・小文字、サブフォルダー、隠しファイルの扱いも、虫眼鏡のメニューで切り替えられる。
+* 探す処理は別スレッドで動くので、画面は止まらない。見つかったものは少しずつ、`TCListView` の**検索結果の表示**（名前と場所が並ぶ）に出る。開く・コピー・削除なども、ふつうの一覧と同じようにできる。
+* 探す部品 `TCFindFile` は、画面を持たない部品として単独でも使える（`OnFound`・`OnFinished`、`FindAll`）。
+* ⚡ **ノーコード効果**: 貼って、一覧を選ぶだけで、エクスプローラーと同じ検索が付きます。
+
 ---
 
 ### 📝 テキスト・コードエディタコンポーネント
@@ -187,7 +213,7 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 
 #### `TCSEditor`
 * `TCSynEdit` の全機能を備えた**マルチタブエディタ**。
-* **Tear-off（タブ切り離し）/ Tear-on（ドッキング）**をコード0行で実現。
+* Tear-off（タブ切り離し）/ Tear-on（ドッキング）をコード0行で実現。
 * `TCPreview` と連動したリアルタイムプレビュー対応。
 * シングルエディタ / タブエディタの動的切り替え、タブのドラッグ移動・破棄・独自ポップアップメニュー追加に対応。
 * `TCMonacoEditor` とイベント・プロパティの**完全互換性**を確保（コンポーネントを張り替えるだけでエディタエンジンの切り替えが可能）。
@@ -201,6 +227,12 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * Windows Explorerからの Drag & Drop、Windows Theme にフル対応。
 * ⚡ **ノーコード効果**: コード0行で本物のVS Code開発環境をアプリ内に再現できます。
 
+#### `TCSEditor` / `TCMonacoEditor` の組み合わせ
+* **`TCFileTree` と組み合わせる**と、ファイル編集機能付きのタブテキストエディターが、ノーコードで完成します。
+* **`TCBookmark` と組み合わせる**と、ファイルのバインダ管理と、編集・プレビュー・印刷（PDF 出力）まで行えます。`TCBookmark` は元のファイルの所在を集めたリンク集として働くので、元のファイルの所在を気にする必要がありません。テキスト・HTML・Markdown のどれでも、グループごとにフォルダーで分類して管理できます。
+* 折り畳み・折り返し・行番号の ON/OFF はもちろん、ハイライトと `TagJump` にも標準で対応しています。
+* ⚡ **ノーコード効果**: 部品を置いてつなぐだけで、ファイル管理つきのエディタ環境が完成します。
+
 ---
 
 ### 🌐 ブラウザ & プレビューコンポーネント
@@ -212,6 +244,10 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * **画面キャプチャ保存**機能、**PDF化保存**機能を内蔵。
 * 外部JavaScriptの流し込み・実行、完了復帰時のページ切り替えに対応。
 * Windows Theme にフル対応。
+* ページの表示は**非同期・同期の両方**に対応しているので、任意のページを表示し終えてから、次の処理を実行できます。
+* 表示したページの HTML コードの取得、`UserAgent` の指定もできます。
+* ページを表示したあとで **JavaScript を実行**できるので、Web ページの解析ができます。ブラウザのデバッグ機能（開発者ツール）も呼び出せます。
+* 自作アプリの中に、Web ページの解析・編集・表示の機能を作り込めます。
 * ⚡ **ノーコード効果**: コード0行で高機能なWebブラウザ環境をアプリに統合できます。
 
 #### `TCPreview`
@@ -226,6 +262,9 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * リダイレクト（`>`・`2>&1`）とパイプ（`|`）は cmd.exe と同じように動く。コンソールの窓は出ない。
 * 出力のログとコマンド履歴をファイルに保存。`RunCapture` で、コマンドの標準出力・エラー出力・終了コードを別々に受け取れる。
 * フォント・色・ライト/ダークの配色・カーソル・保持する行数を、オブジェクトインスペクタで設定できる。
+* 自作アプリの中で**コマンドを実行**できます。**シェルを指定**できるので、sh・bash・csh・PowerShell などが使えます。
+* ssh でサーバへ接続して、ファイルを編集したり、スクリプトをその場で出力して実行したりできます。
+* `TCSEditor`・`TCMonacoEditor` と組み合わせると、コード編集＋コンソールでの git 操作、その場での Python 実行などの機能を、ほんの数行で自作アプリに組み込めます。
 * ⚡ **ノーコード効果**: 置くだけで、アプリにコマンドプロンプトが付く。
 
 ---

@@ -69,7 +69,12 @@ type
     sFtMenuWebOpenNew, sFtMenuOpenProgram, sFtMenuShowHidden, sFtMenuWindowsMenu, sFtErrBadChars, sFtErrCreateFolder,
     sErrFileLocked,
     sCcmdMenuCopy, sCcmdMenuPaste, sCcmdMenuSelectAll, sCcmdMenuClear, sCcmdExited, sCcmdErrStart,
-    sCcmdErrNoPage, sCcmdErrNoPty
+    sCcmdErrNoPage, sCcmdErrNoPty,
+    sAddrBack, sAddrForward, sAddrUp, sAddrRefresh, sAddrRecent, sAddrPC,
+    sAddrErrNotFound, sSbHint, sSbHintNone, sSbMenuContains, sSbMenuWildcard, sSbMenuRegex,
+    sSbMenuCase, sSbMenuSub, sSbMenuHidden, sSbClear, sSbStop, sSbErrRegex,
+    sSbErrNoFolder, sSbErrNoRoot, sLvColFolder, sFfErrEmpty,
+    sGrErrEmpty, sGrErrOutput, sGrErrNoResult
   );
 
 { 今の言語。最初に呼ばれたとき決め、あとは同じ値を返す }
@@ -553,7 +558,58 @@ const
     (Ja: 'terminal.html が見つかりません：%s';
      En: 'terminal.html was not found: %s'),
     (Ja: 'この Windows には、ConPTY（擬似コンソール）がありません';
-     En: 'This Windows does not have ConPTY (pseudo console)')
+     En: 'This Windows does not have ConPTY (pseudo console)'),
+    { アドレスバー・検索ボックス・検索（TCAddressBar・TCSearchBox・TCFindFile） }
+    (Ja: '戻る';
+     En: 'Back'),
+    (Ja: '進む';
+     En: 'Forward'),
+    (Ja: '上へ';
+     En: 'Up'),
+    (Ja: '最新の情報に更新';
+     En: 'Refresh'),
+    (Ja: '最近の場所';
+     En: 'Recent locations'),
+    (Ja: 'PC';
+     En: 'PC'),
+    (Ja: 'フォルダーが見つかりません：%s';
+     En: 'The folder was not found: %s'),
+    (Ja: '%s の検索';
+     En: 'Search %s'),
+    (Ja: '検索';
+     En: 'Search'),
+    (Ja: '部分一致(&P)';
+     En: 'Contains(&P)'),
+    (Ja: 'ワイルドカード（* ?）(&W)';
+     En: 'Wildcard (* ?)(&W)'),
+    (Ja: '正規表現(&R)';
+     En: 'Regular expression(&R)'),
+    (Ja: '大文字と小文字を区別する(&C)';
+     En: 'Match case(&C)'),
+    (Ja: 'サブフォルダーを含める(&S)';
+     En: 'Include subfolders(&S)'),
+    (Ja: '隠しファイル・システムファイルを含める(&H)';
+     En: 'Include hidden and system files(&H)'),
+    (Ja: '検索を消す';
+     En: 'Clear search'),
+    (Ja: '検索を中止';
+     En: 'Stop search'),
+    (Ja: '正規表現が正しくありません：%s';
+     En: 'The regular expression is not valid: %s'),
+    (Ja: '検索するフォルダーがありません';
+     En: 'There is no folder to search'),
+    (Ja: '検索を始めるフォルダーがありません：%s';
+     En: 'The folder to start from was not found: %s'),
+    (Ja: 'フォルダー';
+     En: 'Folder'),
+    (Ja: '検索する名前を入力してください';
+     En: 'Enter a name to search for'),
+    (Ja: '検索する文字を入力してください';
+     En: 'Enter the text to search for'),
+    (Ja: '結果のファイルを書けません：%s';
+     En: 'The result file could not be written: %s'),
+    (Ja: '保存する結果がありません（結果を、ファイルへ直接書き出す設定です）';
+     En: 'There are no results to save (results are being written directly to a file)')
   );
 
 var

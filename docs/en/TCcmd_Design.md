@@ -1,8 +1,8 @@
 # TCcmd Design Document
 
 Author: aotan083
-Date: 2026-11-07
-Version: 1.0
+Date: 2026-11-17
+Version: 1.1
 
 ---
 
@@ -84,7 +84,7 @@ Published:
 
 | Name | Type | Default | Contents |
 |---|---|---|---|
-| `Shell` | `string` | `cmd.exe` | Program to run (`powershell.exe`, `ssh.exe`, full path allowed). If empty, `cmd.exe` |
+| `Shell` | `string` | `cmd.exe` | Program to run (`powershell.exe`, `ssh.exe`, `bash.exe`, full path allowed). Any program that runs in a console will do (started with `CreateProcessW`; a path containing spaces is automatically wrapped in `"`). If empty, `cmd.exe` |
 | `Params` | `string` | `''` | Startup arguments (e.g. `-NoLogo`). Appended after `Shell` |
 | `WorkDir` | `string` | `''` | Working folder. If empty, the EXE's folder |
 | `Environment` | `TStrings` | empty | Environment variables to add or override (`name=value`). Others are inherited from the parent (application) |

@@ -530,6 +530,8 @@ type
     { 画面の上での操作（3.2） }
     procedure GetCursorPos(out ALine, AColumn: Integer);
     procedure SetCursorPos(ALine, AColumn: Integer);
+    { タグジャンプ（「パス(行番号): 文字」の 1 行から、そのファイルのその行へ。省略すると、カーソル行の文字を使う） }
+    function TagJump(const ALine: string = ''): Boolean;
     procedure SetSelection(ALine1, AColumn1, ALine2, AColumn2: Integer);
     procedure Undo;
     procedure Redo;
@@ -773,7 +775,7 @@ function CsOsIsDark: Boolean;
 implementation
 
 uses
-  uCXLang,
+  uCXLang, uCGrepFile,
   LazUTF8, LConvEncoding, StrUtils, Math, SynEditHighlighter;
 
 { ================================================================== }
@@ -3872,6 +3874,28 @@ begin
   P := Point(U16ToByteCol(LineOf(S, ALine), Max(1, AColumn)), ALine);
   S.LogicalCaretXY := P;
   S.BlockBegin := P;                         { 選択を外す }
+end;
+
+{ タグジャンプ：「パス(行番号): 文字」の 1 行から、そのファイルを開いて、その行へ飛ぶ（TCGrepFile_Design.md 8 章）。
+  ALine が空なら、カーソル行の文字を使う。フルパスだけを受ける。できなければ False（何も変わらない） }
+function TCsEditor.TagJump(const ALine: string): Boolean;
+var
+  S, Path: string;
+  Line: Integer;
+begin
+  Result := False;
+  S := ALine;
+  if S = '' then S := LineText;
+  if not CGrepParseLine(S, Path, Line) then Exit;
+  if not CGrepIsFullPath(Path) then Exit;
+  if not FileExists(Path) then Exit;
+  try
+    if OpenFile(Path) < 0 then Exit;
+  except
+    Exit;
+  end;
+  SetCursorPos(Line, 1);
+  Result := True;
 end;
 
 procedure TCsEditor.SetSelection(ALine1, AColumn1, ALine2, AColumn2: Integer);

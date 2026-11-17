@@ -1,8 +1,8 @@
 # TCcmd 取扱説明書
 
 作者: aotan083
-日付: 2026-11-07
-版: 1.0
+日付: 2026-11-17
+版: 1.1
 
 ---
 
@@ -47,7 +47,7 @@
 3. 実行する。画面の準備ができると、自動で `cmd.exe` が始まる（`AutoStart = True`）。
 
 - IDE の上（設計時）では WebView2 もシェルも動かさない。薄い枠と部品の名前だけが出る。
-- 別のシェルにするときは、`Shell` に `powershell.exe` や `ssh.exe` を、`Params` に引数を書く。
+- 別のシェルにするときは、`Shell` に `powershell.exe` や `ssh.exe` を、`Params` に引数を書く。`sh`・`bash`・`csh` なども、その実行ファイル（Git for Windows の `bash.exe`、WSL の `wsl.exe` など）が入っていれば、`Shell` に書いて動かせる（7.2）。
 
 ### 2.1 実行時のファイル
 
@@ -136,7 +136,7 @@ Language=
 
 | 名前 | 型 | 既定値 | 中身 |
 |---|---|---|---|
-| `Shell` | `string` | `cmd.exe` | 動かすプログラム（`powershell.exe`・`ssh.exe`・フルパスも可）。空なら `cmd.exe` |
+| `Shell` | `string` | `cmd.exe` | 動かすプログラム（`powershell.exe`・`ssh.exe`・`bash.exe`・フルパスも可）。コンソールで動くプログラムなら何でもよい。空なら `cmd.exe` |
 | `Params` | `string` | '' | 起動の引数（例：`-NoLogo`）。`Shell` の後ろに付ける |
 | `WorkDir` | `string` | '' | 作業フォルダー。空なら EXE のフォルダー |
 | `Environment` | `TStrings` | 空 | 追加・上書きする環境変数（`名前=値`）。ない分は、アプリの環境を引き継ぐ |
@@ -258,6 +258,22 @@ Cmd1.WorkDir := 'C:\work';
 Cmd1.Environment.Add('MY_VAR=abc');
 Cmd1.Restart;
 ```
+
+#### bash・ssh にする
+
+```pascal
+Cmd1.Shell := 'C:\Program Files\Git\bin\bash.exe';   // Git for Windows の bash（スペースがあっても自動で括る）
+Cmd1.Params := '--login -i';
+Cmd1.Restart;
+
+// ssh でサーバへつなぐ（接続したあとは、vi でファイルを編集できる）
+Cmd1.Shell := 'ssh.exe';
+Cmd1.Params := 'user@host';
+Cmd1.Restart;
+```
+
+- `Shell` に書いたプログラムが、その場に入っている必要がある（部品には入っていない）。
+- 接続後に `Cmd1.Execute('...')` でコマンドを送れるので、スクリプトを書き出して実行することもできる。
 
 ### 7.3 コマンドを実行して結果を受ける
 

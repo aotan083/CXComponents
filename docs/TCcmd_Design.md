@@ -1,8 +1,8 @@
 # TCcmd 設計書
 
 作者: aotan083
-日付: 2026-11-07
-版: 1.0
+日付: 2026-11-17
+版: 1.1
 
 ---
 
@@ -83,7 +83,7 @@ type
 
 | 名前 | 型 | 既定値 | 中身 |
 |---|---|---|---|
-| `Shell` | `string` | `cmd.exe` | 動かすプログラム（`powershell.exe`、`ssh.exe`、フルパスも可）。空なら `cmd.exe` |
+| `Shell` | `string` | `cmd.exe` | 動かすプログラム（`powershell.exe`、`ssh.exe`、`bash.exe`、フルパスも可）。コンソールで動くプログラムなら何でもよい（`CreateProcessW` で起動する。スペースを含むパスは自動で `"` で括る）。空なら `cmd.exe` |
 | `Params` | `string` | `''` | 起動の引数（たとえば `-NoLogo`）。`Shell` の後ろに付ける |
 | `WorkDir` | `string` | `''` | 作業フォルダー。空なら、EXE のフォルダー |
 | `Environment` | `TStrings` | 空 | 追加・上書きする環境変数（`名前=値`）。ない分は、親（アプリ）の環境を引き継ぐ |

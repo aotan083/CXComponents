@@ -1,8 +1,8 @@
 # TCsEditor User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.1
+Date: 2026-11-17
+Version: 1.2
 
 ---
 
@@ -224,6 +224,7 @@ All of them target the visible tab.
 | `CanRedo` | `Boolean` | Read | Whether Redo is possible |
 | `GetCursorPos` | `out ALine, AColumn: Integer` | ― | The cursor position. Line and column start at 1. The column is in UTF-16 units |
 | `SetCursorPos` | `ALine, AColumn: Integer` | ― | Moves the cursor |
+| `TagJump` | `const ALine: string = ''` | `Boolean` | Tag jump. When you pass one line of the form "path(line number): text" (the form of the results of `TCGrepFile`), it opens that file (switches to its tab if it is already open) and jumps to that line. If `ALine` is omitted, the text of the cursor line (`LineText`) is used. Returns `True` if it jumped. Returns `False` (nothing changes) if the line is not in that form, the path is not a full path, the file does not exist, or it cannot be opened. If the line number is larger than the number of lines in the file, it jumps to the last line |
 | `SetSelection` | `ALine1, AColumn1, ALine2, AColumn2: Integer` | ― | Selects a range. The cursor is at the end position |
 | `LineText` | `string` | Read | The string of the cursor line (without the line break). Chapter 13 |
 | `LineWords` | `TStrings` | Read | List of the cursor line split into words (counted from 0). Do not `Free`. Chapter 13 |

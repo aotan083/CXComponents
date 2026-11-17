@@ -138,6 +138,22 @@
         <Filename Value="../source/uCsEditor.pas"/>
         <UnitName Value="uCsEditor"/>
       </Item>
+      <Item>
+        <Filename Value="../source/uCFindFile.pas"/>
+        <UnitName Value="uCFindFile"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCAddressBar.pas"/>
+        <UnitName Value="uCAddressBar"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCSearchBox.pas"/>
+        <UnitName Value="uCSearchBox"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCGrepFile.pas"/>
+        <UnitName Value="uCGrepFile"/>
+      </Item>
     </Files>
     <RequiredPkgs>
       <Item>
@@ -148,6 +164,9 @@
       </Item>
       <Item>
         <PackageName Value="WebView4Delphi"/>
+      </Item>
+      <Item>
+        <PackageName Value="LazUtils"/>
       </Item>
     </RequiredPkgs>
     <UsageOptions>

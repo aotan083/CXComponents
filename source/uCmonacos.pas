@@ -428,6 +428,8 @@ type
 
     { ---- カーソル・選択・編集 ---- }
     procedure SetCursorPos(ALine, AColumn: Integer);
+    { タグジャンプ（「パス(行番号): 文字」の 1 行から、そのファイルのその行へ。省略すると、カーソル行の文字を使う） }
+    function TagJump(const ALine: string = ''): Boolean;
     procedure GetCursorPos(out ALine, AColumn: Integer);
     procedure SetSelection(AStartLine, AStartCol, AEndLine, AEndCol: Integer);
     procedure DeleteToEnd;      { 【段階6】カーソル位置から末尾までを削除（選択は無視）。Undo 1回分 }
@@ -624,7 +626,7 @@ function CMDarkBackColor(AColor: TColor): TColor;
 
 implementation
 
-uses uCXLang, LazUTF8, StrUtils;
+uses uCXLang, uCGrepFile, LazUTF8, StrUtils;
 
 const
   { 【2.13】選択範囲の色の組（暗い配色・明るい配色）。【2.15】TColor（$00BBGGRR）にした。scCustom は使わない }
@@ -3140,6 +3142,28 @@ function TCMonacoEditor.GetReady: Boolean; begin Result := FMonaco.Ready; end;
 { ---------- カーソル・選択・編集（中継） ---------- }
 
 procedure TCMonacoEditor.SetCursorPos(ALine, AColumn: Integer); begin FMonaco.SetCursorPos(ALine, AColumn); end;
+
+{ タグジャンプ：「パス(行番号): 文字」の 1 行から、そのファイルを開いて、その行へ飛ぶ（TCGrepFile_Design.md 8 章）。
+  ALine が空なら、カーソル行の文字を使う。フルパスだけを受ける。できなければ False（何も変わらない） }
+function TCMonacoEditor.TagJump(const ALine: string): Boolean;
+var
+  S, Path: string;
+  Line: Integer;
+begin
+  Result := False;
+  S := ALine;
+  if S = '' then S := LineText;
+  if not CGrepParseLine(S, Path, Line) then Exit;
+  if not CGrepIsFullPath(Path) then Exit;
+  if not FileExists(Path) then Exit;
+  try
+    if OpenFile(Path) < 0 then Exit;
+  except
+    Exit;
+  end;
+  SetCursorPos(Line, 1);
+  Result := True;
+end;
 procedure TCMonacoEditor.GetCursorPos(out ALine, AColumn: Integer); begin FMonaco.GetCursorPos(ALine, AColumn); end;
 procedure TCMonacoEditor.SetSelection(AStartLine, AStartCol, AEndLine, AEndCol: Integer);
 begin

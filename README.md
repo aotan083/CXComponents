@@ -15,6 +15,10 @@ Author: aotan083 / License: MIT
 |---|---|---|---|
 | TCTreeView | The same folder tree as the left side of Explorer | [Usage](docs/TCTreeView_Usage.md) | [Design](docs/TCTreeView_Design.md) |
 | TCListView | The same file list as the right side of Explorer | [Usage](docs/TCListView_Usage.md) | [Design](docs/TCListView_Design.md) |
+| TCAddressBar | The Explorer address bar (breadcrumbs, a ">" list of the folders below, typing a path, back / forward / up / refresh, recent locations). It works just by connecting it to TCListView and TCTreeView | [Usage](docs/TCAddressBar_Usage.md) | [Design](docs/TCAddressBar_Design.md) |
+| TCSearchBox | The Explorer search box. Press Enter to search a folder by name (contains, wildcard, regular expression) and show the result in TCListView. It works just by connecting it to TCListView and TCTreeView | [Usage](docs/TCSearchBox_Usage.md) | [Design](docs/TCSearchBox_Design.md) |
+| TCFindFile | A non-visual component that searches files and folders by name. It searches in a separate thread and delivers the results little by little. Used by TCSearchBox; it can also be used on its own | [Usage](docs/TCFindFile_Usage.md) | [Design](docs/TCFindFile_Design.md) |
+| TCGrepFile | A non-visual component that searches the files in a folder by the text inside them (grep search). It narrows the files by name (`*.pas;*.lfm`) and searches lines by contains or regular expression. Results are in the form "path(line number): text" and are received with `OnFound` or written to a file. `TagJump` of TCMonacoEditor and TCsEditor jumps to that line | [Usage](docs/TCGrepFile_Usage.md) | [Design](docs/TCGrepFile_Design.md) |
 | TCFileTree | Shows folders and files in a single tree rooted at a specified folder (usable like the VS Code Explorer; TCListView is not needed. Just connect it to TCMonacoEditor, TCsEditor, or TCTabBrowser, and you can open files by double-clicking or from the right-click menu) | [Usage](docs/TCFileTree_Usage.md) | [Design](docs/TCFileTree_Design.md) |
 | TCSynEdit | An editor that adds file read/write, color schemes (including VS Code light and dark), syntax coloring by file extension (including Markdown), and a right-click menu to TSynEdit | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
 | TCCheckListBox | A TCheckListBox that allows only one check at a time | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
@@ -142,6 +146,7 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 | Feature / Behavior | Traditional Lazarus development | CX Components (no-code) |
 | :--- | :--- | :--- |
 | **Explorer-equivalent file operations** | Shell API calls, D&D, and move/copy processing written by hand over thousands of lines | **0 lines of code** (just place `TCTreeView` / `TCListView`) |
+| **Address bar and search box** | Breadcrumbs, folder lists, path input, history, a threaded search, and showing the results written by hand | **0 lines of code** (just place `TCAddressBar` / `TCSearchBox` and choose the list and tree) |
 | **Tab tear-off / docking (Tear-off / Tear-on)** | Form creation, event handlers, and docking logic written by hand | **0 lines of code** (standard behavior with `TCSEditor` / `TCMonacoEditor`) |
 | **Editor with syntax highlighting for 26 languages** | Individual SynEdit settings and encoding detection code | **0 lines of code** (just place `TCSynEdit` / `TCSEditor`) |
 | **Markdown & Mermaid diagram preview** | Embedding an external rendering engine and writing scroll-sync code | **0 lines of code** (just place `TCPreview`) |
@@ -171,6 +176,27 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * Fully follows the Windows theme (dark mode / light mode).
 * ⚡ **No-code effect**: Just place it on a form, and a full-featured Explorer becomes a standard feature of your app.
 
+#### `TCAddressBar`
+* The same **breadcrumbs** as the Explorer address bar (click a name to go there; click the ">" to list the folders below it). When the width is not enough, the first parts are folded into "...".
+* Click to **type a path directly** (Ctrl+L, Alt+D, F4). Paths with `"`, environment variables (`%USERPROFILE%`), and `/` separators are accepted.
+* **Back, forward, up, and refresh**, and the "v" on the right shows a list of **recent locations** (history). Supports Alt+Left, Alt+Right, Alt+Up, and F5.
+* It works just by choosing `TCListView` and/or `TCTreeView`, and it follows automatically when the list or the tree moves to another folder.
+* ⚡ **No-code effect**: Place it, choose the list and the tree, and you get the same address bar as Explorer.
+
+#### `TCGrepFile`
+* **Searches by the contents of files (grep search)**. It narrows the target files by name (`*.pas;*.lfm`) and searches line by line by contains or regular expression.
+* The character encoding (UTF-8, UTF-16, Shift-JIS) is detected automatically. Binary files and files that are too large are skipped. It searches in a separate thread, so the screen does not freeze.
+* Results are in the form "path(line number): text" (a form usable for tag jumping). Receive them with `OnFound` or write them to a file (`OutputMode`). You can also save them afterwards with `SaveResults`.
+* Pass one result line to `TagJump` of `TCMonacoEditor` or `TCsEditor`, and it opens that file and jumps to that line.
+* ⚡ **No-code effect**: Place it, decide the folder and the text to search for, and you get a grep search.
+
+#### `TCSearchBox` / `TCFindFile`
+* Works like the Explorer search box. **Press Enter to search a folder by name** (it does not search on every keystroke).
+* Search methods: **contains, wildcard (`*.pas;*.lfm`), and regular expression**. Case sensitivity, subfolders, and hidden files can be switched from the magnifier menu.
+* The search runs in a separate thread, so the screen does not freeze. Found items appear little by little in the **search result view** of `TCListView` (name and location are listed). You can open, copy, delete, and so on just as in a normal list.
+* The search component `TCFindFile` has no screen of its own and can also be used by itself (`OnFound`, `OnFinished`, `FindAll`).
+* ⚡ **No-code effect**: Place it and choose the list, and you get the same search as Explorer.
+
 ---
 
 ### 📝 Text and code editor components
@@ -199,6 +225,12 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * Full support for Drag & Drop from Windows Explorer and the Windows theme.
 * ⚡ **No-code effect**: With 0 lines of code, you can reproduce a genuine VS Code development environment inside your app.
 
+#### Combining `TCSEditor` / `TCMonacoEditor`
+* **Combined with `TCFileTree`**, a tabbed text editor with file editing is complete with no code.
+* **Combined with `TCBookmark`**, you get binder-style file management, plus editing, preview, and printing (PDF output). `TCBookmark` works as a collection of links to the original files, so you do not have to worry about where the originals are. Text, HTML, and Markdown files can all be managed, sorted into folders by group.
+* Folding, word wrap, and line-number ON/OFF are built in, and so are highlighting and `TagJump`.
+* ⚡ **No-code effect**: Just place the components and connect them, and an editor environment with file management is complete.
+
 ---
 
 ### 🌐 Browser and preview components
@@ -210,6 +242,10 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * Built-in **screen capture saving** and **save as PDF** features.
 * Injects and runs external JavaScript, and supports page switching when a task completes.
 * Full support for the Windows theme.
+* Page display supports **both asynchronous and synchronous modes**, so you can run the next step as soon as a given page has finished displaying.
+* You can also get the HTML code of the displayed page, and specify the `UserAgent`.
+* After a page is displayed, you can **run JavaScript** on it, which makes analysis of web pages possible. The browser's debugging tools (DevTools) can be opened too.
+* You can build web page analysis, editing, and display features into your own app.
 * ⚡ **No-code effect**: Integrate a full-featured web browser into your app with 0 lines of code.
 
 #### `TCPreview`
@@ -224,6 +260,9 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * Redirection (`>`, `2>&1`) and pipes (`|`) work as in cmd.exe. No console window appears.
 * Saves an output log and a command history to files. `RunCapture` returns standard output, standard error, and the exit code of a command separately.
 * Font, colors, light/dark theme, cursor, and number of lines kept can be set in the Object Inspector.
+* **Run commands** inside your own app. You can **specify the shell**, so sh, bash, csh, PowerShell, and others can be used.
+* Connect to a server over ssh, edit files there, or generate a script on the fly and run it.
+* Combined with `TCSEditor` / `TCMonacoEditor`, features such as code editing plus git operations in the console, or running Python on the spot, can be built into your own app in just a few lines.
 * ⚡ **No-code effect**: Just place it, and your app has a working command prompt.
 
 ---

@@ -1,8 +1,8 @@
 # TCTreeView 取扱説明書
 
 作者: aotan083
-日付: 2026-11-05
-版: 1.2
+日付: 2026-11-17
+版: 1.3
 
 ---
 
@@ -200,6 +200,8 @@ Language=en
 | `PasteToSelectedFolder` | ― | ― | 選んでいるフォルダーの中へ貼り付ける（Ctrl+V と同じ） |
 | `DeleteSelectedFolder` | `APermanent: Boolean = False` | ― | 選んでいるフォルダーを削除する。`False`：ごみ箱へ。`True`：完全に削除。確認を出す。ドライブ・近道・グループは対象外 |
 | `RenameSelectedFolder` | ― | ― | 選んでいるフォルダーの名前の変更を始める（F2 と同じ）。ドライブ・近道・グループは対象外 |
+| `AddFolderLink` | `AEvent: TNotifyEvent` | ― | 「選んでいるフォルダーが変わった」ときの知らせを受ける手続きを登録する。TCAddressBar・TCSearchBox などの連動に使う。`OnChange` は、アプリのものとして空けておける。同じものは 1 つだけ登録される |
+| `RemoveFolderLink` | `AEvent: TNotifyEvent` | ― | 登録した手続きを外す |
 
 ### 5.2 ユニットの関数
 
