@@ -6,7 +6,7 @@
     <CompilerOptions>
       <Version Value="11"/>
       <SearchPaths>
-        <OtherUnitFiles Value="../source"/>
+        <OtherUnitFiles Value="../source;$(LazarusDir)/components/svgimage;$(LazarusDir)/components/svgimage/fcl-svg;$(LazarusDir)/components/svgimage/fcl-css"/>
         <UnitOutputDirectory Value="lib/cx/$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
@@ -153,6 +153,14 @@
       <Item>
         <Filename Value="../source/uCGrepFile.pas"/>
         <UnitName Value="uCGrepFile"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCImages.pas"/>
+        <UnitName Value="uCImages"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/uCCapture.pas"/>
+        <UnitName Value="uCCapture"/>
       </Item>
     </Files>
     <RequiredPkgs>

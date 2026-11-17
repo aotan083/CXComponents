@@ -74,7 +74,9 @@ type
     sAddrErrNotFound, sSbHint, sSbHintNone, sSbMenuContains, sSbMenuWildcard, sSbMenuRegex,
     sSbMenuCase, sSbMenuSub, sSbMenuHidden, sSbClear, sSbStop, sSbErrRegex,
     sSbErrNoFolder, sSbErrNoRoot, sLvColFolder, sFfErrEmpty,
-    sGrErrEmpty, sGrErrOutput, sGrErrNoResult
+    sGrErrEmpty, sGrErrOutput, sGrErrNoResult,
+    sImgUnsupported, sImgLoadFailed, sImgSaveFailed, sImgEmpty, sImgSvgWrite,
+    sCapNoWindow, sCapBadRegion, sCapFailed, sCapNoFolder, sCapEmpty
   );
 
 { 今の言語。最初に呼ばれたとき決め、あとは同じ値を返す }
@@ -609,7 +611,27 @@ const
     (Ja: '結果のファイルを書けません：%s';
      En: 'The result file could not be written: %s'),
     (Ja: '保存する結果がありません（結果を、ファイルへ直接書き出す設定です）';
-     En: 'There are no results to save (results are being written directly to a file)')
+     En: 'There are no results to save (results are being written directly to a file)'),
+    (Ja: '扱えない画像形式です：%s';
+     En: 'Unsupported image format: %s'),
+    (Ja: '画像を読めません：%s';
+     En: 'Cannot load image: %s'),
+    (Ja: '画像を保存できません：%s';
+     En: 'Cannot save image: %s'),
+    (Ja: '保存する画像がありません';
+     En: 'There is no image to save'),
+    (Ja: 'svg は保存できません';
+     En: 'SVG cannot be saved'),
+    (Ja: '取り込めるウィンドウがありません';
+     En: 'There is no window to capture'),
+    (Ja: '取り込む範囲が正しくありません';
+     En: 'The capture region is invalid'),
+    (Ja: '画面を取り込めません';
+     En: 'Cannot capture the screen'),
+    (Ja: '保存先のフォルダーを作れません：%s';
+     En: 'Cannot create the folder: %s'),
+    (Ja: '保存する画像がありません';
+     En: 'There is no image to save')
   );
 
 var

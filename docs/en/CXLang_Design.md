@@ -74,7 +74,7 @@ function CXT(AId: TCXStr): string;  // the string that matches CXLanguage
 - No procedure to change the language later is made.
 - When compiled on something other than Windows (for checking tests), the Windows display language is not checked and the language is treated as `en` (`{$IFDEF MSWINDOWS}`).
 
-## 5. String Table (198 Items)
+## 5. String Table (198 Items + 10 Items in L.)
 
 - "Japanese" is the string in the current source, as is. "English" is the newly added string.
 - The `&` in menus and buttons does not overlap within the same menu (the same dialog).
@@ -337,6 +337,23 @@ TCFileTree (`CFileTree.pas`) is a new component that uses `CXT` from the start, 
 | 198 | `sFtErrCreateFolder` | フォルダーを作れませんでした：%s | Could not create the folder: %s | CFileTree:1649 |
 
 TCFileTree also uses `sBmUnsaved`, `sBmOpenError`, `sBmFileMissing`, and `sBmNewFolder` of TCBookmark (the 4 items in J.; nothing is added for them).
+
+**L. TCImage, TCImageList, TCCapture**
+
+- No is the position in the order of `TCXStr` in `uCXLang.pas`. 199 to 233 are `sErrFileLocked` through `sGrErrNoResult` (TCcmd, TCAddressBar, TCSearchBox, TCFindFile, TCGrepFile and others; they are listed in the design document of each component).
+
+| No | ID | Japanese | English | Used in (file) |
+|---|---|---|---|---|
+| 234 | `sImgUnsupported` | 扱えない画像形式です：%s | Unsupported image format: %s | uCImages |
+| 235 | `sImgLoadFailed` | 画像を読めません：%s | Cannot load image: %s | uCImages |
+| 236 | `sImgSaveFailed` | 画像を保存できません：%s | Cannot save image: %s | uCImages |
+| 237 | `sImgEmpty` | 保存する画像がありません | There is no image to save | uCImages |
+| 238 | `sImgSvgWrite` | svg は保存できません | SVG cannot be saved | uCImages |
+| 239 | `sCapNoWindow` | 取り込めるウィンドウがありません | There is no window to capture | uCCapture |
+| 240 | `sCapBadRegion` | 取り込む範囲が正しくありません | The capture region is invalid | uCCapture |
+| 241 | `sCapFailed` | 画面を取り込めません | Cannot capture the screen | uCCapture |
+| 242 | `sCapNoFolder` | 保存先のフォルダーを作れません：%s | Cannot create the folder: %s | uCImages・uCCapture |
+| 243 | `sCapEmpty` | 保存する画像がありません | There is no image to save | uCCapture |
 
 ## 6. How Each Unit Is Changed
 

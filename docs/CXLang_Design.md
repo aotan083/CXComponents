@@ -74,7 +74,7 @@ function CXT(AId: TCXStr): string;  // CXLanguage に合う文字列
 - 言語を後から変える手続きは作らない。
 - Windows 以外でコンパイルしたとき（確認用のテスト）は、Windows の表示言語の判定を行わず、`en` として扱う（`{$IFDEF MSWINDOWS}`）。
 
-## 5. 文字列の表（198 項目）
+## 5. 文字列の表（198 項目＋ L の 10 項目）
 
 - 「日本語」は今のソースの文字列そのまま。「English」が新しく付ける文字列。
 - メニュー・ボタンの `&` は、同じメニュー（同じダイアログ）の中で重ならないようにしてある。
@@ -337,6 +337,23 @@ TCFileTree（`CFileTree.pas`）は、最初から `CXT` を使う新しい部品
 | 198 | `sFtErrCreateFolder` | フォルダーを作れませんでした：%s | Could not create the folder: %s | CFileTree:1649 |
 
 TCFileTree は、このほかに、TCBookmark の `sBmUnsaved`・`sBmOpenError`・`sBmFileMissing`・`sBmNewFolder` も使う（J. の 4 項目。追加はない）。
+
+**L. TCImage・TCImageList・TCCapture**
+
+- No は、`uCXLang.pas` の `TCXStr` の並びの位置。199〜233 は、`sErrFileLocked` から `sGrErrNoResult` まで（TCcmd・TCAddressBar・TCSearchBox・TCFindFile・TCGrepFile ほか。各部品の設計書に載せている）。
+
+| No | ID | 日本語 | English | 使う場所（ファイル） |
+|---|---|---|---|---|
+| 234 | `sImgUnsupported` | 扱えない画像形式です：%s | Unsupported image format: %s | uCImages |
+| 235 | `sImgLoadFailed` | 画像を読めません：%s | Cannot load image: %s | uCImages |
+| 236 | `sImgSaveFailed` | 画像を保存できません：%s | Cannot save image: %s | uCImages |
+| 237 | `sImgEmpty` | 保存する画像がありません | There is no image to save | uCImages |
+| 238 | `sImgSvgWrite` | svg は保存できません | SVG cannot be saved | uCImages |
+| 239 | `sCapNoWindow` | 取り込めるウィンドウがありません | There is no window to capture | uCCapture |
+| 240 | `sCapBadRegion` | 取り込む範囲が正しくありません | The capture region is invalid | uCCapture |
+| 241 | `sCapFailed` | 画面を取り込めません | Cannot capture the screen | uCCapture |
+| 242 | `sCapNoFolder` | 保存先のフォルダーを作れません：%s | Cannot create the folder: %s | uCImages・uCCapture |
+| 243 | `sCapEmpty` | 保存する画像がありません | There is no image to save | uCCapture |
 
 ## 6. 各ユニットの直し方
 

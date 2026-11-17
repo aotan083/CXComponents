@@ -19,6 +19,9 @@
 | TCSearchBox | エクスプローラーの検索ボックス。Enter でフォルダーの中を名前で探し（部分一致・ワイルドカード・正規表現）、結果を TCListView に出す。TCListView・TCTreeView とつなぐだけで動く | [Usage](docs/TCSearchBox_Usage.md) | [Design](docs/TCSearchBox_Design.md) |
 | TCFindFile | ファイル・フォルダーを名前で探す部品（画面なし）。別スレッドで探し、見つかったものを少しずつ届ける。TCSearchBox が使っている。単独でも使える | [Usage](docs/TCFindFile_Usage.md) | [Design](docs/TCFindFile_Design.md) |
 | TCGrepFile | フォルダーの中のファイルを、中身の文字で探す（grep 検索）部品（画面なし）。ファイルの名前（`*.pas;*.lfm`）で絞り、部分一致・正規表現で行を探す。結果は「パス(行番号): 文字」の形で、`OnFound` で受け取るか、ファイルへ書き出す。TCMonacoEditor・TCsEditor の `TagJump` で、その行へ飛べる | [Usage](docs/TCGrepFile_Usage.md) | [Design](docs/TCGrepFile_Design.md) |
+| TCImage | TImage と同じ使い方で、bmp・jpg・png・svg・tif・ico を扱える画像。読み込み・保存を拡張子の形式で行い、保存のときに形式を変換できる（bmp → jpg など。svg は読み込みだけ） | [Usage](docs/TCImage_Usage.md) | [Design](docs/TCImage_Design.md) |
+| TCImageList | TImageList と同じ使い方の画像リスト。画像ファイル・TCImage・フォルダーから画像を足せる（svg・透明も可）。TCPageControl・TCSideBar などの `Images` にそのまま使える | [Usage](docs/TCImage_Usage.md) | [Design](docs/TCImage_Design.md) |
+| TCCapture | デスクトップの画面を取り込んで、画像ファイルに保存する部品（画面なし）。範囲は、デスクトップ全体・アクティブなウィンドウ・任意の長方形。保存先のフォルダーがなければ作る | [Usage](docs/TCCapture_Usage.md) | [Design](docs/TCCapture_Design.md) |
 | TCFileTree | 指定したフォルダーを根にして、フォルダーとファイルを 1 本のツリーに並べる（VS Code のエクスプローラーのように使える。TCListView は不要。TCMonacoEditor・TCsEditor・TCTabBrowser とつなぐだけで、ダブルクリックや右クリックで開ける） | [Usage](docs/TCFileTree_Usage.md) | [Design](docs/TCFileTree_Design.md) |
 | TCSynEdit | TSynEdit に、ファイルの読み書き・配色（VS Code のライト・ダークを含む）・拡張子に合わせた色分け（Markdown を含む）・右クリックメニューを足したエディタ | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
 | TCCheckListBox | チェックを 1 つだけにできる TCheckListBox | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
@@ -199,6 +202,18 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * 探す部品 `TCFindFile` は、画面を持たない部品として単独でも使える（`OnFound`・`OnFinished`、`FindAll`）。
 * ⚡ **ノーコード効果**: 貼って、一覧を選ぶだけで、エクスプローラーと同じ検索が付きます。
 
+#### `TCImage` / `TCImageList`
+* `TImage`・`TImageList` と同じ使い方で、**bmp・jpg(jpeg)・png・svg・tif(tiff)・ico** を扱える。
+* `SaveToFile` は、保存先の拡張子の形式に**変換して保存**し、フォルダーがなければ作る（bmp → jpg など。svg は読み込みだけ）。
+* `TCImageList` は、`AddFromFile`・`AddFromImage`・`AddFromFolder` で画像を足せる。大きさは縦横比を保って合わせ、透明も保つ。
+* `TImageList` の子クラスなので、`TCPageControl`・`TCSideBar`・`TCExpandPanel` などの `Images` に、そのまま選べる。
+* ⚡ **ノーコード効果**: 置いて、フォルダーを指定するだけで、アイコンの一覧が付きます。
+
+#### `TCCapture`
+* デスクトップの画面を**取り込んで、ファイルに保存**する（画面なし）。bmp・jpg・png・tif・ico で保存。
+* 範囲は、**デスクトップ全体（複数モニター可）・アクティブなウィンドウ・任意の長方形（x, y, x1, y1）**。
+* `SaveToFile` は、フォルダーがなければ作り、拡張子の形式に変換する。`LoadFromFile` で、画像を読むこともできる。
+* マウスカーソルを含める、取り込む前に待つ（`Delay`）、jpg の画質、にも対応。
 ---
 
 ### 📝 テキスト・コードエディタコンポーネント

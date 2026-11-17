@@ -19,6 +19,9 @@ Author: aotan083 / License: MIT
 | TCSearchBox | The Explorer search box. Press Enter to search a folder by name (contains, wildcard, regular expression) and show the result in TCListView. It works just by connecting it to TCListView and TCTreeView | [Usage](docs/TCSearchBox_Usage.md) | [Design](docs/TCSearchBox_Design.md) |
 | TCFindFile | A non-visual component that searches files and folders by name. It searches in a separate thread and delivers the results little by little. Used by TCSearchBox; it can also be used on its own | [Usage](docs/TCFindFile_Usage.md) | [Design](docs/TCFindFile_Design.md) |
 | TCGrepFile | A non-visual component that searches the files in a folder by the text inside them (grep search). It narrows the files by name (`*.pas;*.lfm`) and searches lines by contains or regular expression. Results are in the form "path(line number): text" and are received with `OnFound` or written to a file. `TagJump` of TCMonacoEditor and TCsEditor jumps to that line | [Usage](docs/TCGrepFile_Usage.md) | [Design](docs/TCGrepFile_Design.md) |
+| TCImage | An image used just like TImage, which handles bmp, jpg, png, svg, tif and ico. It reads and saves by the format of the extension, and can convert the format when saving (bmp to jpg, etc.; svg is read-only) | [Usage](docs/TCImage_Usage.md) | [Design](docs/TCImage_Design.md) |
+| TCImageList | An image list used just like TImageList. Images can be added from image files, a TCImage, or a folder (svg and transparency are supported). It can be used as it is for `Images` of TCPageControl, TCSideBar and others | [Usage](docs/TCImage_Usage.md) | [Design](docs/TCImage_Design.md) |
+| TCCapture | A non-visual component that captures the desktop screen and saves it to an image file. The range is the whole desktop, the active window, or any rectangle. It creates the destination folder if it does not exist | [Usage](docs/TCCapture_Usage.md) | [Design](docs/TCCapture_Design.md) |
 | TCFileTree | Shows folders and files in a single tree rooted at a specified folder (usable like the VS Code Explorer; TCListView is not needed. Just connect it to TCMonacoEditor, TCsEditor, or TCTabBrowser, and you can open files by double-clicking or from the right-click menu) | [Usage](docs/TCFileTree_Usage.md) | [Design](docs/TCFileTree_Design.md) |
 | TCSynEdit | An editor that adds file read/write, color schemes (including VS Code light and dark), syntax coloring by file extension (including Markdown), and a right-click menu to TSynEdit | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
 | TCCheckListBox | A TCheckListBox that allows only one check at a time | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
@@ -197,6 +200,19 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * The search component `TCFindFile` has no screen of its own and can also be used by itself (`OnFound`, `OnFinished`, `FindAll`).
 * ⚡ **No-code effect**: Place it and choose the list, and you get the same search as Explorer.
 
+
+#### `TCImage` / `TCImageList`
+* Used just like `TImage` and `TImageList`, and handles **bmp, jpg (jpeg), png, svg, tif (tiff) and ico**.
+* `SaveToFile` **converts to the format of the destination extension** and creates the folder if it does not exist (bmp to jpg, etc.; svg is read-only).
+* `TCImageList` can add images with `AddFromFile`, `AddFromImage` and `AddFromFolder`. Sizes are fitted keeping the aspect ratio, and transparency is kept.
+* Being a subclass of `TImageList`, it can be chosen as it is for `Images` of `TCPageControl`, `TCSideBar`, `TCExpandPanel` and others.
+* ⚡ **No-code effect**: Place it and specify a folder, and you get a list of icons.
+
+#### `TCCapture`
+* **Captures the desktop screen and saves it to a file** (non-visual). Saves as bmp, jpg, png, tif and ico.
+* The range is **the whole desktop (several monitors are supported), the active window, or any rectangle (x, y, x1, y1)**.
+* `SaveToFile` creates the folder if it does not exist and converts to the format of the extension. `LoadFromFile` can also read an image.
+* It can also include the mouse cursor, wait before capturing (`Delay`), and set the jpg quality.
 ---
 
 ### 📝 Text and code editor components

@@ -30,7 +30,8 @@ uses
   uCSplitter,                                 // TCSplitter
   uCcmd,                                      // TCcmd
   uCAddressBar, uCSearchBox, uCFindFile,      // TCAddressBar・TCSearchBox・TCFindFile
-  uCGrepFile;                                 // TCGrepFile
+  uCGrepFile,                                 // TCGrepFile
+  uCImages, uCCapture;                        // TCImage・TCImageList・TCCapture
 
 
 procedure Register;
@@ -45,7 +46,8 @@ begin
   RegisterComponents('CX', [TCTreeView, TCListView, TCSynEdit, TCTabBrowser,
     TCMonacoEditor, TCMFindDialog, TCCheckListBox, TCGroupBox, TCCheckGroupBox,
     TCsEditor, TCsFindDialog, TCPreview, TCSplitter, TCPairSplitter, TCcmd,
-    TCAddressBar, TCSearchBox, TCFindFile, TCGrepFile]);
+    TCAddressBar, TCSearchBox, TCFindFile, TCGrepFile,
+    TCImage, TCImageList, TCCapture]);
   RegisterNoIcon([TCPairSplitterSide]);          // 側は、境目が自分で作る（パレットには出さない）
 
   // アクションリストエディタの [CX] カテゴリへ、エディタ操作のアクション25個を登録する
@@ -86,6 +88,7 @@ initialization
   {$I cseditor_icon.lrs}         // TCsEditor・TCPreview・TCsFindDialog・TCMFindDialog（A→B の絵）の 24/36/48px
   {$I csplitter_icon.lrs}         // TCSplitter・TCPairSplitter の 24/36/48px
   {$I ccmd_icon.lrs}              // TCcmd の 24/36/48px
+  {$I cimage_icon.lrs}            // TCImage・TCImageList・TCCapture の 24/36/48px
   {$I cnavigation_icon.lrs}       // TCAddressBar・TCSearchBox・TCFindFile・TCGrepFile の 24/36/48px
 
 end.
