@@ -9,6 +9,12 @@ Author: aotan083 / License: MIT
 
 [English Documentation](README.md) | [日本語ドキュメント](README.ja.md)
 
+* Interactive AI Documentation (Q&A Portal): This AI has learned from all 49 design documents and usage guides in this repository.
+* **AI Manual Portal** is now available. You can directly ask the AI ​​questions and search for information about component combinations and property specifications.
+
+[Interactive AI Documentation] (https://notebook.google.com/notebook/56c78d45-c7c5-4f17-9a81-c83314215247)
+
+
 ## Components
 
 | Component | Contents | Usage | Design |
