@@ -1,8 +1,8 @@
 # CXLang (Japanese/English Support) Design Document
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.0
+Date: 2026-11-23
+Version: 1.1
 
 ---
 
@@ -74,7 +74,7 @@ function CXT(AId: TCXStr): string;  // the string that matches CXLanguage
 - No procedure to change the language later is made.
 - When compiled on something other than Windows (for checking tests), the Windows display language is not checked and the language is treated as `en` (`{$IFDEF MSWINDOWS}`).
 
-## 5. String Table (198 Items + 10 Items in L.)
+## 5. String Table (243 Items + 29 Items in M.)
 
 - "Japanese" is the string in the current source, as is. "English" is the newly added string.
 - The `&` in menus and buttons does not overlap within the same menu (the same dialog).
@@ -354,6 +354,43 @@ TCFileTree also uses `sBmUnsaved`, `sBmOpenError`, `sBmFileMissing`, and `sBmNew
 | 241 | `sCapFailed` | 画面を取り込めません | Cannot capture the screen | uCCapture |
 | 242 | `sCapNoFolder` | 保存先のフォルダーを作れません：%s | Cannot create the folder: %s | uCImages・uCCapture |
 | 243 | `sCapEmpty` | 保存する画像がありません | There is no image to save | uCCapture |
+
+**M. TCaiClient**
+
+- The No is the position in the order of `TCXStr` in `uCXLang.pas` (from the item after `sCapEmpty`). For strings used with `Format`, the order and kind of `%` are the same in Japanese and English.
+- `sAiInstrText` and `sAiInstrMD` are sentences sent to the AI as the system instruction. They are not shown on screen.
+
+| No | ID | 日本語 | English | Where used (file) |
+|---|---|---|---|---|
+| 244 | `sAiInstrText` | 回答は、Markdown の記号（#、*、```、表など）を使わない、普通の文章で書いてください。 | Write the answer as plain prose without Markdown syntax (#, *, ```, tables, etc.). | uCaiClient |
+| 245 | `sAiInstrMD` | 回答は、Markdown 形式で書いてください。 | Write the answer in Markdown format. | uCaiClient |
+| 246 | `sAiTestPrompt` | OK とだけ答えてください。 | Reply with just OK. | uCaiClient |
+| 247 | `sAiFileHeader` | --- ファイル: %s --- | --- File: %s --- | uCaiClient |
+| 248 | `sAiErrBusy` | 処理中です | A request is already in progress | uCaiClient |
+| 249 | `sAiErrAITypeBusy` | 処理中のため AIType は変更できません | AIType cannot be changed while a request is in progress | uCaiClient |
+| 250 | `sAiErrInputEmpty` | 質問（AText）と Prompt の両方が空です | Both the question (AText) and Prompt are empty | uCaiClient |
+| 251 | `sAiErrPromptMissing` | Prompt のファイルがありません: %s | Prompt file not found: %s | uCaiClient |
+| 252 | `sAiErrFileMissing` | Files のファイルがありません: %s | Attachment not found: %s | uCaiClient |
+| 253 | `sAiErrFileRead` | ファイルを読めません: %s | Cannot read the file: %s | uCaiClient |
+| 254 | `sAiErrFileType` | この形式は送れません。CSV・PDF にしてください: %s | This file type cannot be sent. Convert it to CSV or PDF: %s | uCaiClient |
+| 255 | `sAiErrFileSize` | 添付の合計が %d MB を超えています | The attachments exceed %d MB in total | uCaiClient |
+| 256 | `sAiErrIniKey` | WebView2.ini [%s] の %s がありません | WebView2.ini [%s] has no %s | uCaiClient |
+| 257 | `sAiErrEnvMissing` | 環境変数 %s がありません（WebView2.ini [%s] ApiKeyEnv） | Environment variable %s is not set (WebView2.ini [%s] ApiKeyEnv) | uCaiClient |
+| 258 | `sAiErrNotSupported` | %s にはまだ対応していません | %s is not supported yet | uCaiClient |
+| 259 | `sAiErrConnect` | 接続できません（WinHTTP %d）: %s | Cannot connect (WinHTTP %d): %s | uCaiClient |
+| 260 | `sAiErrTimeout` | 待ち時間（%d 秒）を過ぎました | Timed out (%d seconds) | uCaiClient |
+| 261 | `sAiErrHttp` | HTTP %d: %s | HTTP %d: %s | uCaiClient |
+| 262 | `sAiErrBlocked` | AI が回答を拒みました: %s | The AI refused to answer: %s | uCaiClient |
+| 263 | `sAiErrParse` | 回答を読み取れません: %s | Cannot read the response: %s | uCaiClient |
+| 264 | `sAiErrCanceled` | 中止しました | Canceled | uCaiClient |
+| 265 | `sAiErrNoText` | 回答の文字がありません（%s） | The response has no text (%s) | uCaiClient |
+| 266 | `sAiMsgStart` | [開始] %s %s | [Start] %s %s | uCaiClient (OnMessage) |
+| 267 | `sAiMsgRetry` | [再送 %d/%d] %s（%d 秒後） | [Retry %d/%d] %s (in %d s) | uCaiClient (OnMessage) |
+| 268 | `sAiMsgDone` | [完了] %.1f 秒 | [Done] %.1f s | uCaiClient (OnMessage) |
+| 269 | `sAiMsgError` | [エラー] %s | [Error] %s | uCaiClient (OnMessage) |
+| 270 | `sAiErrFileAI` | この AI には、この形式は送れません（テキスト・画像だけ）: %s | This AI cannot receive this file type (text and images only): %s | uCaiClient |
+| 271 | `sAiErrOllamaConnect` | Ollama に接続できません。ollama serve が動いているか確かめてください（WinHTTP %d） | Cannot connect to Ollama. Check that ollama serve is running (WinHTTP %d) | uCaiClient |
+| 272 | `sAiHintGateway` | ゲートウェイの待ち時間を過ぎました。入力を短くするか、MaxTokens を小さくするか、別のモデルを試してください | The gateway timed out. Shorten the input, make MaxTokens smaller, or try another model | uCaiClient (added at the end of the error text for HTTP 504) |
 
 ## 6. How Each Unit Is Changed
 

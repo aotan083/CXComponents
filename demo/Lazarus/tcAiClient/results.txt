@@ -1,0 +1,41 @@
+=== TCaiClient test 2026-11-23 14:04:08 ===
+       msg: 2026-11-23 14:04:08 [エラー] 質問（AText）と Prompt の両方が空です
+[OK]   T01 入力が空 : ceInput 質問（AText）と Prompt の両方が空です
+       msg: 2026-11-23 14:04:08 [エラー] Prompt のファイルがありません: C:\app\laz\CXComponents\test\tcAiClient\no_such_prompt.txt
+[OK]   T02 Prompt のファイル無し : ceInput Prompt のファイルがありません: C:\app\laz\CXComponents\test\tcAiClient\no_such_prompt.txt
+       msg: 2026-11-23 14:04:08 [エラー] この形式は送れません。CSV・PDF にしてください: tcAiClient.lpi
+[OK]   T03 送れない形式 : ceFile この形式は送れません。CSV・PDF にしてください: tcAiClient.lpi
+       msg: 2026-11-23 14:04:08 [エラー] Claude にはまだ対応していません
+[OK]   T04 未対応の AI : ceNotSupported Claude にはまだ対応していません
+       msg: 2026-11-23 14:04:08 [エラー] 環境変数 GEMINI_API_KEY がありません（WebView2.ini [CaiGemini] ApiKeyEnv）
+[OK]   T05 環境変数なし : ceSettings 環境変数 GEMINI_API_KEY がありません（WebView2.ini [CaiGemini] ApiKeyEnv）
+       msg: 2026-11-23 14:04:08 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:09 [完了] 0.9 秒
+[OK]   T06 TestConnection : ceNone  ticks=16 1.0s
+[OK]   T07 待つ間も画面が動く : タイマーが 16 回動いた
+       msg: 2026-11-23 14:04:09 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:10 [完了] 1.1 秒
+[OK]   T08 AskAndWaitText : 日本の首都は東京です。東京の人口はおおよそ一千四百万人です。 / 
+       usage: { "promptTokenCount" : 40, "candidatesTokenCount" : 19, "totalTokenCount" : 59, "promptTokensDetails" : [{ "modality" : "TEXT", "tokenCount" : 40 }], "serviceTier" : "standard" }
+       msg: 2026-11-23 14:04:10 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:12 [完了] 2.1 秒
+[OK]   T09 AskAndWaitMD : Pascalの長所を3つ、見出しと箇条書きで紹介します。  ### 1. 高い可読性と教育的設計 * **英語に近い構文:** `begin` や `end` … / 
+       msg: 2026-11-23 14:04:12 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:13 [完了] 1.2 秒
+[OK]   T10 Prompt＋CSV 添付 : ご提示いただいたデータの金額の合計は、りんごが2700円、みかんが1500円となります。 月を合わせた商品ごとの合計で�… / 
+       msg: 2026-11-23 14:04:13 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:15 [完了] 1.2 秒
+[OK]   T11 PNG 添付 : 画像には「AI」というアルファベットが書かれています。 / 
+       msg: 2026-11-23 14:04:15 [開始] Gemini gemini-2.5-flash
+       msg: 2026-11-23 14:04:15 [エラー] HTTP 404: This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://aistudio.google.com/docs/get-started).
+[OK]   T12 使えないモデル（404） : ceHttp 404 0.2s HTTP 404: This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features…
+       msg: 2026-11-23 14:04:15 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:20 [エラー] 待ち時間（1 秒）を過ぎました
+[OK]   T13 タイムアウト : ceTimeout 待ち時間（1 秒）を過ぎました
+       msg: 2026-11-23 14:04:20 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:20 [エラー] 中止しました
+[OK]   T14 Cancel : ceCanceled 0.5s 中止しました
+       msg: 2026-11-23 14:04:20 [開始] Gemini gemini-flash-lite-latest
+       msg: 2026-11-23 14:04:21 [完了] 1.0 秒
+[OK]   T15 処理中の二重呼び出し : 二重=ceBusy 元の回答=はい 
+=== 結果: OK 15 / NG 0 ===

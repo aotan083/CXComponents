@@ -43,6 +43,7 @@
 | TCsEditor・TCsFindDialog | TCSynEdit をタブで複数持つエディタ。使い方は TCMonacoEditor と同じ（検索・置換ダイアログ・ミニマップ・タブの分離を含む）。標準アクション 25 個 | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
 | TCPreview | TCsEditor のプレビュー（Markdown・コード）と印刷（PDF 保存）。エディタとは別の場所に置き、複数のエディタで共有できる | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
 | TCcmd | フォームの中のコマンドプロンプト（cmd.exe・PowerShell・ssh・vi などをエミレート。リダイレクト・パイプが使える。ログ・コマンド履歴のファイル保存、`RunCapture` でコマンドの結果の取得） | [Usage](docs/TCcmd_Usage.md) | [Design](docs/TCcmd_Design.md) |
+| TCaiClient | AI の API を呼ぶ部品（画面なし）。文と添付ファイル（テキスト・CSV・PDF・画像）を送り、回答を文字列で受け取る。`AskAndWaitText`（普通の文章）・`AskAndWaitMD`（Markdown）が、回答が来るまで待って返す（待つ間も画面は固まらない）。混雑・回数制限は自動でやり直す。API キーは環境変数に入れる。Gemini・Ollama（自分の PC で動かす LLM）・ChatGPT・Meta・Claude の 5 つに対応（ChatGPT・Meta・Claude は形式を確認済みで、実サービスでの確認はこれから） | [Usage](docs/TCaiClient_Usage.md) | [Design](docs/TCaiClient_Design.md) |
 | TCBookmark | Firefox のようなブックマーク管理（TCTabBrowser・TCMonacoEditor で開く） | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
 | CXLang（日英切り替え） | すべての部品の画面の文字（メニュー・ボタン・メッセージ）を、日本語と英語で切り替える。WebView2.ini の `[CX]` の `Language` で指定する（使い方は各部品の取扱説明書の 2章） | ― | [Design](docs/CXLang_Design.md) |
 
@@ -121,6 +122,26 @@ Language=
 - 相対パスは EXE のフォルダーから数える。複数のアプリで 1 か所の `monaco`・`preview` を使うこともできる（[TCMonacoEditor の取扱説明書](docs/TCMonacoEditor_Usage.md)）。
 - 実行には Microsoft Edge WebView2 ランタイム（Windows 11 には最初から入っている）が要る。
 - TCsEditor だけなら、実行時のファイルは要らない。TCPreview を使うときだけ置く。
+
+### TCaiClient を使うとき
+
+TCaiClient は WebView2 を使わない（`WebView2Loader.dll`・`monaco\` などは要らない）。EXE と同じフォルダーの `WebView2.ini` に、AI ごとのセクションを書く。通信は Windows の WinHTTP を使うので、DLL は要らない。
+
+```ini
+[CaiClient]
+TimeoutSeconds=120
+RetryCount=2
+RetryWaitSeconds=3
+LogFolder=
+
+[CaiGemini]
+Url=https://generativelanguage.googleapis.com/v1beta/models/%Model%:generateContent
+Model=gemini-3.8-flash
+ApiKeyEnv=GEMINI_API_KEY
+```
+
+- **API キーは ini に書かない**（`WebView2.ini` は GitHub に上がるため）。`ApiKeyEnv` に書いた名前の環境変数に、キーを入れる。環境変数が無いときは `ceSettings` のエラーになり、送信しない。
+- キーの入れ方と、全キーの説明は [TCaiClient の取扱説明書](docs/TCaiClient_Usage.md) の 3 章。
 
 ### 画面の言語（日本語・English）
 
@@ -221,6 +242,15 @@ MIT ライセンス（[LICENSE](LICENSE)）。外部のライブラリのライ�
 * 範囲は、**デスクトップ全体（複数モニター可）・アクティブなウィンドウ・任意の長方形（x, y, x1, y1）**。
 * `SaveToFile` は、フォルダーがなければ作り、拡張子の形式に変換する。`LoadFromFile` で、画像を読むこともできる。
 * マウスカーソルを含める、取り込む前に待つ（`Delay`）、jpg の画質、にも対応。
+
+#### `TCaiClient`
+* **AI の API を呼ぶ**部品（画面なし）。文と添付ファイル（テキスト・CSV・PDF・画像）を送り、回答を文字列で受け取る。
+* `AskAndWaitText`（Markdown の記号を使わない文章）と `AskAndWaitMD`（Markdown）の 2 つだけ。**回答が来るまで戻る**ので、`S := CaiClient1.AskAndWaitMD(Memo1.Text);` のように書ける。待つ間も画面は固まらず、`Cancel` で止められる。
+* 混雑（HTTP 503）・回数制限（429）・通信の失敗は、**自動でやり直す**。待ち時間・やり直す回数は `WebView2.ini` で指定する。
+* API キーは `WebView2.ini` に書かず、**環境変数**に入れる（`ApiKeyEnv`）。通信は Windows の WinHTTP なので、DLL は要らない。
+* `TCMonacoEditor` と組み合わせて、エディタの文を AI に送り、回答をエディタへ入れる、といった使い方ができる。
+* Gemini・Ollama（ローカル LLM。API キーも課金も不要）・ChatGPT・Meta・Claude の 5 つに対応。ChatGPT・Meta・Claude は、Ollama の互換の入口とダミーのサーバーで形式を確認済みで、本物の OpenAI・Meta・Claude での確認はこれから。
+* ⚡ **ノーコード効果**: 置いて ini に URL・モデル・環境変数の名前を書くだけで、AI への質問が 1 行で書けます。
 ---
 
 ### 📝 テキスト・コードエディタコンポーネント

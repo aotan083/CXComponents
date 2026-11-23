@@ -76,7 +76,16 @@ type
     sSbErrNoFolder, sSbErrNoRoot, sLvColFolder, sFfErrEmpty,
     sGrErrEmpty, sGrErrOutput, sGrErrNoResult,
     sImgUnsupported, sImgLoadFailed, sImgSaveFailed, sImgEmpty, sImgSvgWrite,
-    sCapNoWindow, sCapBadRegion, sCapFailed, sCapNoFolder, sCapEmpty
+    sCapNoWindow, sCapBadRegion, sCapFailed, sCapNoFolder, sCapEmpty,
+    { TCaiClient（AI の API 呼び出し） }
+    sAiInstrText, sAiInstrMD, sAiTestPrompt, sAiFileHeader,
+    sAiErrBusy, sAiErrAITypeBusy, sAiErrInputEmpty, sAiErrPromptMissing,
+    sAiErrFileMissing, sAiErrFileRead, sAiErrFileType, sAiErrFileSize,
+    sAiErrIniKey, sAiErrEnvMissing, sAiErrNotSupported, sAiErrConnect,
+    sAiErrTimeout, sAiErrHttp, sAiErrBlocked, sAiErrParse,
+    sAiErrCanceled, sAiErrNoText,
+    sAiMsgStart, sAiMsgRetry, sAiMsgDone, sAiMsgError,
+    sAiErrFileAI, sAiErrOllamaConnect, sAiHintGateway
   );
 
 { 今の言語。最初に呼ばれたとき決め、あとは同じ値を返す }
@@ -631,7 +640,73 @@ const
     (Ja: '保存先のフォルダーを作れません：%s';
      En: 'Cannot create the folder: %s'),
     (Ja: '保存する画像がありません';
-     En: 'There is no image to save')
+     En: 'There is no image to save'),
+    { TCaiClient：AI への回答の形の指示（AskAndWaitText・AskAndWaitMD） }
+    (Ja: '回答は、Markdown の記号（#、*、```、表など）を使わない、普通の文章で書いてください。';
+     En: 'Write the answer as plain prose without Markdown syntax (#, *, ```, tables, etc.).'),
+    (Ja: '回答は、Markdown 形式で書いてください。';
+     En: 'Write the answer in Markdown format.'),
+    { TCaiClient：TestConnection で送る文 }
+    (Ja: 'OK とだけ答えてください。';
+     En: 'Reply with just OK.'),
+    { TCaiClient：テキストの添付を本文につなぐときの見出し }
+    (Ja: '--- ファイル: %s ---';
+     En: '--- File: %s ---'),
+    { TCaiClient：エラー }
+    (Ja: '処理中です';
+     En: 'A request is already in progress'),
+    (Ja: '処理中のため AIType は変更できません';
+     En: 'AIType cannot be changed while a request is in progress'),
+    (Ja: '質問（AText）と Prompt の両方が空です';
+     En: 'Both the question (AText) and Prompt are empty'),
+    (Ja: 'Prompt のファイルがありません: %s';
+     En: 'Prompt file not found: %s'),
+    (Ja: 'Files のファイルがありません: %s';
+     En: 'Attachment not found: %s'),
+    (Ja: 'ファイルを読めません: %s';
+     En: 'Cannot read the file: %s'),
+    (Ja: 'この形式は送れません。CSV・PDF にしてください: %s';
+     En: 'This file type cannot be sent. Convert it to CSV or PDF: %s'),
+    (Ja: '添付の合計が %d MB を超えています';
+     En: 'The attachments exceed %d MB in total'),
+    (Ja: 'WebView2.ini [%s] の %s がありません';
+     En: 'WebView2.ini [%s] has no %s'),
+    (Ja: '環境変数 %s がありません（WebView2.ini [%s] ApiKeyEnv）';
+     En: 'Environment variable %s is not set (WebView2.ini [%s] ApiKeyEnv)'),
+    (Ja: '%s にはまだ対応していません';
+     En: '%s is not supported yet'),
+    (Ja: '接続できません（WinHTTP %d）: %s';
+     En: 'Cannot connect (WinHTTP %d): %s'),
+    (Ja: '待ち時間（%d 秒）を過ぎました';
+     En: 'Timed out (%d seconds)'),
+    (Ja: 'HTTP %d: %s';
+     En: 'HTTP %d: %s'),
+    (Ja: 'AI が回答を拒みました: %s';
+     En: 'The AI refused to answer: %s'),
+    (Ja: '回答を読み取れません: %s';
+     En: 'Cannot read the response: %s'),
+    (Ja: '中止しました';
+     En: 'Canceled'),
+    (Ja: '回答の文字がありません（%s）';
+     En: 'The response has no text (%s)'),
+    { TCaiClient：OnMessage で知らせる文 }
+    (Ja: '[開始] %s %s';
+     En: '[Start] %s %s'),
+    (Ja: '[再送 %d/%d] %s（%d 秒後）';
+     En: '[Retry %d/%d] %s (in %d s)'),
+    (Ja: '[完了] %.1f 秒';
+     En: '[Done] %.1f s'),
+    (Ja: '[エラー] %s';
+     En: '[Error] %s'),
+    { TCaiClient：この AI には送れない添付（Ollama は PDF を受けない など） }
+    (Ja: 'この AI には、この形式は送れません（テキスト・画像だけ）: %s';
+     En: 'This AI cannot receive this file type (text and images only): %s'),
+    { TCaiClient：Ollama に接続できないとき }
+    (Ja: 'Ollama に接続できません。ollama serve が動いているか確かめてください（WinHTTP %d）';
+     En: 'Cannot connect to Ollama. Check that ollama serve is running (WinHTTP %d)'),
+    { TCaiClient：HTTP 504（ゲートウェイの待ち時間切れ）のとき、エラーの文の最後に添える対処 }
+    (Ja: 'ゲートウェイの待ち時間を過ぎました。入力を短くするか、MaxTokens を小さくするか、別のモデルを試してください';
+     En: 'The gateway timed out. Shorten the input, make MaxTokens smaller, or try another model')
   );
 
 var

@@ -1,8 +1,8 @@
 # CXLang（日英対応）設計書
 
 作者: aotan083
-日付: 2026-11-04
-版: 1.0
+日付: 2026-11-23
+版: 1.1
 
 ---
 
@@ -74,7 +74,7 @@ function CXT(AId: TCXStr): string;  // CXLanguage に合う文字列
 - 言語を後から変える手続きは作らない。
 - Windows 以外でコンパイルしたとき（確認用のテスト）は、Windows の表示言語の判定を行わず、`en` として扱う（`{$IFDEF MSWINDOWS}`）。
 
-## 5. 文字列の表（198 項目＋ L の 10 項目）
+## 5. 文字列の表（243 項目＋ M の 29 項目）
 
 - 「日本語」は今のソースの文字列そのまま。「English」が新しく付ける文字列。
 - メニュー・ボタンの `&` は、同じメニュー（同じダイアログ）の中で重ならないようにしてある。
@@ -354,6 +354,43 @@ TCFileTree は、このほかに、TCBookmark の `sBmUnsaved`・`sBmOpenError`�
 | 241 | `sCapFailed` | 画面を取り込めません | Cannot capture the screen | uCCapture |
 | 242 | `sCapNoFolder` | 保存先のフォルダーを作れません：%s | Cannot create the folder: %s | uCImages・uCCapture |
 | 243 | `sCapEmpty` | 保存する画像がありません | There is no image to save | uCCapture |
+
+**M. TCaiClient**
+
+- No は、`uCXLang.pas` の `TCXStr` の並びの位置（`sCapEmpty` の次から）。`Format` を使う文字列は、日本語と English で `%` の並びと種類を同じにしてある。
+- `sAiInstrText`・`sAiInstrMD` は、AI への指示文（システム指示）として送る文。画面には出ない。
+
+| No | ID | 日本語 | English | 使う場所（ファイル） |
+|---|---|---|---|---|
+| 244 | `sAiInstrText` | 回答は、Markdown の記号（#、*、```、表など）を使わない、普通の文章で書いてください。 | Write the answer as plain prose without Markdown syntax (#, *, ```, tables, etc.). | uCaiClient |
+| 245 | `sAiInstrMD` | 回答は、Markdown 形式で書いてください。 | Write the answer in Markdown format. | uCaiClient |
+| 246 | `sAiTestPrompt` | OK とだけ答えてください。 | Reply with just OK. | uCaiClient |
+| 247 | `sAiFileHeader` | --- ファイル: %s --- | --- File: %s --- | uCaiClient |
+| 248 | `sAiErrBusy` | 処理中です | A request is already in progress | uCaiClient |
+| 249 | `sAiErrAITypeBusy` | 処理中のため AIType は変更できません | AIType cannot be changed while a request is in progress | uCaiClient |
+| 250 | `sAiErrInputEmpty` | 質問（AText）と Prompt の両方が空です | Both the question (AText) and Prompt are empty | uCaiClient |
+| 251 | `sAiErrPromptMissing` | Prompt のファイルがありません: %s | Prompt file not found: %s | uCaiClient |
+| 252 | `sAiErrFileMissing` | Files のファイルがありません: %s | Attachment not found: %s | uCaiClient |
+| 253 | `sAiErrFileRead` | ファイルを読めません: %s | Cannot read the file: %s | uCaiClient |
+| 254 | `sAiErrFileType` | この形式は送れません。CSV・PDF にしてください: %s | This file type cannot be sent. Convert it to CSV or PDF: %s | uCaiClient |
+| 255 | `sAiErrFileSize` | 添付の合計が %d MB を超えています | The attachments exceed %d MB in total | uCaiClient |
+| 256 | `sAiErrIniKey` | WebView2.ini [%s] の %s がありません | WebView2.ini [%s] has no %s | uCaiClient |
+| 257 | `sAiErrEnvMissing` | 環境変数 %s がありません（WebView2.ini [%s] ApiKeyEnv） | Environment variable %s is not set (WebView2.ini [%s] ApiKeyEnv) | uCaiClient |
+| 258 | `sAiErrNotSupported` | %s にはまだ対応していません | %s is not supported yet | uCaiClient |
+| 259 | `sAiErrConnect` | 接続できません（WinHTTP %d）: %s | Cannot connect (WinHTTP %d): %s | uCaiClient |
+| 260 | `sAiErrTimeout` | 待ち時間（%d 秒）を過ぎました | Timed out (%d seconds) | uCaiClient |
+| 261 | `sAiErrHttp` | HTTP %d: %s | HTTP %d: %s | uCaiClient |
+| 262 | `sAiErrBlocked` | AI が回答を拒みました: %s | The AI refused to answer: %s | uCaiClient |
+| 263 | `sAiErrParse` | 回答を読み取れません: %s | Cannot read the response: %s | uCaiClient |
+| 264 | `sAiErrCanceled` | 中止しました | Canceled | uCaiClient |
+| 265 | `sAiErrNoText` | 回答の文字がありません（%s） | The response has no text (%s) | uCaiClient |
+| 266 | `sAiMsgStart` | [開始] %s %s | [Start] %s %s | uCaiClient（OnMessage） |
+| 267 | `sAiMsgRetry` | [再送 %d/%d] %s（%d 秒後） | [Retry %d/%d] %s (in %d s) | uCaiClient（OnMessage） |
+| 268 | `sAiMsgDone` | [完了] %.1f 秒 | [Done] %.1f s | uCaiClient（OnMessage） |
+| 269 | `sAiMsgError` | [エラー] %s | [Error] %s | uCaiClient（OnMessage） |
+| 270 | `sAiErrFileAI` | この AI には、この形式は送れません（テキスト・画像だけ）: %s | This AI cannot receive this file type (text and images only): %s | uCaiClient |
+| 271 | `sAiErrOllamaConnect` | Ollama に接続できません。ollama serve が動いているか確かめてください（WinHTTP %d） | Cannot connect to Ollama. Check that ollama serve is running (WinHTTP %d) | uCaiClient |
+| 272 | `sAiHintGateway` | ゲートウェイの待ち時間を過ぎました。入力を短くするか、MaxTokens を小さくするか、別のモデルを試してください | The gateway timed out. Shorten the input, make MaxTokens smaller, or try another model | uCaiClient（HTTP 504 のとき、エラーの文の最後に添える） |
 
 ## 6. 各ユニットの直し方
 

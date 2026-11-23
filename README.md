@@ -19,31 +19,32 @@ Author: aotan083 / License: MIT
 
 | Component | Contents | Usage | Design |
 |---|---|---|---|
-| TCTreeView | The same folder tree as the left side of Explorer | [Usage](docs/TCTreeView_Usage.md) | [Design](docs/TCTreeView_Design.md) |
-| TCListView | The same file list as the right side of Explorer | [Usage](docs/TCListView_Usage.md) | [Design](docs/TCListView_Design.md) |
-| TCAddressBar | The Explorer address bar (breadcrumbs, a ">" list of the folders below, typing a path, back / forward / up / refresh, recent locations). It works just by connecting it to TCListView and TCTreeView | [Usage](docs/TCAddressBar_Usage.md) | [Design](docs/TCAddressBar_Design.md) |
-| TCSearchBox | The Explorer search box. Press Enter to search a folder by name (contains, wildcard, regular expression) and show the result in TCListView. It works just by connecting it to TCListView and TCTreeView | [Usage](docs/TCSearchBox_Usage.md) | [Design](docs/TCSearchBox_Design.md) |
-| TCFindFile | A non-visual component that searches files and folders by name. It searches in a separate thread and delivers the results little by little. Used by TCSearchBox; it can also be used on its own | [Usage](docs/TCFindFile_Usage.md) | [Design](docs/TCFindFile_Design.md) |
-| TCGrepFile | A non-visual component that searches the files in a folder by the text inside them (grep search). It narrows the files by name (`*.pas;*.lfm`) and searches lines by contains or regular expression. Results are in the form "path(line number): text" and are received with `OnFound` or written to a file. `TagJump` of TCMonacoEditor and TCsEditor jumps to that line | [Usage](docs/TCGrepFile_Usage.md) | [Design](docs/TCGrepFile_Design.md) |
-| TCImage | An image used just like TImage, which handles bmp, jpg, png, svg, tif and ico. It reads and saves by the format of the extension, and can convert the format when saving (bmp to jpg, etc.; svg is read-only) | [Usage](docs/TCImage_Usage.md) | [Design](docs/TCImage_Design.md) |
-| TCImageList | An image list used just like TImageList. Images can be added from image files, a TCImage, or a folder (svg and transparency are supported). It can be used as it is for `Images` of TCPageControl, TCSideBar and others | [Usage](docs/TCImage_Usage.md) | [Design](docs/TCImage_Design.md) |
-| TCCapture | A non-visual component that captures the desktop screen and saves it to an image file. The range is the whole desktop, the active window, or any rectangle. It creates the destination folder if it does not exist | [Usage](docs/TCCapture_Usage.md) | [Design](docs/TCCapture_Design.md) |
-| TCFileTree | Shows folders and files in a single tree rooted at a specified folder (usable like the VS Code Explorer; TCListView is not needed. Just connect it to TCMonacoEditor, TCsEditor, or TCTabBrowser, and you can open files by double-clicking or from the right-click menu) | [Usage](docs/TCFileTree_Usage.md) | [Design](docs/TCFileTree_Design.md) |
-| TCSynEdit | An editor that adds file read/write, color schemes (including VS Code light and dark), syntax coloring by file extension (including Markdown), and a right-click menu to TSynEdit | [Usage](docs/TCSynEdit_Usage.md) | [Design](docs/TCSynEdit_Design.md) |
-| TCCheckListBox | A TCheckListBox that allows only one check at a time | [Usage](docs/TCCheckListBox_Usage.md) | [Design](docs/TCCheckListBox_Design.md) |
-| TCGroupBox / TCCheckGroupBox | A group box whose child controls do not disappear, and a group box with a checkbox in its caption | [Usage](docs/TCGroupBox_Usage.md) | [Design](docs/TCGroupBox_Design.md) |
-| TCSideBar | An icon column like Edge's and a panel that opens and closes | [Usage](docs/TCSideBar_Usage.md) | [Design](docs/TCSideBar_Design.md) |
-| TCExpandPanel / TCRollout | Expandable panels with title bars, like the VS Code Explorer (top, bottom, left, right; multiple panels can be stacked; animation; buttons and a menu on the right side; resize panels by dragging the boundary) | [Usage](docs/TCExpandPanel_Usage.md) | [Design](docs/TCExpandPanel_Design.md) |
-| TCSplitter | A splitter that shows a blue line on hover and while dragging (used like TSplitter; the color and cursor can be set) | [Usage](docs/TCSplitter_Usage.md) | [Design](docs/TCSplitter_Design.md) |
-| TCPairSplitter | A TPairSplitter-style splitter with two sides, where each side can be hidden or shown (hiding one makes the other fill the whole area; showing it restores both). A blue line appears on mouse over and while dragging, and the splitter can also be dragged at design time | [Usage](docs/TCPairSplitter_Usage.md) | [Design](docs/TCPairSplitter_Design.md) |
-| TCPageControl / TCTitleBar | Browser-style tabs, and a title bar where tabs can be arranged | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
-| TCTabBrowser | A tabbed web browser using WebView2 | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
-| TCMonacoEditor / TCMFindDialog | An editor based on WebView2 and Monaco Editor (with built-in tabs, preview, search, and printing), and 25 standard actions | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
-| TCsEditor / TCsFindDialog | An editor that holds multiple TCSynEdit instances in tabs. Usage is the same as TCMonacoEditor (including search and replace dialogs, minimap, and detachable tabs). 25 standard actions | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
-| TCPreview | Preview (Markdown and code) and printing (save as PDF) for TCsEditor. Placed separately from the editor, and can be shared by multiple editors | [Usage](docs/TCPreview_Usage.md) | [Design](docs/TCPreview_Design.md) |
-| TCcmd | A command prompt in a form (cmd.exe, PowerShell, ssh, vi, etc. run on ConPTY; screen drawn by xterm.js; redirection and pipes work; log and command history files; `RunCapture` returns the result of a command) | [Usage](docs/TCcmd_Usage.md) | [Design](docs/TCcmd_Design.md) |
-| TCBookmark | Bookmark management like Firefox's (opens links in TCTabBrowser or TCMonacoEditor) | [Usage](docs/TCBookmark_Usage.md) | [Design](docs/TCBookmark_Design.md) |
-| CXLang (Japanese/English switching) | Switches all on-screen text of every component (menus, buttons, messages) between Japanese and English. Specified by `Language` in `[CX]` of WebView2.ini (see Chapter 2 of each component's Usage document) | ― | [Design](docs/CXLang_Design.md) |
+| TCTreeView | The same folder tree as the left side of Explorer | [Usage](docs/en/TCTreeView_Usage.md) | [Design](docs/en/TCTreeView_Design.md) |
+| TCListView | The same file list as the right side of Explorer | [Usage](docs/en/TCListView_Usage.md) | [Design](docs/en/TCListView_Design.md) |
+| TCAddressBar | The Explorer address bar (breadcrumbs, a ">" list of the folders below, typing a path, back / forward / up / refresh, recent locations). It works just by connecting it to TCListView and TCTreeView | [Usage](docs/en/TCAddressBar_Usage.md) | [Design](docs/en/TCAddressBar_Design.md) |
+| TCSearchBox | The Explorer search box. Press Enter to search a folder by name (contains, wildcard, regular expression) and show the result in TCListView. It works just by connecting it to TCListView and TCTreeView | [Usage](docs/en/TCSearchBox_Usage.md) | [Design](docs/en/TCSearchBox_Design.md) |
+| TCFindFile | A non-visual component that searches files and folders by name. It searches in a separate thread and delivers the results little by little. Used by TCSearchBox; it can also be used on its own | [Usage](docs/en/TCFindFile_Usage.md) | [Design](docs/en/TCFindFile_Design.md) |
+| TCGrepFile | A non-visual component that searches the files in a folder by the text inside them (grep search). It narrows the files by name (`*.pas;*.lfm`) and searches lines by contains or regular expression. Results are in the form "path(line number): text" and are received with `OnFound` or written to a file. `TagJump` of TCMonacoEditor and TCsEditor jumps to that line | [Usage](docs/en/TCGrepFile_Usage.md) | [Design](docs/en/TCGrepFile_Design.md) |
+| TCImage | An image used just like TImage, which handles bmp, jpg, png, svg, tif and ico. It reads and saves by the format of the extension, and can convert the format when saving (bmp to jpg, etc.; svg is read-only) | [Usage](docs/en/TCImage_Usage.md) | [Design](docs/en/TCImage_Design.md) |
+| TCImageList | An image list used just like TImageList. Images can be added from image files, a TCImage, or a folder (svg and transparency are supported). It can be used as it is for `Images` of TCPageControl, TCSideBar and others | [Usage](docs/en/TCImage_Usage.md) | [Design](docs/en/TCImage_Design.md) |
+| TCCapture | A non-visual component that captures the desktop screen and saves it to an image file. The range is the whole desktop, the active window, or any rectangle. It creates the destination folder if it does not exist | [Usage](docs/en/TCCapture_Usage.md) | [Design](docs/en/TCCapture_Design.md) |
+| TCFileTree | Shows folders and files in a single tree rooted at a specified folder (usable like the VS Code Explorer; TCListView is not needed. Just connect it to TCMonacoEditor, TCsEditor, or TCTabBrowser, and you can open files by double-clicking or from the right-click menu) | [Usage](docs/en/TCFileTree_Usage.md) | [Design](docs/en/TCFileTree_Design.md) |
+| TCSynEdit | An editor that adds file read/write, color schemes (including VS Code light and dark), syntax coloring by file extension (including Markdown), and a right-click menu to TSynEdit | [Usage](docs/en/TCSynEdit_Usage.md) | [Design](docs/en/TCSynEdit_Design.md) |
+| TCCheckListBox | A TCheckListBox that allows only one check at a time | [Usage](docs/en/TCCheckListBox_Usage.md) | [Design](docs/en/TCCheckListBox_Design.md) |
+| TCGroupBox / TCCheckGroupBox | A group box whose child controls do not disappear, and a group box with a checkbox in its caption | [Usage](docs/en/TCGroupBox_Usage.md) | [Design](docs/en/TCGroupBox_Design.md) |
+| TCSideBar | An icon column like Edge's and a panel that opens and closes | [Usage](docs/en/TCSideBar_Usage.md) | [Design](docs/en/TCSideBar_Design.md) |
+| TCExpandPanel / TCRollout | Expandable panels with title bars, like the VS Code Explorer (top, bottom, left, right; multiple panels can be stacked; animation; buttons and a menu on the right side; resize panels by dragging the boundary) | [Usage](docs/en/TCExpandPanel_Usage.md) | [Design](docs/en/TCExpandPanel_Design.md) |
+| TCSplitter | A splitter that shows a blue line on hover and while dragging (used like TSplitter; the color and cursor can be set) | [Usage](docs/en/TCSplitter_Usage.md) | [Design](docs/en/TCSplitter_Design.md) |
+| TCPairSplitter | A TPairSplitter-style splitter with two sides, where each side can be hidden or shown (hiding one makes the other fill the whole area; showing it restores both). A blue line appears on mouse over and while dragging, and the splitter can also be dragged at design time | [Usage](docs/en/TCPairSplitter_Usage.md) | [Design](docs/en/TCPairSplitter_Design.md) |
+| TCPageControl / TCTitleBar | Browser-style tabs, and a title bar where tabs can be arranged | [Usage](docs/en/TCPageControl_Usage.md) | [Design](docs/en/TCPageControl_Design.md) |
+| TCTabBrowser | A tabbed web browser using WebView2 | [Usage](docs/en/TCTabBrowser_Usage.md) | [Design](docs/en/TCTabBrowser_Design.md) |
+| TCMonacoEditor / TCMFindDialog | An editor based on WebView2 and Monaco Editor (with built-in tabs, preview, search, and printing), and 25 standard actions | [Usage](docs/en/TCMonacoEditor_Usage.md) | [Design](docs/en/TCMonacoEditor_Design.md) |
+| TCsEditor / TCsFindDialog | An editor that holds multiple TCSynEdit instances in tabs. Usage is the same as TCMonacoEditor (including search and replace dialogs, minimap, and detachable tabs). 25 standard actions | [Usage](docs/en/TCsEditor_Usage.md) | [Design](docs/en/TCsEditor_Design.md) |
+| TCPreview | Preview (Markdown and code) and printing (save as PDF) for TCsEditor. Placed separately from the editor, and can be shared by multiple editors | [Usage](docs/en/TCPreview_Usage.md) | [Design](docs/en/TCPreview_Design.md) |
+| TCcmd | A command prompt in a form (cmd.exe, PowerShell, ssh, vi, etc. run on ConPTY; screen drawn by xterm.js; redirection and pipes work; log and command history files; `RunCapture` returns the result of a command) | [Usage](docs/en/TCcmd_Usage.md) | [Design](docs/en/TCcmd_Design.md) |
+| TCaiClient | A non-visual component that calls an AI API. It sends text and attached files (text, CSV, PDF, images) and receives the answer as a string. `AskAndWaitText` (plain prose) and `AskAndWaitMD` (Markdown) wait for the answer and return it (the screen does not freeze while waiting). Congestion and rate limiting are retried automatically. The API key is kept in an environment variable. Five AIs are supported: Gemini, Ollama (an LLM that runs on your own PC), ChatGPT, Meta, and Claude (the formats of ChatGPT, Meta, and Claude are checked, but checking on the real services is still to come) | [Usage](docs/en/TCaiClient_Usage.md) | [Design](docs/en/TCaiClient_Design.md) |
+| TCBookmark | Bookmark management like Firefox's (opens links in TCTabBrowser or TCMonacoEditor) | [Usage](docs/en/TCBookmark_Usage.md) | [Design](docs/en/TCBookmark_Design.md) |
+| CXLang (Japanese/English switching) | Switches all on-screen text of every component (menus, buttons, messages) between Japanese and English. Specified by `Language` in `[CX]` of WebView2.ini (see Chapter 2 of each component's Usage document) | ― | [Design](docs/en/CXLang_Design.md) |
 
 ---
 All components appear in the palette [CX].
@@ -117,9 +118,29 @@ Language=
 | `Language` (`[CX]`) | Display language `ja` or `en` | Windows display language (`ja` if Japanese, otherwise `en`) |
 
 - A `%name%` written in a value is replaced by a key of the same `[WebView2]` section, or else by a Windows environment variable. For example, write `CXROOT=C:\CX\runtime` and then `TerminalFolder=%CXROOT%\terminal`. A name that is not found is left as it is.
-- Relative paths are counted from the EXE's folder. Multiple applications can share one `monaco` and `preview` folder (see the [TCMonacoEditor Usage document](docs/TCMonacoEditor_Usage.md)).
+- Relative paths are counted from the EXE's folder. Multiple applications can share one `monaco` and `preview` folder (see the [TCMonacoEditor Usage document](docs/en/TCMonacoEditor_Usage.md)).
 - Running requires the Microsoft Edge WebView2 Runtime (already included in Windows 11).
 - If you use only TCsEditor, the runtime files are not needed. Place them only when using TCPreview.
+
+### When using TCaiClient
+
+TCaiClient does not use WebView2 (`WebView2Loader.dll`, `monaco\`, and so on are not needed). Write a section for each AI in `WebView2.ini` in the same folder as the EXE. Communication uses Windows WinHTTP, so no DLL is needed.
+
+```ini
+[CaiClient]
+TimeoutSeconds=120
+RetryCount=2
+RetryWaitSeconds=3
+LogFolder=
+
+[CaiGemini]
+Url=https://generativelanguage.googleapis.com/v1beta/models/%Model%:generateContent
+Model=gemini-3.8-flash
+ApiKeyEnv=GEMINI_API_KEY
+```
+
+- **Do not write the API key in the ini** (because `WebView2.ini` is uploaded to GitHub). Put the key in the environment variable whose name is written in `ApiKeyEnv`. If the environment variable does not exist, the result is a `ceSettings` error and nothing is sent.
+- How to set the key and an explanation of every key are in Chapter 3 of the [TCaiClient User Manual](docs/en/TCaiClient_Usage.md).
 
 ### Display language (Japanese / English)
 
@@ -131,7 +152,7 @@ Language=en
 ```
 
 - Even for applications that do not use WebView2, place `WebView2.ini` when specifying the language (only `[CX]` needs to be written).
-- It is read only once, when text is first displayed after startup. For details, see Chapter 2 of each component's Usage document and the [CXLang Design document](docs/CXLang_Design.md).
+- It is read only once, when text is first displayed after startup. For details, see Chapter 2 of each component's Usage document and the [CXLang Design document](docs/en/CXLang_Design.md).
 
 ## License
 
@@ -219,6 +240,15 @@ In traditional Lazarus development, to implement Explorer-equivalent file operat
 * The range is **the whole desktop (several monitors are supported), the active window, or any rectangle (x, y, x1, y1)**.
 * `SaveToFile` creates the folder if it does not exist and converts to the format of the extension. `LoadFromFile` can also read an image.
 * It can also include the mouse cursor, wait before capturing (`Delay`), and set the jpg quality.
+
+#### `TCaiClient`
+* A component that **calls an AI API** (non-visual). It sends text and attached files (text, CSV, PDF, images) and receives the answer as a string.
+* Only two methods: `AskAndWaitText` (plain prose without Markdown syntax) and `AskAndWaitMD` (Markdown). They **return when the answer arrives**, so you can write `S := CaiClient1.AskAndWaitMD(Memo1.Text);`. The screen does not freeze while waiting, and `Cancel` can stop it.
+* Congestion (HTTP 503), rate limiting (429), and communication failures are **retried automatically**. The wait time and the number of retries are specified in `WebView2.ini`.
+* The API key is not written in `WebView2.ini`; it is kept in an **environment variable** (`ApiKeyEnv`). Communication uses Windows WinHTTP, so no DLL is needed.
+* Combined with `TCMonacoEditor`, you can send the text of the editor to an AI and put the answer back into the editor.
+* Five AIs are supported: Gemini, Ollama (local LLM; no API key and no payment needed), ChatGPT, Meta, and Claude. The formats of ChatGPT, Meta, and Claude were checked with Ollama's compatible entrances and a dummy server; checking on the real OpenAI, Meta, and Claude is still to come.
+* ⚡ **No-code effect**: Place it and write the URL, model, and environment variable name in the ini, and asking an AI takes one line.
 ---
 
 ### 📝 Text and code editor components

@@ -4,7 +4,7 @@
 { uCXReg
   CX パレットの設計時用ユニット（設計時パッケージ cxdsgn に入れる）。
   ・コンポーネントパレット [CX] へ部品を登録する：TCTreeView・TCListView・TCSynEdit・TCTabBrowser・
-    TCMonacoEditor・TCMFindDialog・TCCheckListBox・TCGroupBox・TCCheckGroupBox・TCsEditor・TCsFindDialog・TCPreview・TCSplitter・TCPairSplitter・TCcmd・TCAddressBar・TCSearchBox・TCFindFile・TCGrepFile
+    TCMonacoEditor・TCMFindDialog・TCCheckListBox・TCGroupBox・TCCheckGroupBox・TCsEditor・TCsFindDialog・TCPreview・TCSplitter・TCPairSplitter・TCcmd・TCAddressBar・TCSearchBox・TCFindFile・TCGrepFile・TCaiClient
     （TCSideBar は uCSideBarReg、TCPageControl・TCTitleBar は uCPageControl_reg、
       TCBookmark は uCbookmark_reg が登録する）
   ・アクションリストエディタの [CX] カテゴリへ、TCMonacoEditor 用のアクション（25 個）を登録する
@@ -31,7 +31,8 @@ uses
   uCcmd,                                      // TCcmd
   uCAddressBar, uCSearchBox, uCFindFile,      // TCAddressBar・TCSearchBox・TCFindFile
   uCGrepFile,                                 // TCGrepFile
-  uCImages, uCCapture;                        // TCImage・TCImageList・TCCapture
+  uCImages, uCCapture,                        // TCImage・TCImageList・TCCapture
+  uCaiClient;                                 // TCaiClient
 
 
 procedure Register;
@@ -47,7 +48,7 @@ begin
     TCMonacoEditor, TCMFindDialog, TCCheckListBox, TCGroupBox, TCCheckGroupBox,
     TCsEditor, TCsFindDialog, TCPreview, TCSplitter, TCPairSplitter, TCcmd,
     TCAddressBar, TCSearchBox, TCFindFile, TCGrepFile,
-    TCImage, TCImageList, TCCapture]);
+    TCImage, TCImageList, TCCapture, TCaiClient]);
   RegisterNoIcon([TCPairSplitterSide]);          // 側は、境目が自分で作る（パレットには出さない）
 
   // アクションリストエディタの [CX] カテゴリへ、エディタ操作のアクション25個を登録する
@@ -90,5 +91,6 @@ initialization
   {$I ccmd_icon.lrs}              // TCcmd の 24/36/48px
   {$I cimage_icon.lrs}            // TCImage・TCImageList・TCCapture の 24/36/48px
   {$I cnavigation_icon.lrs}       // TCAddressBar・TCSearchBox・TCFindFile・TCGrepFile の 24/36/48px
+  {$I caiclient_icon.lrs}         // TCaiClient の 24/36/48px
 
 end.
