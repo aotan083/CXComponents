@@ -38,6 +38,7 @@
 | TCSplitter | マウスを乗せたとき・ドラッグ中に青い線が出る分割線（TSplitter と同じ使い方。色・カーソルを指定できる） | [Usage](docs/TCSplitter_Usage.md) | [Design](docs/TCSplitter_Design.md) |
 | TCPairSplitter | 2 つの側を持つ TPairSplitter と同じ使い方の分割線。側ごとに隠す・出すことができる（片方を隠すともう片方が全体に広がり、出すと元に戻る）。マウスを乗せたとき・ドラッグ中に青い線が出る。設計時も境目をドラッグできる | [Usage](docs/TCPairSplitter_Usage.md) | [Design](docs/TCPairSplitter_Design.md) |
 | TCPageControl・TCTitleBar | ブラウザのようなタブと、タブを並べられるタイトルバー | [Usage](docs/TCPageControl_Usage.md) | [Design](docs/TCPageControl_Design.md) |
+| TCTabBar | ページを持たない、タブ列だけの部品（エディタのタブなど。画面の切り替えはアプリが行う） | [Usage](docs/TCTabBar_Usage.md) | [Design](docs/TCTabBar_Design.md) |
 | TCTabBrowser | WebView2 を使ったタブ付きの Web ブラウザ | [Usage](docs/TCTabBrowser_Usage.md) | [Design](docs/TCTabBrowser_Design.md) |
 | TCMonacoEditor・TCMFindDialog | WebView2 と Monaco Editor によるエディタ（タブ・プレビュー・検索・印刷を内蔵）と、標準アクション 25 個 | [Usage](docs/TCMonacoEditor_Usage.md) | [Design](docs/TCMonacoEditor_Design.md) |
 | TCsEditor・TCsFindDialog | TCSynEdit をタブで複数持つエディタ。使い方は TCMonacoEditor と同じ（検索・置換ダイアログ・ミニマップ・タブの分離を含む）。標準アクション 25 個 | [Usage](docs/TCsEditor_Usage.md) | [Design](docs/TCsEditor_Design.md) |
@@ -56,7 +57,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 5.0 以降（TCSynEdit・TCsEditor・TCPreview）。ほかの部品は 4.8 でも動く |
+| Lazarus | 5.0 以降（4.8 以前は対象外） |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 
@@ -76,7 +77,6 @@
 
 1. 先に、次のパッケージを Lazarus に入れる。
    - WebView4Delphi の Lazarus 用パッケージ（https://github.com/salvadordf/WebView4Delphi）
-   - ATFlatControls（`atflatcontrols_package`。オンラインパッケージマネージャーから入れる）
    - SynEdit は Lazarus に最初から入っている
 2. `packages\cx.lpk` を開き、「コンパイル」する。
 3. `packages\cxdsgn.lpk` を開き、「インストール」する（IDE が作り直される）。

@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 - With the standard TGroupBox (a native Windows control), standard controls placed inside it can disappear. To eliminate this, TCGroupBox is built on the LCL-drawn `TCustomPanel` and draws its own frame and caption. Its appearance, properties and events match TGroupBox.

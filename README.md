@@ -37,6 +37,7 @@ Author: aotan083 / License: MIT
 | TCSplitter | A splitter that shows a blue line on hover and while dragging (used like TSplitter; the color and cursor can be set) | [Usage](docs/en/TCSplitter_Usage.md) | [Design](docs/en/TCSplitter_Design.md) |
 | TCPairSplitter | A TPairSplitter-style splitter with two sides, where each side can be hidden or shown (hiding one makes the other fill the whole area; showing it restores both). A blue line appears on mouse over and while dragging, and the splitter can also be dragged at design time | [Usage](docs/en/TCPairSplitter_Usage.md) | [Design](docs/en/TCPairSplitter_Design.md) |
 | TCPageControl / TCTitleBar | Browser-style tabs, and a title bar where tabs can be arranged | [Usage](docs/en/TCPageControl_Usage.md) | [Design](docs/en/TCPageControl_Design.md) |
+| TCTabBar | A tab strip without pages (for example, the tabs of an editor; the application switches the screen) | [Usage](docs/en/TCTabBar_Usage.md) | [Design](docs/en/TCTabBar_Design.md) |
 | TCTabBrowser | A tabbed web browser using WebView2 | [Usage](docs/en/TCTabBrowser_Usage.md) | [Design](docs/en/TCTabBrowser_Design.md) |
 | TCMonacoEditor / TCMFindDialog | An editor based on WebView2 and Monaco Editor (with built-in tabs, preview, search, and printing), and 25 standard actions | [Usage](docs/en/TCMonacoEditor_Usage.md) | [Design](docs/en/TCMonacoEditor_Design.md) |
 | TCsEditor / TCsFindDialog | An editor that holds multiple TCSynEdit instances in tabs. Usage is the same as TCMonacoEditor (including search and replace dialogs, minimap, and detachable tabs). 25 standard actions | [Usage](docs/en/TCsEditor_Usage.md) | [Design](docs/en/TCsEditor_Design.md) |
@@ -55,7 +56,7 @@ All components appear in the palette [CX].
 
 | Item | Details |
 |---|---|
-| Lazarus | 5.0 or later (TCSynEdit, TCsEditor, TCPreview). Other components also work with 4.8 |
+| Lazarus | 5.0 or later (4.8 and earlier are not supported) |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 
@@ -75,7 +76,6 @@ All components appear in the palette [CX].
 
 1. First, install the following packages into Lazarus.
    - The Lazarus package for WebView4Delphi (https://github.com/salvadordf/WebView4Delphi)
-   - ATFlatControls (`atflatcontrols_package`; install from the Online Package Manager)
    - SynEdit is already included with Lazarus
 2. Open `packages\cx.lpk` and "Compile" it.
 3. Open `packages\cxdsgn.lpk` and "Install" it (the IDE will be rebuilt).

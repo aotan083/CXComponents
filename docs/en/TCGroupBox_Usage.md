@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A group box with the same appearance and usage as TGroupBox. With the standard TGroupBox, controls placed inside it can disappear; this does not happen with this component.
@@ -20,7 +22,7 @@ A group box with the same appearance and usage as TGroupBox. With the standard T
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

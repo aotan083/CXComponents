@@ -6,6 +6,8 @@ Version: 1.1
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose and Policy
 
 - TCcmd is a component that emulates the command prompt. Input, output, and error output are connected to a control placed on a form. The component handles screen display and keyboard input.

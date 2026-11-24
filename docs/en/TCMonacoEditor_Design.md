@@ -1,10 +1,12 @@
 # TCMonacoEditor Design Document
 
 Author: aotan083
-Date: 2026-11-05
-Version: 1.4
+Date: 2026-11-24
+Version: 1.5
 
 ---
+
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
 
 ## 1. Purpose and Policy
 
@@ -29,7 +31,7 @@ TCMonacoEditor is a fully offline editor component built on WebView2 and Monaco 
 | `uCmonacos.pas` | cx (runtime) | `TCMonacoEditor` (the outer component), `TCMPage`, `TCMFormHook`, `TCMTabDragOutEvent`, functions `CMActiveEditor`, `CMSplitLine`, `CMColorToHex`, `CMDarkBackColor`. Tab detachment (sending and receiving; 4.11) |
 | `uCmmonacoview.pas` | cx (runtime) | `TCMMonacoView` (the inner component that displays Monaco), `TCMDocument`, `TCMMenuItem`. Reading and writing character encodings, language detection, string conversion functions `CMToHankaku`, `CMToZenkakuKatakana`, `CMToZenkakuHiragana` |
 | `uCmdpreview.pas` | cx (runtime) | `TCMMarkdownPreview` (preview). Printing |
-| `CMonacoTabs.pas` | cx (runtime) | `TCMTabBinder` (connects the view and ATTabs; also detects a tab being dragged out) and `TCMBinderDragOutEvent` |
+| `CMonacoTabs.pas` | cx (runtime) | `TCMTabBinder` (connects the view and TCTabBar; also detects a tab being dragged out) and `TCMBinderDragOutEvent` |
 | `CMonacoPreview.pas` | cx (runtime) | `TCMPreviewBinder` (connects the view and the preview) and `TCMSyncScroll` |
 | `CMonacoFindDlg.pas` | cx (runtime) | `TCMFindDialog` (invisible component) and `TCMFindForm` |
 | `CMonacoActions.pas` | cx (runtime) | 25 standard actions (manual Chapter 12) and the base classes `TCMEditorAction` and `TCMEditorToggleAction` |
@@ -39,7 +41,7 @@ TCMonacoEditor is a fully offline editor component built on WebView2 and Monaco 
 | `monaco\editor.html` | Runtime file | HTML/JS that loads Monaco and communicates with Pascal (5.3) |
 | `preview\preview.html` and `preview\lib\` | Runtime files | The preview HTML/JS and the set of libraries (5.3, Chapter 7) |
 
-- Required packages for cx: `LCL`, the Lazarus package of WebView4Delphi, `atflatcontrols_package` (ATTabs).
+- Required packages for cx: `LCL`, the Lazarus package of WebView4Delphi.
 - Actions do not appear on the palette, so they have no icons. The order follows the table in manual Chapter 12.
 
 **Unit references** (one-directional. The outer `TCMonacoEditor` uses `CMonacoFindDlg` in its interface because of the `FindDialog` property. Placing the outer and inner components in the same unit would create a circular reference, so they are separated)
@@ -56,7 +58,7 @@ uCmonacos (TCMonacoEditor)
 CMonacoActions
 ```
 
-- Uses of `uCmonacos`: `Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, Graphics, Dialogs, Menus, LCLType, ActnList, Registry, ShellApi, ATTabs, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg`. Implementation: `LazUTF8, StrUtils`.
+- Uses of `uCmonacos`: `Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, Graphics, Dialogs, Menus, LCLType, ActnList, Registry, ShellApi, uCPageControl, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg`. Implementation: `LazUTF8, StrUtils`.
 - So that an application needs to use only `uCmonacos`, `TCMEncoding`, `TCMFindOption(s)`, `TCMSyncScroll`, and `TCMTabImageEvent` are re-exported as type aliases, and `ceUTF8` through `ceCP932`, `foMatchCase`, `foWholeWord`, `foLoop`, `ssNone`, `ssEditorToPreview`, and `ssBoth` are re-exported as constants.
 - Inner component names all share the prefix `TCM`. The `TCustomXxx` form is not used (in Lazarus it conventionally denotes a "base class to inherit from", which does not suit components held inside).
 
@@ -66,7 +68,7 @@ CMonacoActions
 
 ```
 TCMonacoEditor (TCustomPanel)
- ├ Tabs (TATTabs)             … top edge. Hidden when MultiDocument = False
+ ├ Tabs (TCTabBar)             … top edge. Hidden when MultiDocument = False
  ├ Monaco (TCMMonacoView)     … center. Holds the text of all tabs (one Monaco "model" per tab)
  ├ Splitter (TSplitter)
  └ Preview (TCMMarkdownPreview) … right side. Shown by ShowPreview
@@ -166,7 +168,7 @@ TCMonacoEditor (TCustomPanel)
 | `ConfirmOnFormClose` | `FConfirmOnFormClose` |
 | `TabTearOff` | `FTabTearOff` (default `True`). Whether to perform detachment (4.11.2, 4.11.3) and merging (4.11.6) |
 | `OpenDialog`, `SaveDialog`, `FindDialog` | `FOpenDialog`, `FSaveDialog`, `FFindDialog` (`FreeNotification`) |
-| `TabFlat`, `TabSeparator` | `ApplyTabShape` → ATTabs `OptShowFlat`, `OptShowFlatSepar` |
+| `TabFlat`, `TabSeparator` | `ApplyTabShape` → `TabShape` of TCTabBar (flat = `tsRectangle`, otherwise `tsRounded`) and `SeparatorColor` |
 | `TabIcons`, `TabImages` | `ApplyTabIcons` |
 | `WordWrap`, `LineNumbers`, `FontSize`, `TabSize`, `Folding`, `MatchBrackets`, `OccurrencesHighlight`, `Minimap`, `ReadOnly`, `JapaneseUI`, `DefaultLanguage`, `AutoLanguage`, `OpenDroppedFiles`, `QuotePrefix` | the same-named members of view (`opt`) |
 | `Theme` | `FTheme` → view `Theme` (`ctAuto`→'auto', `ctLight`→'vs', `ctDark`→'vs-dark'), `ApplyThemeColors` |
@@ -303,10 +305,10 @@ One per form (`TComponent`; the owner is the form).
 
 - The tabs are rebuilt on view's `OnDocListChange` and updated on `OnDocumentChange` and `OnActiveChange`. The title is `Caption`, followed by ` *` if modified, and the hint is the full path.
 - Tab click, [+], [×] (and middle button), and reordering by drag are passed to view's `ActiveIndex`, `AddDocument`, `CloseDocument` (going through the confirmation in 4.4), and `MoveDocument`.
-- In flat display (`OptShowFlat = True`), ATTabs draws the selected tab in the same color as the strip. So per-tab colors (`TabColorActive`, `TabColorOver`; `OptShowEntireColor = True`) are set on all tabs to paint the visible tab and the tab under the mouse differently.
-- The accent line is not shown (to match Explorer).
-- ATTabs' `OptMouseDragOutEnabled` is set to `False` (this disables the ATTabs feature of moving a tab to another ATTabs. If dropped onto the tab strip of another editor, only the tab, without a document, would move, breaking the correspondence between tabs and documents).
-- A tab being dropped outside one's own application is detected with ATTabs' `OnEndDrag` (4.11).
+- The colors of the selected tab and the tab under the mouse are painted differently by setting the per-tab colors (`TCTabSheet.TabColorActive`, `TabColorOver`) on all tabs (`SetTabColors`). `clNone` follows the tab strip's setting (`ActiveTabColor`, `HotTabColor`).
+- An accent line (thickness 2) is shown above the visible tab (`ActiveMarkSize`, `ActiveMarkColor`).
+- A tab alone is never moved to another tab strip (if dropped onto the tab strip of another editor, only the tab, without a document, would move, breaking the correspondence between tabs and documents. `OnTabDragOut` is used only to detect a drop outside the application).
+- A tab being dropped outside one's own application is detected with `OnTabDragOut` of TCTabBar (4.11).
 
 **Icons**
 
@@ -362,19 +364,19 @@ TCMTabDragOutEvent = procedure(Sender: TObject; Index: Integer; X, Y: Integer;
 
 #### 4.11.1 Detection (`TCMTabBinder`)
 
-ATTabs performs tab dragging with LCL drag (`BeginDrag`). When there is no LCL component at the drop destination to receive it, `OnEndDrag` is called with `Target = nil`.
+TCTabBar performs tab dragging by itself (mouse capture). When the left button is released outside the tab strip, `OnTabDragOut` is called with `AIndex`, the screen position of the release and the LCL control at that position. It is not called when the drag is canceled with Esc.
 
-1. `Attach` connects `FTabs.OnEndDrag := TabsEndDrag`.
-2. `TabsEndDrag(Sender, Target, X, Y)`: the tab is regarded as moved out only when all of the following are satisfied.
-   - `Target = nil`
+1. `Attach` connects `FTabs.OnTabDragOut := TabDragOut`.
+2. `TabDragOut(Sender, AIndex, AScreenPos, ATarget)`: the tab is regarded as moved out only when all of the following are satisfied.
    - `MultiDocument = True` (tabs are shown)
-   - The left button has been released (`GetAsyncKeyState(VK_LBUTTON) >= 0`. If the drag was canceled with `Esc`, the button is still pressed, so that case is excluded)
-   - The mouse position (`Mouse.CursorPos`) is not over a window of one's own application (`IsOutsideApp` below)
-3. If satisfied, the `Id` of the document of the tab moved out (the document at `ActiveIndex`; ATTabs selects the tab on which the drag started) and the position are remembered, and `QueueAsyncCall(AsyncTabDragOut)` notifies after the drag processing is finished.
+   - `OnDragOut` is set
+   - The release position (`AScreenPos`) is not over a window of one's own application (`IsOutsideApp` below)
+   - `AIndex` is within the range of documents
+3. If satisfied, the `Id` of the document of the tab moved out (`DocumentId(AIndex)`) and the position are remembered, and `QueueAsyncCall(AsyncTabDragOut)` notifies after the drag processing is finished.
 4. `AsyncTabDragOut`: looks up the current index from the remembered `Id` (does nothing if it has been closed) and calls the binder's `OnDragOut(Index, X, Y)`. The editor's `BinderTabDragOut` receives it (4.11.2).
 
 - `IsOutsideApp(P)`: `True` if `WindowFromPoint(P)` is 0. Otherwise, the outermost window from `GetAncestor(…, GA_ROOT)` is examined with `GetWindowThreadProcessId`, and `True` if it is not one's own process (`GetCurrentProcessId`). Windows inside WebView2 are children of one's own form, so the outermost is one's own form, giving `False` (no notification when dropped over the editor or the preview). Over another form of one's own application is also `False`.
-- The reason for making the notification a `QueueAsyncCall`: closing a tab in the middle of ATTabs' drag processing could make ATTabs touch the vanished tab and crash.
+- The reason for making the notification a `QueueAsyncCall`: closing a tab in the middle of the tab strip's drag processing could make the tab strip touch the vanished tab.
 - During the drag, the mouse cursor takes a "cannot drop" shape outside one's own application (because windows of other applications do not receive the LCL drag). Dropping it detaches the tab.
 
 #### 4.11.2 Sending (`TCMonacoEditor.BinderTabDragOut`)
@@ -682,7 +684,7 @@ When a tab is dropped onto an editor in another window of the same EXE (one laun
 | `TCMFormHook` | `uCmonacos` | Per-form caretaker (3.4) |
 | `TCMMonacoView` | `uCmmonacoview` | Displays `editor.html` with `TWVBrowser` and exchanges messages. The list of documents, copies, copies of selection and cursor, right-click menu |
 | `TCMDocument` | `uCmmonacoview` | State of one document |
-| `TCMTabBinder` | `CMonacoTabs` | Connects the view and ATTabs (4.6) |
+| `TCMTabBinder` | `CMonacoTabs` | Connects the view and TCTabBar (4.6) |
 | `TCMPreviewBinder` | `CMonacoPreview` | Connects the view and the preview. On every edit or switch, passes the copied text to the preview (edits wait `PreviewDelayMs`; switches are immediate). Synchronizes scrolling (7.4) |
 | `TCMMarkdownPreview` | `uCmdpreview` | Displays `preview.html` with `TWVBrowser`. Markdown, code, Mermaid, printing |
 | `TCMFindDialog` | `CMonacoFindDlg` | Find/replace dialog (Chapter 9) |
@@ -771,7 +773,7 @@ view.OnDocListChange etc.
 ### 5.4 WebView2 Rules (Must Be Observed)
 
 - In the middle of a WebView2 notification (`WebMessageReceived`, `AcceleratorKeyPressed`, etc.), do not show dialogs or menus, and do not wait by running the message loop (WebView2 does not accept nesting in the middle of a notification, and the notification never returns).
-- Therefore, when a dialog, menu, print dialog, or execution of a form shortcut is needed inside a notification, do it after the notification ends with `Application.QueueAsyncCall` (`AsyncContextMenu`, `AsyncDropFiles`, `AsyncRunShortcut`, `AsyncPrint`, `AsyncShowPrintUI`, `AsyncOpenMarkdown`, `AsyncShowError`, `AsyncSetFocus`). The end of an ATTabs drag (`OnEndDrag`) is likewise notified later through `AsyncTabDragOut` for the same reason (4.11). For the `WM_COPYDATA` of tab merging too, the sender is waiting for the reply, so the receiver does not create the tab but creates it later with `AsyncMerge` (4.11.6).
+- Therefore, when a dialog, menu, print dialog, or execution of a form shortcut is needed inside a notification, do it after the notification ends with `Application.QueueAsyncCall` (`AsyncContextMenu`, `AsyncDropFiles`, `AsyncRunShortcut`, `AsyncPrint`, `AsyncShowPrintUI`, `AsyncOpenMarkdown`, `AsyncShowError`, `AsyncSetFocus`). The end of an The tab strip's drag end (`OnTabDragOut`) is likewise notified later through `AsyncTabDragOut` for the same reason (4.11). For the `WM_COPYDATA` of tab merging too, the sender is waiting for the reply, so the receiver does not create the tab but creates it later with `AsyncMerge` (4.11.6).
 - WebView2 is not created while invisible (it is created once `Showing`). While invisible, the initialization timer (100 milliseconds) waits.
 
 ### 5.5 Focus
@@ -972,7 +974,7 @@ end;
 | Editor that receives a detachment | An editor with `TabTearOff = True` whose name equals the temporary file's `Editor` (`Form Name.Editor Name`). Received only once |
 | Tab merging | Dropping onto an editor in another window of the same EXE creates a new tab in that editor (4.11.6). The hand-over uses `WM_COPYDATA` (location of the temporary file). If the other side already has the same file open, it just switches to that tab (the original tab is kept). If the other side has `TabTearOff = False` or `MultiDocument = False`, nothing happens |
 | Moving a tab within the same EXE | Not done (dropping onto another editor within one's own application does nothing) |
-| Moving a tab to another ATTabs | Not allowed (`OptMouseDragOutEnabled = False`) |
+| Moving a tab alone to another tab strip | Not allowed (only notified with `OnTabDragOut`; no reordering) |
 | Memory | WebView2 memory (about 60MB per editor) is accepted |
 | How to create | It may also be created in code at runtime |
 
@@ -1009,7 +1011,7 @@ end;
 | Form shortcuts do not work / run twice | The order in `MonacoAccelKeyDown`, `IsBuiltinKey` (5.6) |
 | Printing outputs the editor screen as is | Handling of `Ctrl+P` and `Ctrl+Shift+P` (5.6, 7.3) |
 | Mermaid diagrams are cut off in printing | `prepareprint`, `printready`, `@media print` (7.3) |
-| Tab colors are wrong | `OptShowEntireColor` and per-tab colors (4.6), `ApplyThemeColors` (4.7) |
+| Tab colors are wrong | Per-tab colors (`TabColorActive`, `TabColorOver`; 4.6), `ApplyThemeColors` (4.7) |
 | No confirmation appears when closing the form | `TCMFormHook.FormCloseQuery`, the replacement of `OnCloseQuery` (3.4) |
 | A standard action affects a different editor | Recording of `gotfocus`, `CMActiveEditor` (3.4, 5.5) |
 | Scrolling jitters | The 0.3-second suppression (7.4) |

@@ -1,19 +1,19 @@
 { Copyright (c) 2026 aotan083
   SPDX-License-Identifier: MIT
   https://github.com/aotan083/CXComponents }
-{ TCMTabBinder - TCMMonacoView（複数文書）と ATTabs（ATFlatControls）をつなぐ
+{ TCMTabBinder - TCMMonacoView（複数文書）と TCTabBar（タブ列）をつなぐ
   ※ 第2版から、TCMonacoEditor（ucmonacos.pas）が内部で使う部品になった。アプリから直接使う必要はない。
 
   使い方（フォーム側）:
     Binder := TCMTabBinder.Create(Self);
-    Binder.Attach(Ed);            // ATTabs を自動生成して Ed の上端に置く
-    // フォームに置いた TATTabs を使う場合: Binder.Attach(Ed, ATTabs1);
+    Binder.Attach(Ed);            // TCTabBar を自動生成して Ed の上端に置く
+    // フォームに置いた TCTabBar を使う場合: Binder.Attach(Ed, CTabBar1);
     FormCloseQuery:  CanClose := Binder.CloseAll;   // 未保存の確認をして全タブを閉じる
 
   ・タブの「+」で新規文書、「x」で閉じる（未保存なら確認）、ドラッグで並べ替え。
   ・変更ありのタブは名前の後ろに ' *' が付く。
   ・【2.20】タブを自分のアプリのウィンドウの外で離したら、OnDragOut で知らせる（タブの分離。設計書 4.11.1）。
-    ほかの ATTabs へタブを移す ATTabs の機能は止める（文書を持たないタブだけが移り、対応が壊れるため）。
+    ほかのタブ列へタブだけを移すことはしない（文書を持たないタブだけが移り、対応が壊れるため）。
   ・未保存の確認は、Ed.OnQueryClose が未設定のときだけ標準ダイアログを使う。
   ・保存先が未定の文書は Ed.OnNeedFileName でファイル名を渡すこと（渡さないと保存されず閉じない）。 }
 unit CMonacoTabs;
@@ -23,7 +23,7 @@ unit CMonacoTabs;
 interface
 
 uses
-  Classes, SysUtils, Controls, Graphics, Dialogs, Forms, ATTabs, ucmmonacoview;
+  Classes, SysUtils, Controls, Graphics, Dialogs, Forms, uCPageControl, ucmmonacoview;
 
 type
   { タブのアイコン（画像リストの番号）を決める。-1 でアイコンなし }
@@ -36,13 +36,11 @@ type
   TCMTabBinder = class(TComponent)
   private
     FEditor: TCMMonacoView;
-    FTabs: TATTabs;
+    FTabs: TCTabBar;
     FUpdating: Boolean;
-    FDropHandled: Boolean;
     FFocusPending: Boolean;
     FFocusOnMouseUp: Boolean;
     FOldTabsMouseUp: TMouseEvent;
-    FOldTabsEndDrag: TEndDragEvent;
     FOnDragOut: TCMBinderDragOutEvent;   { 【2.20】 }
     FDragOutId: Integer;                 { 【2.20】外へ出したタブの文書の Id（並べ替えても変わらない） }
     FDragOutPos: TPoint;                 { 【2.20】離した画面の位置 }
@@ -57,7 +55,7 @@ type
     function TabCaptionFor(AIndex: Integer): string;
     procedure RebuildTabs;
     procedure UpdateTab(AIndex: Integer);
-    procedure ApplyTabColor(D: TATTabData);
+    procedure ApplyTabColor(D: TCTabSheet);
     function ImageIndexFor(AIndex: Integer): Integer;
 
     procedure EditorDocListChange(Sender: TObject);
@@ -65,25 +63,24 @@ type
     procedure EditorActiveChange(Sender: TObject);
     procedure EditorQueryClose(Sender: TObject; Index: Integer; var CanClose: Boolean);
 
-    procedure TabClick(Sender: TObject);
+    procedure TabClick(Sender: TObject; AIndex: Integer);
     procedure TabPlusClick(Sender: TObject);
-    procedure TabClose(Sender: TObject; ATabIndex: Integer; var ACanClose, ACanContinue: Boolean);
-    procedure TabDropQuery(Sender: TObject; AIndexFrom, AIndexTo: Integer; var ACanDrop: Boolean);
-    procedure TabMove(Sender: TObject; AIndexFrom, AIndexTo: Integer);
+    procedure PageClose(Sender: TObject; APage: TCTabSheet; var CanClose: Boolean);
+    procedure PageMoved(Sender: TObject; APage: TCTabSheet; AOldIndex, ANewIndex: Integer);
     procedure AsyncClose(Data: PtrInt);
     procedure AsyncFocus(Data: PtrInt);
     procedure FocusEditorLater;
     procedure TabsMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    procedure TabsEndDrag(Sender, Target: TObject; X, Y: Integer);   { 【2.20】 }
+    procedure TabDragOut(Sender: TObject; AIndex: Integer; const AScreenPos: TPoint; ATarget: TControl);   { 【2.20】 }
     procedure AsyncTabDragOut(Data: PtrInt);                          { 【2.20】 }
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure Attach(AEditor: TCMMonacoView; ATabs: TATTabs = nil);
+    procedure Attach(AEditor: TCMMonacoView; ATabs: TCTabBar = nil);
     function CloseAll: Boolean;   { 未保存の確認をして全文書を閉じる。キャンセルされたら False }
     procedure Refresh;            { タブを作り直す（アイコンの設定を変えたときなど） }
     property OnGetImageIndex: TCMTabImageEvent read FOnGetImageIndex write FOnGetImageIndex;
-    property Tabs: TATTabs read FTabs;
+    property Tabs: TCTabBar read FTabs;
     property Editor: TCMMonacoView read FEditor;
     property ConfirmClose: Boolean read FConfirmClose write FConfirmClose;
     { 【2.20】タブがアプリのウィンドウの外で離された（ドラッグの処理が終わってから呼ぶ） }
@@ -122,15 +119,6 @@ begin
   Result := Pid <> Windows.GetCurrentProcessId;
 end;
 
-{ 【2.20】マウスの左ボタン（左右を入れ替えている設定なら右ボタン）が、今押されているか }
-function MainButtonDown: Boolean;
-var
-  VK: Integer;
-begin
-  if Windows.GetSystemMetrics(SM_SWAPBUTTON) <> 0 then VK := VK_RBUTTON else VK := VK_LBUTTON;
-  Result := (Windows.GetAsyncKeyState(VK) and $8000) <> 0;
-end;
-
 constructor TCMTabBinder.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -150,40 +138,35 @@ begin
   end;
   if FTabs <> nil then
   begin
-    FTabs.OnMouseUp := FOldTabsMouseUp;
-    FTabs.OnEndDrag := FOldTabsEndDrag;
+    FTabs.OnTabMouseUp := FOldTabsMouseUp;
+    FTabs.OnTabDragOut := nil;
   end;
   inherited Destroy;
 end;
 
-procedure TCMTabBinder.Attach(AEditor: TCMMonacoView; ATabs: TATTabs);
+procedure TCMTabBinder.Attach(AEditor: TCMMonacoView; ATabs: TCTabBar);
 begin
   if AEditor = nil then
     raise Exception.Create(CXT(sErrTabBinder));
   FEditor := AEditor;
   if ATabs = nil then
   begin
-    ATabs := TATTabs.Create(Self);
+    ATabs := TCTabBar.Create(Self);
     ATabs.Parent := AEditor.Parent;
     ATabs.Align := alTop;
   end;
   FTabs := ATabs;
-  FTabs.OptShowPlusTab := True;
   FTabs.TabStop := False;                  { タブ自体はキーボードのフォーカスを受け取らない }
-  FOldTabsMouseUp := FTabs.OnMouseUp;
-  FTabs.OnMouseUp := @TabsMouseUp;         { フォーカスは、マウスのボタンを離したあとでエディタへ戻す }
-  { 【2.20】タブのドラッグの終わりで、アプリの外へ出したかを調べる（タブの分離） }
-  FOldTabsEndDrag := FTabs.OnEndDrag;
-  FTabs.OnEndDrag := @TabsEndDrag;
-  { 【2.20】ほかの ATTabs（別のエディタのタブの帯）へタブを移す機能を止める。
-    移すと、文書を持たないタブだけが移って、タブと文書の対応が壊れるため }
-  FTabs.OptMouseDragOutEnabled := False;
+  FOldTabsMouseUp := FTabs.OnTabMouseUp;
+  FTabs.OnTabMouseUp := @TabsMouseUp;      { フォーカスは、マウスのボタンを離したあとでエディタへ戻す }
+  { 【2.20】タブのドラッグを、タブ列の外で離したとき、アプリの外へ出したかを調べる（タブの分離）。
+    ほかのタブ列へタブだけを移すことはしない（文書を持たないタブだけが移って、タブと文書の対応が壊れるため） }
+  FTabs.OnTabDragOut := @TabDragOut;
 
   FTabs.OnTabClick := @TabClick;
   FTabs.OnTabPlusClick := @TabPlusClick;
-  FTabs.OnTabClose := @TabClose;
-  FTabs.OnTabDropQuery := @TabDropQuery;
-  FTabs.OnTabMove := @TabMove;
+  FTabs.OnPageClose := @PageClose;
+  FTabs.OnPageMoved := @PageMoved;
 
   FOldDocListChange := FEditor.OnDocListChange;
   FOldDocumentChange := FEditor.OnDocumentChange;
@@ -208,17 +191,17 @@ end;
 procedure TCMTabBinder.RebuildTabs;
 var
   I: Integer;
-  D: TATTabData;
+  D: TCTabSheet;
 begin
   if (FTabs = nil) or (FEditor = nil) then Exit;
   FUpdating := True;
   try
-    FTabs.Clear;
+    FTabs.ClearTabs;
     for I := 0 to FEditor.DocumentCount - 1 do
     begin
-      D := FTabs.AddTab(-1, TabCaptionFor(I), nil, FEditor.DocumentModified[I]);
-      D.TabHint := FEditor.DocumentFileName[I];
-      D.TabImageIndex := ImageIndexFor(I);
+      D := FTabs.AddTab(TabCaptionFor(I));   { 変更ありの印は、題名の「 *」で出す }
+      D.Hint := FEditor.DocumentFileName[I];
+      D.ImageIndex := ImageIndexFor(I);
       ApplyTabColor(D);
     end;
     if FEditor.ActiveIndex >= 0 then FTabs.TabIndex := FEditor.ActiveIndex;
@@ -228,11 +211,12 @@ begin
   FTabs.Invalidate;
 end;
 
-procedure TCMTabBinder.ApplyTabColor(D: TATTabData);
+procedure TCMTabBinder.ApplyTabColor(D: TCTabSheet);
 begin
   if D = nil then Exit;
-  D.TabColorActive := FColorActive;
-  D.TabColorOver := FColorOver;
+  { clNone（未設定）は、タブ列の指定に従う（clDefault） }
+  if FColorActive = clNone then D.TabColorActive := clDefault else D.TabColorActive := FColorActive;
+  if FColorOver = clNone then D.TabColorOver := clDefault else D.TabColorOver := FColorOver;
 end;
 
 procedure TCMTabBinder.SetTabColors(AActive, AOver: TColor);
@@ -242,23 +226,20 @@ begin
   FColorActive := AActive;
   FColorOver := AOver;
   if FTabs = nil then Exit;
-  FTabs.OptShowEntireColor := True;     { タブごとの色（TabColorActive / TabColorOver）を使う }
   for I := 0 to FTabs.TabCount - 1 do
-    ApplyTabColor(FTabs.GetTabData(I));
+    ApplyTabColor(FTabs.Tabs[I]);
   FTabs.Invalidate;
 end;
 
 procedure TCMTabBinder.UpdateTab(AIndex: Integer);
 var
-  D: TATTabData;
+  D: TCTabSheet;
 begin
   if (FTabs = nil) or (AIndex < 0) or (AIndex >= FTabs.TabCount) then Exit;
-  D := FTabs.GetTabData(AIndex);
-  if D = nil then Exit;
-  D.TabCaption := TabCaptionFor(AIndex);
-  D.TabModified := FEditor.DocumentModified[AIndex];
-  D.TabHint := FEditor.DocumentFileName[AIndex];
-  D.TabImageIndex := ImageIndexFor(AIndex);   { 名前を付けて保存で拡張子が変わったときも切り替わる }
+  D := FTabs.Tabs[AIndex];
+  D.Caption := TabCaptionFor(AIndex);
+  D.Hint := FEditor.DocumentFileName[AIndex];
+  D.ImageIndex := ImageIndexFor(AIndex);   { 名前を付けて保存で拡張子が変わったときも切り替わる }
   FTabs.Invalidate;
 end;
 
@@ -326,7 +307,7 @@ end;
 
 { ---------- タブ操作 ---------- }
 
-procedure TCMTabBinder.TabClick(Sender: TObject);
+procedure TCMTabBinder.TabClick(Sender: TObject; AIndex: Integer);
 begin
   if FUpdating or (FEditor = nil) then Exit;
   FUpdating := True;
@@ -351,32 +332,22 @@ end;
 
 { ---------- 【2.20】タブを外へ出す（設計書 4.11.1） ---------- }
 
-{ ATTabs はタブのドラッグを LCL のドラッグで行う。落とした先に受け取る部品が無いとき、Target = nil で来る。
+{ タブをドラッグして、タブ列の外で離したとき、TCTabBar が知らせる（Esc で取り消したときは来ない）。
   次をすべて満たすときだけ「アプリの外へ出した」とみなし、ドラッグの処理が終わってから OnDragOut で知らせる。
-  ・Target = nil（自分のタブの帯の中での並べ替えなら Target はタブの帯）
   ・タブが出ている（MultiDocument = False ならタブは隠れている）
-  ・ボタンが離されている（Esc でドラッグを取り消したときは、まだ押されているので除く）
   ・離した位置が、自分のアプリのウィンドウの上ではない（エディタ・プレビュー・別のフォームの上は除く） }
-procedure TCMTabBinder.TabsEndDrag(Sender, Target: TObject; X, Y: Integer);
-var
-  P: TPoint;
+procedure TCMTabBinder.TabDragOut(Sender: TObject; AIndex: Integer; const AScreenPos: TPoint; ATarget: TControl);
 begin
-  if Assigned(FOldTabsEndDrag) then FOldTabsEndDrag(Sender, Target, X, Y);
-  Screen.Cursor := crDefault;            { ATTabs がドラッグの開始で crDrag にしたものを戻す（外で離すと戻らないことがある） }
-  if (Target <> nil) or (FEditor = nil) or (FTabs = nil) then Exit;
+  if (FEditor = nil) or (FTabs = nil) then Exit;
   if not FTabs.Visible then Exit;
   if not Assigned(FOnDragOut) then Exit;
-  if MainButtonDown then Exit;           { Esc で取り消した }
-  P := Mouse.CursorPos;
-  if not IsOutsideApp(P) then Exit;
-  if (FEditor.ActiveIndex < 0) or (FEditor.ActiveIndex >= FEditor.DocumentCount) then Exit;
-  { ドラッグを始めたタブは、マウスを押したときに選ばれている（TabClick）ので、見えている文書がそのタブ }
-  FDragOutId := FEditor.DocumentId(FEditor.ActiveIndex);
-  FDragOutPos := P;
-  { ATTabs のドラッグの処理の途中でタブを閉じると、ATTabs が消えたタブを触るおそれがあるため、あとで知らせる }
+  if not IsOutsideApp(AScreenPos) then Exit;
+  if (AIndex < 0) or (AIndex >= FEditor.DocumentCount) then Exit;
+  FDragOutId := FEditor.DocumentId(AIndex);   { 並べ替えても変わらない Id で覚える }
+  FDragOutPos := AScreenPos;
+  { タブ列のドラッグの処理の途中でタブを閉じると、消えたタブを触るおそれがあるため、あとで知らせる }
   Application.QueueAsyncCall(@AsyncTabDragOut, 0);
 end;
-
 procedure TCMTabBinder.AsyncTabDragOut(Data: PtrInt);
 var
   I: Integer;
@@ -407,13 +378,11 @@ begin
   FFocusOnMouseUp := True;
 end;
 
-procedure TCMTabBinder.TabClose(Sender: TObject; ATabIndex: Integer;
-  var ACanClose, ACanContinue: Boolean);
+procedure TCMTabBinder.PageClose(Sender: TObject; APage: TCTabSheet; var CanClose: Boolean);
 begin
   { タブの削除はエディタ側の閉じる処理 → タブ再構築で行う。確認ダイアログはマウス処理の外で出す }
-  ACanClose := False;
-  ACanContinue := False;
-  Application.QueueAsyncCall(@AsyncClose, ATabIndex);
+  CanClose := False;
+  Application.QueueAsyncCall(@AsyncClose, FTabs.IndexOf(APage));
 end;
 
 procedure TCMTabBinder.AsyncClose(Data: PtrInt);
@@ -422,31 +391,13 @@ begin
     FocusEditorLater;
 end;
 
-procedure TCMTabBinder.TabDropQuery(Sender: TObject; AIndexFrom, AIndexTo: Integer;
-  var ACanDrop: Boolean);
+procedure TCMTabBinder.PageMoved(Sender: TObject; APage: TCTabSheet; AOldIndex, ANewIndex: Integer);
 begin
-  { ドラッグ完了前にエディタ側の並びを入れ替えておく（直後のタブ切り替えで正しい文書が選ばれる） }
-  ACanDrop := True;
+  { タブ列は、もう並べ替えてある。エディタ側の並びを合わせる }
+  if (AOldIndex < 0) or (ANewIndex < 0) then Exit;
   FUpdating := True;
   try
-    FEditor.MoveDocument(AIndexFrom, AIndexTo);
-  finally
-    FUpdating := False;
-  end;
-  FDropHandled := True;
-end;
-
-procedure TCMTabBinder.TabMove(Sender: TObject; AIndexFrom, AIndexTo: Integer);
-begin
-  if (AIndexFrom < 0) or (AIndexTo < 0) then Exit;   { 追加・削除は無視 }
-  if FDropHandled then
-  begin
-    FDropHandled := False;
-    Exit;
-  end;
-  FUpdating := True;
-  try
-    FEditor.MoveDocument(AIndexFrom, AIndexTo);
+    FEditor.MoveDocument(AOldIndex, ANewIndex);
   finally
     FUpdating := False;
   end;

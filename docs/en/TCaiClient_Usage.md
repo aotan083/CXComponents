@@ -6,6 +6,8 @@ Version: 1.4
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A component that lets an application call an AI API (a non-visual component). It sends text and attached files and receives the answer as a string.

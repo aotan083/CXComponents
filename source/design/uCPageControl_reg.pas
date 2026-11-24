@@ -7,7 +7,7 @@
   設計書: docs\TCPageControl_Design.md
   パッケージ: cxdsgn（設計時）
 
-  ・パレット CX に TCTitleBar・TCPageControl を登録する（TCTabSheet は登録しない）。
+  ・パレット CX に TCTitleBar・TCPageControl・TCTabBar を登録する（TCTabSheet は登録しない）。
   ・パレットのアイコンは cpagecontrol_icon.lrs（initialization 部で読み込む）。
   ・TCPageControl・TCTabSheet の右クリックメニュー（コンポーネントエディタ）：
       新しいページ／ページの削除／次のページ／前のページ
@@ -214,7 +214,7 @@ end;
 
 procedure Register;
 begin
-  RegisterComponents('CX', [TCTitleBar, TCPageControl]);
+  RegisterComponents('CX', [TCTitleBar, TCPageControl, TCTabBar]);
   RegisterNoIcon([TCTabSheet]);
   RegisterComponentEditor(TCPageControl, TCPageControlEditor);
   RegisterComponentEditor(TCTabSheet, TCPageControlEditor);
@@ -227,7 +227,7 @@ begin
 end;
 
 initialization
-  // パレットのアイコン：tctitlebar・tcpagecontrol（_150・_200 付き）
+  // パレットのアイコン：tctitlebar・tcpagecontrol・TCTabBar（それぞれ _150・_200 付き）
   {$I cpagecontrol_icon.lrs}
 
 finalization

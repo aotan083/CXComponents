@@ -1,8 +1,8 @@
 # TCsEditor User Manual
 
 Author: aotan083
-Date: 2026-11-17
-Version: 1.2
+Date: 2026-11-24
+Version: 1.3
 
 ---
 
@@ -38,7 +38,7 @@ A tabbed text editor that works simply by dropping it on a form. Each tab holds 
 | OS | Windows 11 (64-bit) |
 | Palette | CX |
 | Required at runtime | None (when using the preview, the files described in TCPreview manual chapter 2) |
-| External packages used | SynEdit (included with Lazarus), ATFlatControls (tabs) |
+| External packages used | SynEdit (included with Lazarus) |
 
 ### 1.1 Classes and Units
 

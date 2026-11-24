@@ -1,10 +1,12 @@
 # TCPageControl User Manual
 
 Author: aotan083
-Date: 2026-11-04
-Version: 1.1
+Date: 2026-11-24
+Version: 1.3
 
 ---
+
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
 
 ## 1. Overview and Classes
 
@@ -33,7 +35,7 @@ A component for building a screen like a browser (Firefox, Edge, etc.), with tab
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX (TCTitleBar and TCPageControl. TCTabSheet does not appear on the palette) |
@@ -140,13 +142,24 @@ Language=en
 | `TabWidth` | `Smallint` | Read/Write | Tab width. Fit to the text if 0 (the default) |
 | `TabMaxWidth` | `Integer` | Read/Write | Maximum width when `TabWidth = 0` (the default is 240). Text that does not fit becomes "…" |
 | `TabShape` | `TCTabShape` | Read/Write | Tab shape. `tsRectangle` (default; square) or `tsRounded` (rounded corners) |
-| `Options` | `TCTabControlOptions` | Read/Write | Behavior settings (table below). The default is `[nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch]` |
+| `Options` | `TCTabControlOptions` | Read/Write | Behavior settings (table below). The default is `[nboKeyboardTabSwitch]` ([×] and [＋] are not shown). They are needed only for tab editors / tab browsers. By default tabs cannot be closed, so pages built at design time (TEdit etc.) cannot be destroyed at runtime |
 | `ShowTabListButton` | `Boolean` | Read/Write | Whether to show [∨] (tab list) (the default is `True`) |
+| `ShowTabs` | `Boolean` | Read/Write | Whether to show the tab strip (the default is `True`). If `False`, the tab strip is hidden and only the page is shown. Run time only |
 | `NewPageCaption` | `string` | Read/Write | Name of a tab created with [＋] or the menu (the default is 'New Tab') |
 | `TabMenuItems` | `TCTabMenuItems` | Read/Write | Standard items shown in the right-click menu (the default is `[tmiNew, tmiClose, tmiRename]`) |
 | `TabPopupMenu` | `TPopupMenu` | Read/Write | Items added to the tab's right-click menu. They appear below the standard items, separated by a separator |
 | `TabListPopupMenu` | `TPopupMenu` | Read/Write | Items added above the tab list (submenus are not shown) |
 | `TitleBar` | `TCTitleBar` | Read/Write | The title bar that holds the tab strip. If empty, the tab strip appears inside the TCPageControl |
+| `ActiveMarkSize` | `Integer` | Read/Write | Thickness of the line on the visible tab (px at 100% display scale). 0 (default) means not shown |
+| `ActiveMarkColor` | `TColor` | Read/Write | Color of that line (default `clHighlight`) |
+| `ActiveMarkAtBottom` | `Boolean` | Read/Write | If `True`, the line is shown below the tab; if `False` (default), above it |
+| `ActiveTabColor` | `TColor` | Read/Write | Background color of the visible tab. `clDefault` (default) means `clWindow` |
+| `ActiveTextColor` | `TColor` | Read/Write | Text color of the visible tab. `clDefault` (default) means `clWindowText` |
+| `TabTextColor` | `TColor` | Read/Write | Text color of tabs that are not visible. `clDefault` (default) means `clBtnText` |
+| `ModifiedTextColor` | `TColor` | Read/Write | Text color of a modified tab (`TCTabSheet.Modified`). `clDefault` (default) means the same as the other text colors |
+| `HotTabColor` | `TColor` | Read/Write | Background color of the tab under the mouse. `clDefault` (default) means the background color mixed slightly with `clBtnText` |
+| `ButtonColor` | `TColor` | Read/Write | Color of the symbols of [×], [◀] [▶], [+] and [∨]. `clDefault` (default) means the text color / `clBtnText` |
+| `SeparatorColor` | `TColor` | Read/Write | Color of the separator line between tabs. `clNone` (default) means not shown (not shown on either side of the visible tab) |
 | `Color` | `TColor` | Read/Write | Background color of the tab strip (when using tabs only. The default is `clBtnFace`) |
 | `Align` | `TAlign` | Read/Write | Placement within the parent |
 | `Anchors` | `TAnchors` | Read/Write | Which edges follow when the parent's size changes |
@@ -187,7 +200,7 @@ Language=en
 
 | Value | Description |
 |---|---|
-| `nboShowCloseButtons` | Show [×] on tabs |
+| `nboShowCloseButtons` | Show [×] on tabs. The [×] on each row of the [∨] tab list and the context-menu "Close tab" follow this too (without it, [∨] only switches) |
 | `nboShowAddTabButton` | Show [＋] |
 | `nboKeyboardTabSwitch` | Switch with Ctrl+Tab and Ctrl+Shift+Tab |
 | `nboDoChangeOnSetIndex` | Also fire `OnChanging` and `OnChange` when the displayed page is changed in code |
@@ -272,6 +285,10 @@ Language=en
 | `ImageIndex` | `TImageIndex` | Read/Write | Icon index. No icon if -1 (the default) |
 | `PageIndex` | `Integer` | Read/Write | Position of the page. Writing reorders (`OnPageMoved` is not fired) |
 | `TabVisible` | `Boolean` | Read/Write | `False` hides the tab (the page remains). The default is `True` |
+| `Hint` | `TTranslateString` | Read/Write | Hint shown when the mouse is over the tab (shown regardless of `ShowHint`; nothing if empty) |
+| `Modified` | `Boolean` | Read/Write | Modified. A modified tab shows "●" in the place of [×] (it becomes [×] when the mouse is over it). Use at run time |
+| `TabColorActive` | `TColor` | Read/Write | Background color of this tab only, when it is visible. `clDefault` (default) means `ActiveTabColor`. Use at run time |
+| `TabColorOver` | `TColor` | Read/Write | Background color of this tab only, when the mouse is over it. `clDefault` (default) means `HotTabColor`. Use at run time |
 | `TabIndex` | `Integer` | Read | Index counted over visible tabs only. -1 if hidden. Runtime only |
 | `PageControl` | `TCPageControl` | Read/Write | The TCPageControl it belongs to. Writing makes it the last page of that TCPageControl. Runtime only |
 | `Color` | `TColor` | Read/Write | Page background color (the default is `clWindow`) |
@@ -404,9 +421,10 @@ Language=en
 |---|---|
 | Caption | Shows the TCTitleBar's `Caption`. When empty, shows the form's `Caption`. Long text is abbreviated with "…". Operation is the same as for empty space |
 | Tab | Pressing it displays that page. It can be reordered by dragging (Esc during the drag, or releasing outside the tab strip, cancels) |
-| [×] of a tab | Closes that tab |
+| [×] of a tab, middle button | Closes that tab (the middle button works while [×] is shown) |
 | [＋] | Creates a new tab at the end and displays it |
 | [◀][▶] | Shown only when the tabs do not fit. Pressing scrolls one tab at a time. The mouse wheel over the tab strip also scrolls |
+| Mouse over a tab | Shows the hint if `TCTabSheet.Hint` is set |
 | [∨] | Shows the tab list. Pressing a row displays that tab, and [×] in a row closes that tab |
 | Minimize, maximize, close | Same as the Windows title bar. Moving the mouse over the maximize button shows the snap layout |
 | Empty space | Move the form by dragging, maximize / restore by double-click, snap to screen edges, system menu by right-click |
@@ -446,10 +464,12 @@ Language=en
 
 | What you want to do | Setting |
 |---|---|
-| Hide [×] on tabs | Remove `nboShowCloseButtons` from `Options` |
+| Prevent closing tabs (default) | Do not put `nboShowCloseButtons` in `Options` ([×], [×] in the [∨] list, context-menu close and middle-click close are all disabled) |
+| Allow closing tabs | Add `nboShowCloseButtons` to `Options` |
 | Hide [＋] | Remove `nboShowAddTabButton` from `Options` |
 | Do not switch with Ctrl+Tab | Remove `nboKeyboardTabSwitch` from `Options` |
 | Hide [∨] | Set `ShowTabListButton` to `False` |
+| Hide the tab strip | Set `ShowTabs` to `False` (only the page is shown) |
 | Reduce the standard items of the right-click menu | Remove `tmiNew`, `tmiClose` and `tmiRename` from `TabMenuItems` |
 | Add application items to the right-click menu | Place a TPopupMenu, create items, and select it in `TabPopupMenu` |
 | Add application items above the tab list | Place a TPopupMenu, create items, and select it in `TabListPopupMenu` |
@@ -490,6 +510,8 @@ Drawn with system colors only. Switching between dark and light is left to the a
 | Title bar text and symbols | `clBtnText` (`clGrayText` when the form is inactive) |
 | When the mouse is over the close button | Red (#C42B1C), symbol white (the same in dark mode) |
 
+The colors listed here can be changed with properties (`ActiveTabColor`, `ActiveTextColor`, `TabTextColor`, `ModifiedTextColor`, `HotTabColor`, `ButtonColor` and `SeparatorColor` in 3.1; per tab, `TCTabSheet.TabColorActive` and `TabColorOver`). The line on the visible tab appears when `ActiveMarkSize` is greater than 0. A modified tab (`TCTabSheet.Modified`) shows "●" in the place of [×].
+
 Button symbols are drawn with glyphs of Segoe Fluent Icons (or Segoe MDL2 Assets if absent).
 
 ### 8.2 Display Scale (High DPI)
@@ -515,9 +537,9 @@ The sizes of tabs, buttons and the title bar are enlarged automatically to match
 | When there are many tabs | Multiple rows (`MultiLine`), or scrolling | One row only. Scroll with [◀▶] and the mouse wheel |
 | Tab position | Top, bottom, left, right | Top and bottom only |
 | Tab shape | `Style` (tab or button form) | `TabShape` (square or rounded) |
-| Default of `Options` | Empty (nothing is enabled) | [×], [＋] and Ctrl+Tab are enabled from the start |
+| Default of `Options` | Empty (nothing is enabled) | Only Ctrl+Tab is enabled; [×] and [＋] appear only when added |
 | Background color (`Color`) | Cannot be specified | Can be specified for both the tab strip and the page |
-| Not provided | ― | `MultiLine`, `RaggedRight`, `ScrollOpposite`, `Style`, `HotTrack`, `ShowTabs`, `OnCloseTabClicked`, docking-related members (`DockSite`, etc.) |
+| Not provided | ― | `MultiLine`, `RaggedRight`, `ScrollOpposite`, `Style`, `HotTrack`, `OnCloseTabClicked`, docking-related members (`DockSite`, etc.) |
 | Supported OS | All OSes on which LCL runs | Windows 11 |
 
 ### 9.1 Notes

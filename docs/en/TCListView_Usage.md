@@ -6,6 +6,8 @@ Version: 1.3
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A list of files and folders that works like the right-hand pane of Windows Explorer. Just placing it on a form gives you open, copy, move, delete, rename, create new folder, drag & drop, and context menu, all working the same way as in Explorer. No code is needed on the application side.
@@ -26,7 +28,7 @@ sample.pas        12 kB     pas      2026/10/18 10:12
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

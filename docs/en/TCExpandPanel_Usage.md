@@ -6,6 +6,8 @@ Version: 1.1
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 Components that line up VS Code Explorer-style "collapsible panels with a title bar".
@@ -35,7 +37,7 @@ Components that line up VS Code Explorer-style "collapsible panels with a title 
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

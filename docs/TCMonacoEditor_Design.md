@@ -1,10 +1,12 @@
 # TCMonacoEditor 設計書
 
 作者: aotan083
-日付: 2026-11-05
-版: 1.4
+日付: 2026-11-24
+版: 1.5
 
 ---
+
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
 
 ## 1. 目的と方針
 
@@ -29,7 +31,7 @@ TCMonacoEditor は、フォームに貼るだけで使える、WebView2 と Mona
 | `uCmonacos.pas` | cx（実行時） | `TCMonacoEditor`（外側の部品）・`TCMPage`・`TCMFormHook`・`TCMTabDragOutEvent`、関数 `CMActiveEditor`・`CMSplitLine`・`CMColorToHex`・`CMDarkBackColor`。タブの分離（送る・受ける。4.11） |
 | `uCmmonacoview.pas` | cx（実行時） | `TCMMonacoView`（Monaco を表示する中の部品）・`TCMDocument`・`TCMMenuItem`。文字コードの読み書き、言語の判定、文字列の変換関数 `CMToHankaku`・`CMToZenkakuKatakana`・`CMToZenkakuHiragana` |
 | `uCmdpreview.pas` | cx（実行時） | `TCMMarkdownPreview`（プレビュー）。印刷 |
-| `CMonacoTabs.pas` | cx（実行時） | `TCMTabBinder`（view と ATTabs をつなぐ。タブを外へ出したことの検知も行う）・`TCMBinderDragOutEvent` |
+| `CMonacoTabs.pas` | cx（実行時） | `TCMTabBinder`（view と TCTabBar をつなぐ。タブを外へ出したことの検知も行う）・`TCMBinderDragOutEvent` |
 | `CMonacoPreview.pas` | cx（実行時） | `TCMPreviewBinder`（view とプレビューをつなぐ）・`TCMSyncScroll` |
 | `CMonacoFindDlg.pas` | cx（実行時） | `TCMFindDialog`（非表示の部品）・`TCMFindForm` |
 | `CMonacoActions.pas` | cx（実行時） | 標準アクション 25 個（取説 12章）と元のクラス `TCMEditorAction`・`TCMEditorToggleAction` |
@@ -39,7 +41,7 @@ TCMonacoEditor は、フォームに貼るだけで使える、WebView2 と Mona
 | `monaco\editor.html` | 実行時のファイル | Monaco を読み込み、Pascal とやり取りする HTML/JS（5.3） |
 | `preview\preview.html` と `preview\lib\` | 実行時のファイル | プレビューの HTML/JS と、ライブラリ一式（5.3・7章） |
 
-- cx の必要パッケージ：`LCL`、WebView4Delphi の Lazarus 用パッケージ、`atflatcontrols_package`（ATTabs）。
+- cx の必要パッケージ：`LCL`、WebView4Delphi の Lazarus 用パッケージ。
 - アクションはパレットに出ないため、アイコンは持たない。並び順は取説 12章の表の順。
 
 **ユニットの参照**（一方向。外側の `TCMonacoEditor` は `FindDialog` プロパティのために `CMonacoFindDlg` を interface で使う。外側と中の部品を同じユニットに置くと循環参照になるため分ける）
@@ -56,7 +58,7 @@ uCmonacos（TCMonacoEditor）
 CMonacoActions
 ```
 
-- `uCmonacos` の uses：`Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, Graphics, Dialogs, Menus, LCLType, ActnList, Registry, ShellApi, ATTabs, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg`。implementation：`LazUTF8, StrUtils`。
+- `uCmonacos` の uses：`Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, Graphics, Dialogs, Menus, LCLType, ActnList, Registry, ShellApi, uCPageControl, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg`。implementation：`LazUTF8, StrUtils`。
 - アプリが `uCmonacos` だけを uses すれば済むように、`TCMEncoding`・`TCMFindOption(s)`・`TCMSyncScroll`・`TCMTabImageEvent` を型の別名で、`ceUTF8` 〜 `ceCP932`・`foMatchCase`・`foWholeWord`・`foLoop`・`ssNone`・`ssEditorToPreview`・`ssBoth` を定数で出し直す。
 - 中の部品の名前は接頭辞 `TCM` をそろえる。`TCustomXxx` の形は使わない（Lazarus では「継承元の基底クラス」を表す慣例があり、中に持つ部品には合わないため）。
 
@@ -66,7 +68,7 @@ CMonacoActions
 
 ```
 TCMonacoEditor（TCustomPanel）
- ├ タブ（TATTabs）            … 上端。MultiDocument = False なら隠す
+ ├ タブ（TCTabBar）            … 上端。MultiDocument = False なら隠す
  ├ Monaco（TCMMonacoView）    … 中央。全タブの本文を持つ（タブごとに Monaco の「モデル」が 1 つ）
  ├ 境目（TSplitter）
  └ プレビュー（TCMMarkdownPreview） … 右側。ShowPreview で出す
@@ -166,7 +168,7 @@ TCMonacoEditor（TCustomPanel）
 | `ConfirmOnFormClose` | `FConfirmOnFormClose` |
 | `TabTearOff` | `FTabTearOff`（既定 `True`）。分離（4.11.2・4.11.3）・結合（4.11.6）を行うか |
 | `OpenDialog`・`SaveDialog`・`FindDialog` | `FOpenDialog`・`FSaveDialog`・`FFindDialog`（`FreeNotification`） |
-| `TabFlat`・`TabSeparator` | `ApplyTabShape` → ATTabs の `OptShowFlat`・`OptShowFlatSepar` |
+| `TabFlat`・`TabSeparator` | `ApplyTabShape` → TCTabBar の `TabShape`（フラット＝`tsRectangle`、そうでなければ `tsRounded`）・`SeparatorColor` |
 | `TabIcons`・`TabImages` | `ApplyTabIcons` |
 | `WordWrap`・`LineNumbers`・`FontSize`・`TabSize`・`Folding`・`MatchBrackets`・`OccurrencesHighlight`・`Minimap`・`ReadOnly`・`JapaneseUI`・`DefaultLanguage`・`AutoLanguage`・`OpenDroppedFiles`・`QuotePrefix` | view の同じ名前（`opt`） |
 | `Theme` | `FTheme` → view `Theme`（`ctAuto`→'auto'、`ctLight`→'vs'、`ctDark`→'vs-dark'）・`ApplyThemeColors` |
@@ -303,10 +305,10 @@ end;
 
 - view の `OnDocListChange` でタブを作り直し、`OnDocumentChange`・`OnActiveChange` で更新する。タイトルは `Caption`、変更ありなら後ろに ` *`、ヒントはフルパス。
 - タブのクリック・［＋］・［×］（中ボタンも）・ドラッグでの並べ替えを、view の `ActiveIndex`・`AddDocument`・`CloseDocument`（4.4 の確認を通す）・`MoveDocument` に伝える。
-- ATTabs は、フラット表示（`OptShowFlat = True`）では選ばれたタブも帯と同じ色で描く。そこで、タブごとの色（`TabColorActive`・`TabColorOver`。`OptShowEntireColor = True`）を全タブに設定して、見えているタブ・マウスを乗せたタブを塗り分ける。
-- アクセントの線は出さない（エクスプローラーに合わせる）。
-- ATTabs の `OptMouseDragOutEnabled` は `False` にする（ほかの ATTabs へタブを移す ATTabs の機能を止める。別のエディタのタブの帯に落とすと、文書を持たないタブだけが移り、タブと文書の対応が壊れるため）。
-- タブを自分のアプリの外へ落としたことは、ATTabs の `OnEndDrag` で検知する（4.11）。
+- 選ばれたタブ・マウスを乗せたタブの色は、タブごとの色（`TCTabSheet.TabColorActive`・`TabColorOver`）を全タブに設定して塗り分ける（`SetTabColors`）。`clNone` は、タブ列の指定（`ActiveTabColor`・`HotTabColor`）に従う。
+- 表示中のタブの上に、アクセントの線（太さ 2）を出す（`ActiveMarkSize`・`ActiveMarkColor`）。
+- ほかのタブ列へタブだけを移すことはしない（別のエディタのタブ列に落としても、文書を持たないタブだけが移り、タブと文書の対応が壊れるため。`OnTabDragOut` は、アプリの外へ出したかの検知だけに使う）。
+- タブを自分のアプリの外へ落としたことは、TCTabBar の `OnTabDragOut` で検知する（4.11）。
 
 **アイコン**
 
@@ -362,20 +364,19 @@ TCMTabDragOutEvent = procedure(Sender: TObject; Index: Integer; X, Y: Integer;
 
 #### 4.11.1 検知（`TCMTabBinder`）
 
-ATTabs は、タブのドラッグを LCL のドラッグ（`BeginDrag`）で行う。落とした先に受け取る LCL の部品が無いとき、`OnEndDrag` が `Target = nil` で呼ばれる。
+TCTabBar は、タブのドラッグを自前（マウスのキャプチャ）で行う。タブ列の外で左ボタンを離すと、`OnTabDragOut`（`AIndex`・離した画面の位置・その位置の LCL の部品）が呼ばれる。Esc で取り消したときは、呼ばれない。
 
-1. `Attach` で `FTabs.OnEndDrag := TabsEndDrag` をつなぐ。
-2. `TabsEndDrag(Sender, Target, X, Y)`：次をすべて満たすときだけ、外へ出したとみなす。
-   - `Target = nil`
+1. `Attach` で `FTabs.OnTabDragOut := TabDragOut` をつなぐ。
+2. `TabDragOut(Sender, AIndex, AScreenPos, ATarget)`：次をすべて満たすときだけ、外へ出したとみなす。
    - `MultiDocument = True`（タブが出ている）
-   - 左ボタンが離されている（`GetAsyncKeyState(VK_LBUTTON) >= 0`。`Esc` でドラッグを取り消したときは、まだ押されているので除く）
-   - マウスの位置（`Mouse.CursorPos`）が、自分のアプリのウィンドウの上ではない（下の `IsOutsideApp`）
-3. 満たせば、外へ出したタブの文書の `Id`（`ActiveIndex` の文書。ATTabs はドラッグを始めたタブを選んでいる）と位置を覚え、`QueueAsyncCall(AsyncTabDragOut)` で、ドラッグの処理が終わってから知らせる。
+   - `OnDragOut` が設定されている
+   - 離した位置（`AScreenPos`）が、自分のアプリのウィンドウの上ではない（下の `IsOutsideApp`）
+   - `AIndex` が文書の範囲の中
+3. 満たせば、外へ出したタブの文書の `Id`（`DocumentId(AIndex)`）と位置を覚え、`QueueAsyncCall(AsyncTabDragOut)` で、ドラッグの処理が終わってから知らせる。
 4. `AsyncTabDragOut`：覚えた `Id` から今の番号を引き（閉じていれば何もしない）、binder の `OnDragOut(Index, X, Y)` を呼ぶ。エディタの `BinderTabDragOut` が受ける（4.11.2）。
 
 - `IsOutsideApp(P)`：`WindowFromPoint(P)` が 0 なら `True`。そうでなければ、`GetAncestor(…, GA_ROOT)` の一番外のウィンドウを `GetWindowThreadProcessId` で調べ、自分のプロセス（`GetCurrentProcessId`）でなければ `True`。WebView2 の中のウィンドウは自分のフォームの子なので、一番外は自分のフォームになり、`False`（エディタやプレビューの上に落としたときは知らせない）。自分のアプリの別のフォームの上も `False`。
-- 知らせを `QueueAsyncCall` にする理由：ATTabs のドラッグの処理の途中でタブを閉じると、ATTabs が消えたタブを触って落ちるおそれがあるため。
-- ドラッグ中のマウスカーソルは、自分のアプリの外では「落とせない」形になる（ほかのアプリのウィンドウは LCL のドラッグを受け取らないため）。落とせば分離する。
+- 知らせを `QueueAsyncCall` にする理由：タブ列のドラッグの処理の途中でタブを閉じると、タブ列が消えたタブを触るおそれがあるため。
 
 #### 4.11.2 送る（`TCMonacoEditor.BinderTabDragOut`）
 
@@ -682,7 +683,7 @@ end;
 | `TCMFormHook` | `uCmonacos` | フォームごとの世話役（3.4） |
 | `TCMMonacoView` | `uCmmonacoview` | `TWVBrowser` で `editor.html` を表示し、メッセージをやり取りする。文書の一覧・写し・選択とカーソルの写し・右クリックメニュー |
 | `TCMDocument` | `uCmmonacoview` | 文書 1 つの状態 |
-| `TCMTabBinder` | `CMonacoTabs` | view と ATTabs をつなぐ（4.6） |
+| `TCMTabBinder` | `CMonacoTabs` | view と TCTabBar をつなぐ（4.6） |
 | `TCMPreviewBinder` | `CMonacoPreview` | view とプレビューをつなぐ。編集・切り替えのたびに写しの本文をプレビューへ渡す（編集は `PreviewDelayMs` 待つ。切り替えはすぐ）。スクロールを合わせる（7.4） |
 | `TCMMarkdownPreview` | `uCmdpreview` | `TWVBrowser` で `preview.html` を表示する。Markdown・コード・Mermaid・印刷 |
 | `TCMFindDialog` | `CMonacoFindDlg` | 検索・置換ダイアログ（9章） |
@@ -771,7 +772,7 @@ view.OnDocListChange など
 ### 5.4 WebView2 の決まり（必ず守る）
 
 - WebView2 の知らせ（`WebMessageReceived`・`AcceleratorKeyPressed` など）の途中で、ダイアログやメニューを出したり、メッセージループを回して待ったりしない（WebView2 は知らせの途中の入れ子を受け付けず、知らせが戻らなくなる）。
-- そのため、知らせの中でダイアログ・メニュー・印刷ダイアログ・フォームのショートカットの実行が要るときは、`Application.QueueAsyncCall` で、知らせが終わってから行う（`AsyncContextMenu`・`AsyncDropFiles`・`AsyncRunShortcut`・`AsyncPrint`・`AsyncShowPrintUI`・`AsyncOpenMarkdown`・`AsyncShowError`・`AsyncSetFocus`）。ATTabs のドラッグの終わり（`OnEndDrag`）も同じ理由で、`AsyncTabDragOut` で後から知らせる（4.11）。タブの結合の `WM_COPYDATA` も、送る側が返事を待っているので、受け口ではタブを作らず `AsyncMerge` で後から作る（4.11.6）。
+- そのため、知らせの中でダイアログ・メニュー・印刷ダイアログ・フォームのショートカットの実行が要るときは、`Application.QueueAsyncCall` で、知らせが終わってから行う（`AsyncContextMenu`・`AsyncDropFiles`・`AsyncRunShortcut`・`AsyncPrint`・`AsyncShowPrintUI`・`AsyncOpenMarkdown`・`AsyncShowError`・`AsyncSetFocus`）。タブ列のドラッグの終わり（`OnTabDragOut`）も同じ理由で、`AsyncTabDragOut` で後から知らせる（4.11）。タブの結合の `WM_COPYDATA` も、送る側が返事を待っているので、受け口ではタブを作らず `AsyncMerge` で後から作る（4.11.6）。
 - 見えない間は WebView2 を作らない（`Showing` になってから作る）。見えない間は、初期化のタイマー（100 ミリ秒）が待つ。
 
 ### 5.5 フォーカス
@@ -972,7 +973,7 @@ end;
 | 分離を受けるエディタ | 一時ファイルの `Editor`（`フォームの Name.エディタの Name`）と同じ名前で、`TabTearOff = True` のエディタ。1 回だけ受ける |
 | タブの結合 | 同じ EXE の別のウィンドウのエディタの上へ落とすと、そのエディタに新しいタブを作る（4.11.6）。受け渡しは `WM_COPYDATA`（一時ファイルの場所）。相手がすでに同じファイルを開いていれば、そのタブに切り替えるだけ（元のタブは残す）。相手が `TabTearOff = False`・`MultiDocument = False` なら何も起きない |
 | 同じ EXE の中でのタブの移動 | しない（自分のアプリの中の別のエディタへ落としても何も起きない） |
-| ほかの ATTabs へタブを移す | させない（`OptMouseDragOutEnabled = False`） |
+| ほかのタブ列へタブだけを移す | させない（`OnTabDragOut` で知らせるだけで、並べ替えはしない） |
 | メモリ | WebView2 のメモリ（エディタ 1 つ約 60MB）は許す |
 | 作る方法 | 実行時にコードで作ってもよい |
 
@@ -1009,7 +1010,7 @@ end;
 | フォームのショートカットが効かない・二重に動く | `MonacoAccelKeyDown` の順番、`IsBuiltinKey`（5.6） |
 | 印刷でエディタの画面がそのまま出る | `Ctrl+P`・`Ctrl+Shift+P` の扱い（5.6・7.3） |
 | Mermaid の図が印刷で欠ける | `prepareprint`・`printready`・`@media print`（7.3） |
-| タブの色がおかしい | `OptShowEntireColor` とタブごとの色（4.6）、`ApplyThemeColors`（4.7） |
+| タブの色がおかしい | タブごとの色（`TabColorActive`・`TabColorOver`。4.6）、`ApplyThemeColors`（4.7） |
 | フォームを閉じても確認が出ない | `TCMFormHook.FormCloseQuery`・`OnCloseQuery` の差し替え（3.4） |
 | 標準アクションが別のエディタに効く | `gotfocus` の記録・`CMActiveEditor`（3.4・5.5） |
 | スクロールがふらつく | 0.3 秒の抑え（7.4） |

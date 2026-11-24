@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A component that you can use just like the Windows Explorer search box. Just connect it to TCListView (and TCTreeView), and it searches the folder being displayed by name and shows the result in the list.
@@ -24,7 +26,7 @@ A component that you can use just like the Windows Explorer search box. Just con
 
 | Item | Contents |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

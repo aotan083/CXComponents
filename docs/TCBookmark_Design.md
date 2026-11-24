@@ -6,6 +6,8 @@
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 目的
 
 Firefox のブックマーク画面のような、ブックマーク管理の部品を作る。フォームに置き、`TargetBrowser`・`TargetEditor` を選ぶだけで（コードを書かずに）、ブックマークから TCTabBrowser・TCMonacoEditor で開けるようにする。

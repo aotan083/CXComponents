@@ -6,6 +6,8 @@
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 概要とクラス
 
 - `TCImage`：`TImage` と同じ使い方で、bmp・jpg(jpeg)・png・svg・tif(tiff)・ico を扱える画像部品です。
@@ -13,7 +15,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 以降 |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 | パレット | CX |

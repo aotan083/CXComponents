@@ -1,16 +1,18 @@
 # TCTabBrowser Design Document
 
 Author: aotan083
-Date: 2026-11-05
-Version: 1.1
+Date: 2026-11-24
+Version: 1.4
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
-Based on TPageControl, build a tabbed Web browser using WebView2 (`TWVBrowser` and `TWVWindowParent` from WebView4Delphi).
+Based on TCPageControl (a component that draws its own tab strip; TCPageControl_Design.md), build a tabbed Web browser using WebView2 (`TWVBrowser` and `TWVWindowParent` from WebView4Delphi). It uses the tab strip of TCPageControl, so it has [×], [+], tab dragging, scrolling and a tab list, and it can also be placed on the title bar by setting `TitleBar` to a TCTitleBar.
 
-- 1 tab = one `TTabSheet` + one `TCXWVWindowParent` (a descendant of `TWVWindowParent`; 9.1) + one `TWVBrowser`. All three are owned (Owner) by the `TTabSheet`, so calling `Free` on a tab removes them together.
+- 1 tab = one `TCTabSheet` + one `TCXWVWindowParent` (a descendant of `TWVWindowParent`; 9.1) + one `TWVBrowser`. All three are owned (Owner) by the `TCTabSheet`, so calling `Free` on a tab removes them together.
 - Even when the window holding WebView2 is recreated, for example by docking or undocking with AnchorDocking, WebView2 is reattached and the open page keeps being shown (9.1).
 - The number of tabs never becomes 0. When the last tab is closed, the component creates a new tab.
 - A new window that a page tries to open is always blocked and opened in a new tab instead.
@@ -27,7 +29,7 @@ Based on TPageControl, build a tabbed Web browser using WebView2 (`TWVBrowser` a
 | `uCXReg.pas` | cxdsgn (design time) | Registration on the [CX] palette (`RegisterComponents('CX', [..., TCTabBrowser, ...])`) |
 | `cx_icons.lrs` | cxdsgn (design time) | Icons (`TCTabBrowser`, `TCTabBrowser_150`, `TCTabBrowser_200`) |
 
-- `uCTabBrowser` uses: `Classes, SysUtils, Controls, ComCtrls, Forms, Windows, ActiveX, Menus, Contnrs, uWVBrowser, uWVWindowParent, uWVBrowserBase, uWVLoader, uWVTypeLibrary, uWVEvents, uWVTypes, uWVCoreWebView2Args, uWVCoreWebView2DownloadOperation, uWVCoreWebView2ContextMenuItem, uWVCoreWebView2ContextMenuItemCollection, fpjson, jsonparser`
+- `uCTabBrowser` uses: `uCPageControl` (TCPageControl and TCTabSheet), `Classes, SysUtils, Controls, ComCtrls, Forms, Windows, ActiveX, Menus, Contnrs, uWVBrowser, uWVWindowParent, uWVBrowserBase, uWVLoader, uWVTypeLibrary, uWVEvents, uWVTypes, uWVCoreWebView2Args, uWVCoreWebView2DownloadOperation, uWVCoreWebView2ContextMenuItem, uWVCoreWebView2ContextMenuItemCollection, fpjson, jsonparser`
 - implementation uses: `uCXRuntime`.
 - Required packages for cx: `LCL`, the Lazarus package of WebView4Delphi.
 - `{$MODE Delphi}` (no `@` is needed when assigning events).
@@ -91,6 +93,7 @@ end;
 | Name | Type | Initial value | Contents |
 |---|---|---|---|
 | `FHideSingleTab` | `Boolean` | `True` | `HideSingleTab` |
+| `FSingleTab` | `Boolean` | `True` | `SingleTab` (fixed to one tab; `False` for a tabbed browser) |
 | `FUserAgent` | `string` | '' | Value written to `UserAgent` |
 | `FIgnoreCertificateErrors` | `Boolean` | `True` | `IgnoreCertificateErrors` |
 | `FSavePath` | `string` | `GetCurrentDir` | `SavePath` |
@@ -109,11 +112,8 @@ end;
 | `FDownloadIDGen` | `Integer` | 0 | Download ID generator |
 | `FDataFolder` | `string` | EXE folder + `TabBrowserData` | Data folder for all tabs |
 | `FCacheSizeMB` | `Integer` | 0 | `cacheSizeMB` in tabbrowser.json (0 = no limit) |
-| `FTabPopupMenu` | `TPopupMenu` | Created in Create | Right-click menu of the tab header (assigned to `PopupMenu`) |
-| `FCloseMenuItem` | `TMenuItem` | Created in Create | "Close" in the tab header menu |
-| `FContextMenuTabIndex` | `Integer` | -1 | Tab right-clicked on the header (used by "Close") |
 | `FContextTabIndex` | `Integer` | -1 | `ContextTabIndex` |
-| `FHeaderPopupMenu`, `FPagePopupMenu` | `TPopupMenu` | nil | Application items |
+| `FHeaderPopupMenu`, `FPagePopupMenu` | `TPopupMenu` | nil | Application items (`FHeaderPopupMenu` is also passed to `TabPopupMenu`) |
 | `FOnNewTabRequest` | `TTabNewTabRequestEvent` | nil | Event |
 | `FPageMenuItems` | `TObjectList` (owner) | empty | `TCTabPageMenuItem` entries added to the page area |
 | `FPendingAction` | `TCTabPageMenuAction` | `pmaNone` | What to do after the menu closes, when selected in the page area |
@@ -126,6 +126,12 @@ end;
 protected
   procedure Resize; override;      // SynchronizeBounds after inherited
   procedure Change; override;      // SynchronizeBounds and SynchronizeVisibility after inherited
+  procedure DoAddButtonClick; override;                         // [+]: NewTabMenuClick (decide the URL with OnNewTabRequest, then Add)
+  procedure DoMenuNewClick; override;                           // right-click "New tab": the same
+  procedure DoCloseButtonClick(APage: TCTabSheet); override;    // [×]: CloseByUser
+  procedure DoMenuCloseClick(APage: TCTabSheet); override;      // right-click "Close": CloseByUser
+  procedure DoTabListCloseClick(APage: TCTabSheet); override;   // [×] in the tab list: CloseByUser
+  procedure DoTabMenuRequested(APage: TCTabSheet); override;    // right-click on the header: FContextTabIndex := IndexOf(APage) (-1 where there is no tab)
   procedure Notification(AComponent: TComponent; Operation: TOperation); override;
 public
   constructor Create(AOwner: TComponent); override;
@@ -156,6 +162,7 @@ public
   property ContextTabIndex: Integer read FContextTabIndex;
 published
   property HideSingleTab: Boolean read FHideSingleTab write SetHideSingleTab default True;
+  property SingleTab: Boolean read FSingleTab write SetSingleTab default True;
   property UserAgent: string read GetUserAgent write SetUserAgent;
   property IgnoreCertificateErrors: Boolean read FIgnoreCertificateErrors write SetIgnoreCertificateErrors default True;
   property OnDocumentComplete: TTabDocumentCompleteEvent read FOnDocumentComplete write FOnDocumentComplete;
@@ -169,7 +176,7 @@ published
   property OnNewTabRequest: TTabNewTabRequestEvent read FOnNewTabRequest write FOnNewTabRequest;
 ```
 
-- The published properties and events inherited from TPageControl are exposed as they are (User Manual 3.2 and 5.2).
+- The published properties and events inherited from TCPageControl are exposed as they are (User Manual 3.2 and 5.2).
 
 ## 6. Create and Destroy
 
@@ -177,8 +184,7 @@ Create:
 
 1. `inherited`. Set the initial values from chapter 4. The 3 `TObjectList`s are created with `OwnsObjects = True`.
 2. `FDataFolder := ExtractFilePath(ParamStr(0)) + 'TabBrowserData'`. Unless at design time, `LoadSettings` (7.11).
-3. `Options := [nboShowCloseButtons]`, `OnCloseTabClicked := DoCloseTabClicked`.
-4. Create `FTabPopupMenu` (owner is Self) and add one "Close" item (`CloseMenuItemClick`). `PopupMenu := FTabPopupMenu`, `OnContextPopup := HandleTabContextPopup`.
+3. `Options := [nboShowCloseButtons, nboShowAddTabButton]` (`nboKeyboardTabSwitch` for Ctrl+Tab is not included, because WebView2 receives the keys), `TabMenuItems := [tmiClose]` (the only standard item in the tab header right-click menu is "Close").
 
 - Create does not touch WebView2 (to keep it safe in the IDE).
 
@@ -199,9 +205,10 @@ Destroy:
 
 `Insert(i, AURL)`:
 
+0. If `FSingleTab` and `PageCount >= 1`, open in the current tab with `Navigate(AURL)`, return the current tab's index and leave (no second tab is created. `Add` and a new-window request (7.6) also pass through here).
 1. `if not CXStartWebView2(Err) then raise Exception.Create(Err)` (chapter 9).
 2. Clamp `i` to 0 .. `PageCount`.
-3. Create a `TTabSheet` (owner is Self), `PageControl := Self`, `PageIndex := i`.
+3. Create a `TCTabSheet` (owner is Self), `PageControl := Self`, `PageIndex := i`.
 4. Create a `TCXWVWindowParent` (9.1) (owner is the tab), `Parent` is the tab, `Align := alClient`. The type of variables and fields stays `TWVWindowParent` (`TCXWVWindowParent` is its descendant, so it fits as is).
 5. Create a `TWVBrowser` (owner is the tab) and connect the following events.
 
@@ -235,7 +242,7 @@ Destroy:
 | `FindWindowParent(Sheet)` | Returns the first `TWVWindowParent` among the tab's `Controls`. nil if none |
 | `SynchronizeBounds` | `WindowParent.UpdateSize` of the visible tab |
 | `SynchronizeVisibility` | `Browser.IsVisible := (index = ActivePageIndex)` for all tabs |
-| `UpdateTabHeaderVisibility` | `ShowTabs := not (FHideSingleTab and (PageCount <= 1))` |
+| `UpdateTabHeaderVisibility` | `ShowTabs := not (FSingleTab or (FHideSingleTab and (PageCount <= 1)))` (`ShowTabs` of TCPageControl. False hides the tab strip and the page grows. When placed on a `TitleBar`, the tab strip inside the title bar disappears) |
 | `SetActiveIndex(V)` | Only when 0 .. `PageCount - 1`: `ActivePageIndex := V`, `SynchronizeBounds`, `SynchronizeVisibility` |
 | `SetUserAgent(V)` | If different, remember it and set it on all `Initialized` tabs (tabs not yet ready are set in `BrowserAfterCreated`) |
 | `SetIgnoreCertificateErrors(V)` | Same approach |
@@ -292,7 +299,7 @@ Destroy:
 
 ### 7.6 Bridging Browser events
 
-The tab index is the `PageIndex` of the `Owner` (`TTabSheet`) of `Sender` (`TWVBrowser`) (`TabIndexOfBrowser`. -1 if not found).
+The tab index is the `PageIndex` of the `Owner` (`TCTabSheet`) of `Sender` (`TWVBrowser`) (`TabIndexOfBrowser`. -1 if not found).
 
 | Procedure | Processing |
 |---|---|
@@ -330,24 +337,23 @@ Execution ID: `NextScriptID` cycles through 1 .. 9999. IDs of 10000 and above ar
 
 ### 7.9 Right-click menus
 
-**Tab header** (`HandleTabContextPopup`)
+**Tab header** (shown by TCPageControl)
 
-1. `FContextMenuTabIndex := IndexOfTabAt(X, Y)`. If there is no tab there, `Handled := True` (do not show) and leave.
-2. `FContextTabIndex := FContextMenuTabIndex`.
-3. Remove everything except "Close" from `FTabPopupMenu`.
-4. If `FHeaderPopupMenu` exists, call its `OnPopup`. If `FHeaderPopupMenu` still exists after the call, add a separator and copy with `CopyMenuToHeader`. If the last item is a separator, remove it.
+The right-click menu on the tab header is shown by `ShowTabMenu` of TCPageControl. The standard items are decided by `TabMenuItems` (`[tmiClose]` in this component). The application's items are the items of `TabPopupMenu` (= `FHeaderPopupMenu`; passed by `SetHeaderPopupMenu`), placed after a separator.
 
-`CopyMenuToHeader(Src, Dest)`: only `Visible` items; create a `TMenuItem` (owner is `FTabPopupMenu`). A separator is '-'. Otherwise copy `Caption`, `Enabled`, `Checked` and `ShortCut`, and set `Tag := PtrInt(original item)`. If there are no children, `OnClick := HeaderCopyItemClick`; if there are children, copy them with the same procedure.
+1. `ShowTabMenu` calls `DoTabMenuRequested(APage)` (before `OnPopup`). Here `FContextTabIndex := IndexOf(APage)` (-1 where there is no tab).
+2. Create the standard items. "Close" only when a tab was right-clicked.
+3. If `TabPopupMenu` has items, call its `OnPopup` and copy them after a separator (only when there are standard items). It copies `Caption`, `Enabled`, `Visible`, `Checked`, `RadioItem`, `GroupIndex`, `ImageIndex` (`TabPopupMenu.Images`), `ShortCut`, `Hint` and `Default`, and selecting a copy calls `Click` of the original item.
+4. If there is no item to show, the menu is not shown (where there is no tab and no `HeaderPopupMenu`).
 
-`HeaderCopyItemClick`: if the original item in `Tag` is still inside `FHeaderPopupMenu` (`MenuContainsItem`; only compares pointers), `Click`.
+`CloseByUser(APage)`: [×] (`DoCloseButtonClick`), the right-click "Close" (`DoMenuCloseClick`) and [×] in the tab list (`DoTabListCloseClick`) all call this. If `IndexOf(APage)` is in range, call `OnPageClose` with `CanClose := True`, and if `CanClose`, `Remove(index)`. The standard close of TCPageControl (`Free`) is not used because `Remove` must detach the Browser events before closing.
 
-`CloseMenuItemClick`: `Remove(FContextMenuTabIndex)`. `DoCloseTabClicked`: if `Sender` is a `TTabSheet`, `Remove` that tab; if `Sender = Self`, `Remove` the visible tab.
-
+`SetHeaderPopupMenu(V)`: `FHeaderPopupMenu := V`, `TabPopupMenu := V` (TCPageControl does `RemoveFreeNotification` on the previous value and `FreeNotification` on the new one). Then, if the previous value is the same as `FPagePopupMenu`, redo `FreeNotification(Self)` (because TCPageControl removed the registration), and also `FreeNotification(Self)` on the new value.
 **Page** (`BrowserContextMenuRequested`)
 
 1. `ReleasePageMenuItemsOf(nil)` (remove the items added last time).
 2. `FContextTabIndex := TabIndexOfBrowser(Browser)`.
-3. Standard items are not suppressed (`Handled` is not set). After them, add a separator, "New" (`pmaNew`) and "Close" (`pmaClose`).
+3. Standard items are not suppressed (`Handled` is not set). After them, add a separator, "New" (`pmaNew`) and "Close" (`pmaClose`) (not added when `FSingleTab`).
 4. If `FPagePopupMenu` exists, call its `OnPopup`. If `FPagePopupMenu` still exists after the call and at least one item is visible (`HasVisibleItem`), add a separator and copy with `CopyMenuToPage`.
 
 `AddPageMenuItem`: create with `CoreWebView2Environment.CreateContextMenuItem` (if it cannot be created on an old runtime, add nothing). Put `CommandId`, `Action`, `Source` and `Browser` in a `TCTabPageMenuItem`; except for separators set `IsEnabled`, and for checks `IsChecked`. For anything other than `pmaNone`, `AddAllBrowserEvents(Browser)` (so that `OnCustomItemSelected` arrives when selected). If `AppendValue` succeeds, add it to `FPageMenuItems` and return it.
@@ -358,7 +364,7 @@ Execution ID: `NextScriptID` cycles through 1 .. 9999. IDs of 10000 and above ar
 
 `DoPendingMenu`: put `FindTabOfBrowser(FPendingBrowser)` (only compares pointers; -1 if it has vanished) into `FContextTabIndex`, clear the pending state, then execute. `pmaNew` → `NewTabMenuClick`, `pmaClose` → `Remove` if the tab exists, `pmaApp` → `Click` if the original item is still inside `FPagePopupMenu`.
 
-**Setting `HeaderPopupMenu` and `PagePopupMenu`**: only when the previous value differs from the other one, `RemoveFreeNotification`. `FreeNotification` on the new value. In `Notification` `opRemove`, set the vanished one to nil.
+**Setting `PagePopupMenu`**: only when the previous value differs from `FHeaderPopupMenu`, `RemoveFreeNotification`. `FreeNotification` on the new value. In `Notification` `opRemove`, set the vanished one to nil for both `FHeaderPopupMenu` and `FPagePopupMenu` (when `FHeaderPopupMenu` vanishes, `Notification` of TCPageControl also sets `TabPopupMenu` to nil).
 
 ### 7.10 Closing a tab (Remove) and new tab
 
@@ -376,7 +382,7 @@ Execution ID: `NextScriptID` cycles through 1 .. 9999. IDs of 10000 and above ar
 
 `DoNewTabRequest(Reason)`: call `OnNewTabRequest` with `URL := 'about:blank'`, `Accept := True`. If `Accept = False`, `ntrMenuNew` returns '' and `ntrLastTabClosed` becomes 'about:blank'. If the URL is empty, 'about:blank'.
 
-`NewTabMenuClick`: if `DoNewTabRequest(ntrMenuNew)` is not empty, `Add`.
+`NewTabMenuClick`: if `DoNewTabRequest(ntrMenuNew)` is not empty, `Add`. [+] (`DoAddButtonClick`), the right-click "New tab" (`DoMenuNewClick`) and the Web page right-click "New" (`pmaNew`) all call this (the standard [+] of TCPageControl creates an empty page and raises `OnNewPage`, so it is not used).
 
 ### 7.11 Settings file (LoadSettings)
 
@@ -474,6 +480,10 @@ type
 | Freezes together with TCMonacoEditor | `UserDataFolder := FDataFolder` and `CreateBrowser(…, False)` (7.1) |
 | Cache limit has no effect | Location of tabbrowser.json (7.11), `AdditionalBrowserArguments` |
 | Tabs that existed before do not show after docking/undocking | Whether the tab's window is a `TCXWVWindowParent` (step 4 of 7.1), whether it was parked in `DestroyWnd` and reattached in `CreateWnd` (`FParked`; 9.1). Whether `Browser.ParentWindow` is the `Handle` of the new window |
+| [+] does not appear | Whether `Options` contains `nboShowAddTabButton`. If an old `Options = [nboShowCloseButtons]` is saved in the .lfm, it overrides the default (chapter 6) |
+| Application items do not appear on right-clicking the header | Whether `HeaderPopupMenu` (= `TabPopupMenu`) is set. `SetHeaderPopupMenu`, `ShowTabMenu`, `DoTabMenuRequested` (7.9) |
+| The right-clicked tab index (`ContextTabIndex`) is wrong | Whether `DoTabMenuRequested` sets `FContextTabIndex` (7.9) |
+| The tab strip does not appear although the component is placed on the title bar | Whether there is one tab with `HideSingleTab = True` (`UpdateTabHeaderVisibility`; 7.2) |
 
 ## 11. Changes in this version (1.1)
 
@@ -496,3 +506,47 @@ Steps for changing the code. Not included in the user manual.
 | 4 | WebView4Delphi | Unchanged (left untouched) |
 
 - The published properties, methods and events are not changed.
+
+## 12. Changes in this version (1.2)
+
+Steps for fixing the code. Not included in the User Manual.
+
+### 12.1 Now and after the change
+
+| No | Item | Now (1.1): behavior and problem | After (1.2) | Reason | Risk |
+|---|---|---|---|---|---|
+| 1 | Base class | `TPageControl`. The tab strip is the standard Windows tab control, and only the tab strip cannot be placed on the title bar (putting another tab strip on the title bar gives two rows). Dark display, [×], [+] and so on cannot be drawn freely | `TCPageControl`. The tab strip is drawn by itself, and setting `TitleBar` to a TCTitleBar places it on the title bar. The pages stay where this component is | To make an application with the title bar and tabs in one row, like Firefox | The published properties become those of TCPageControl. `MultiLine`, `RaggedRight`, `ScrollOpposite`, `Style`, `HotTrack`, `OnCloseTabClicked` and so on disappear, and an .lfm that still contains them fails to load |
+| 2 | Page type | `TTabSheet` | `TCTabSheet` | For 1 | Replace every `Owner is TTabSheet` check with `TCTabSheet` |
+| 3 | [×] | `OnCloseTabClicked` (not shown with the LCL on Windows) and the right-click "Close" | The [×] on a tab (drawn by itself). There is also [×] in the tab list. All go through `CloseByUser` (can be cancelled with `OnPageClose`) to `Remove` | To close with [×] on Windows too | `OnPageClose` becomes usable (it did not exist before) |
+| 4 | [+] | None | Shown (`nboShowAddTabButton`). `NewTabMenuClick` (`ntrMenuNew` of `OnNewTabRequest`) creates a tab with WebView2 | To create a new tab with a button | Existing forms whose .lfm saves an old `Options` do not show [+] (fix `Options`) |
+| 5 | Right-click on the header | Uses `PopupMenu` and `OnContextPopup` itself and builds "Close" and the application's items. No menu where there is no tab | Left to `ShowTabMenu` of TCPageControl. `TabMenuItems = [tmiClose]`, the application's items are `TabPopupMenu` (= `HeaderPopupMenu`). `ContextTabIndex` is recorded in `DoTabMenuRequested` | To reduce hand-made building and match TCPageControl | The items of `HeaderPopupMenu` also appear where there is no tab. Item icons (`TabPopupMenu.Images`) are shown. `PopupMenu` and `OnContextPopup` become usable by the application |
+| 6 | Hiding the tab strip | `ShowTabs` of the LCL | `ShowTabs` of TCPageControl (added this time) | TCPageControl had no way to hide it | When placed on a `TitleBar`, with one tab the title bar becomes empty (avoid with `HideSingleTab := False`) |
+| 7 | Operating environment | Lazarus 4.8 and 5.0 RC1 | 5.0 or later | `CListView` uses `ShellCtrls` of 5.0 | cx does not compile on 4.8 |
+
+### 12.2 What to change
+
+| No | File | Change |
+|---|---|---|
+| 1 | `uCTabBrowser.pas` | Base class to `TCPageControl`. `TTabSheet` to `TCTabSheet`. `Options` and `TabMenuItems` in `Create`. Remove `FTabPopupMenu`, `FCloseMenuItem`, `FContextMenuTabIndex`, `HandleTabContextPopup`, `CloseMenuItemClick`, `DoCloseTabClicked`, `CopyMenuToHeader` and `HeaderCopyItemClick`. Add `CloseByUser`, `DoAddButtonClick`, `DoMenuNewClick`, `DoCloseButtonClick`, `DoMenuCloseClick`, `DoTabListCloseClick` and `DoTabMenuRequested`. `SetHeaderPopupMenu` passes the menu to `TabPopupMenu` |
+| 2 | `uCPageControl.pas` | Add `ShowTabs` (default True; False hides the tab strip) and `DoTabMenuRequested` (called just before a right-click menu is shown; does nothing). Nothing else changes |
+| 3 | `demo\Lazarus\tcTabBrowser\unit1.lfm` | Add `nboShowAddTabButton` to `Options` |
+
+- Published properties, methods and events added by TCTabBrowser do not change.
+- Verified (Lazarus 5.0 RC1, Windows 11): [+], [×], the right-click "Close", the items of `HeaderPopupMenu` and `ContextTabIndex`, tab dragging, creating a new tab when the last tab is closed, `HideSingleTab`, and the display placed on a `TitleBar`.
+
+## 13. Changes in this version (1.3)
+
+### 13.1 Now and after the change
+
+| No | Item | Now (1.2): behavior and problem | After (1.3) | Reason | Risk |
+|---|---|---|---|---|---|
+| 1 | Using it as a single-page Web browser (the default becomes `True`) | The tab strip is hidden only when there is one tab or fewer (`HideSingleTab`). `Add` and a new-window request add tabs. "New" and "Close" appear in the page's right-click menu. Avoiding them needs several event handlers | `SingleTab` (default `True`; `False` makes it a tabbed browser). When `True`, the tab strip is always hidden, `Add` and `Insert` open in the current tab without creating a second one (a new-window request also goes through `Add`, so the same), and "New" and "Close" are not shown in the page's right-click menu | To make it usable as a Web browser without tabs, like the single-page mode of TCsEditor | Because the default becomes `True`, existing forms and code that use several tabs need `SingleTab := False` (`SingleTab = False` in the .lfm). If it is not set to `False`, repeated `Add` calls do not add tabs (a loop such as `while Count < 3 do Add(…)` never ends). If `SingleTab` is set to `True` after tabs were added, the existing tabs are not removed |
+| 2 | Empty tab strip | While there were 0 tabs, an empty band showing only [∨] appeared | While there are 0 tabs, the tab strip is hidden (`UpdateTabHeaderVisibility` in `Create`) | It looked like two rows when nested | None |
+
+### 13.2 What to change
+
+| No | File | Change |
+|---|---|---|
+| 1 | `uCTabBrowser.pas` | `FSingleTab`, `SetSingleTab` and `SingleTab`. `UpdateTabHeaderVisibility` is `ShowTabs := not (FSingleTab or (FHideSingleTab and (PageCount <= 1)))`. At the start of `Insert` (before `CXStartWebView2`), if `FSingleTab` and `PageCount >= 1`, call `Navigate(AURL)`, return the current tab's index and leave. `BrowserContextMenuRequested` adds no separator, "New" or "Close" when `FSingleTab` |
+
+- Verified (Lazarus 5.0 RC1, Windows 11): with `SingleTab = True`, three calls of `Add` give `Count = 1`; no tab strip; a `target="_blank"` link opens in the same tab; the page's right-click menu shows only the standard items of WebView2.

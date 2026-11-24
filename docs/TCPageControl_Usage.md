@@ -1,10 +1,12 @@
 # TCPageControl 取扱説明書
 
 作者: aotan083
-日付: 2026-11-04
-版: 1.1
+日付: 2026-11-24
+版: 1.3
 
 ---
+
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
 
 ## 1. 概要とクラス
 
@@ -33,7 +35,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 以降 |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 | パレット | CX（TCTitleBar・TCPageControl。TCTabSheet はパレットに出ない） |
@@ -140,13 +142,24 @@ Language=en
 | `TabWidth` | `Smallint` | 読み・書き | タブの幅。0（既定値）なら文字に合わせる |
 | `TabMaxWidth` | `Integer` | 読み・書き | `TabWidth = 0` のときの最大の幅（既定値は 240）。入りきらない文字は「…」 |
 | `TabShape` | `TCTabShape` | 読み・書き | タブの形。`tsRectangle`（既定値。四角）・`tsRounded`（角丸） |
-| `Options` | `TCTabControlOptions` | 読み・書き | 動きの設定（下の表）。既定値は `[nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch]` |
+| `Options` | `TCTabControlOptions` | 読み・書き | 動きの設定（下の表）。既定値は `[nboKeyboardTabSwitch]`（［×］・［＋］は出ない）。［×］・［＋］が要るのは、タブエディタ・タブブラウザなどの用途だけ。設計時に作ったページ（TEdit など）が実行時に閉じて壊れないよう、既定では閉じられない |
 | `ShowTabListButton` | `Boolean` | 読み・書き | ［∨］（タブの一覧）を出すか（既定値は `True`） |
+| `ShowTabs` | `Boolean` | 読み・書き | タブ列を出すか（既定値は `True`）。`False` にするとタブ列を隠し、ページだけを出す。実行時だけ |
 | `NewPageCaption` | `string` | 読み・書き | ［＋］・メニューで作ったタブの名前（既定値は '新しいタブ'） |
 | `TabMenuItems` | `TCTabMenuItems` | 読み・書き | 右クリックメニューに出す標準の項目（既定値は `[tmiNew, tmiClose, tmiRename]`） |
 | `TabPopupMenu` | `TPopupMenu` | 読み・書き | タブの右クリックメニューに足す項目。標準の項目の下に、区切り線を挟んで出る |
 | `TabListPopupMenu` | `TPopupMenu` | 読み・書き | タブの一覧の上に足す項目（サブメニューは出ない） |
 | `TitleBar` | `TCTitleBar` | 読み・書き | タブ列を入れるタイトルバー。空ならタブ列は TCPageControl の中に出る |
+| `ActiveMarkSize` | `Integer` | 読み・書き | 表示中のタブの線の太さ（表示スケール 100% のときの px）。0（既定値）なら出さない |
+| `ActiveMarkColor` | `TColor` | 読み・書き | 表示中のタブの線の色（既定値は `clHighlight`） |
+| `ActiveMarkAtBottom` | `Boolean` | 読み・書き | `True` ならタブの下に、`False`（既定値）ならタブの上に線を出す |
+| `ActiveTabColor` | `TColor` | 読み・書き | 表示中のタブの背景色。`clDefault`（既定値）なら `clWindow` |
+| `ActiveTextColor` | `TColor` | 読み・書き | 表示中のタブの文字の色。`clDefault`（既定値）なら `clWindowText` |
+| `TabTextColor` | `TColor` | 読み・書き | 表示中でないタブの文字の色。`clDefault`（既定値）なら `clBtnText` |
+| `ModifiedTextColor` | `TColor` | 読み・書き | 変更ありのタブ（`TCTabSheet.Modified`）の文字の色。`clDefault`（既定値）なら、ほかの文字の色と同じ |
+| `HotTabColor` | `TColor` | 読み・書き | マウスを乗せたタブの背景色。`clDefault`（既定値）なら、背景色に `clBtnText` を少し混ぜた色 |
+| `ButtonColor` | `TColor` | 読み・書き | ［×］・［◀］［▶］・［＋］・［∨］の記号の色。`clDefault`（既定値）なら、文字の色・`clBtnText` |
+| `SeparatorColor` | `TColor` | 読み・書き | タブとタブの間の区切り線の色。`clNone`（既定値）なら出さない（表示中のタブの両側には出さない） |
 | `Color` | `TColor` | 読み・書き | タブ列の背景色（タブだけを使うとき。既定値は `clBtnFace`） |
 | `Align` | `TAlign` | 読み・書き | 親の中での配置 |
 | `Anchors` | `TAnchors` | 読み・書き | 親の大きさが変わったときに、どの辺を合わせて動くか |
@@ -187,7 +200,7 @@ Language=en
 
 | 値 | 中身 |
 |---|---|
-| `nboShowCloseButtons` | タブに［×］を出す |
+| `nboShowCloseButtons` | タブに［×］を出す。［∨］（タブの一覧）の各行の［×］と、右クリックの「タブを閉じる」も、これに連動する（外すと、［∨］は切り替えるだけ） |
 | `nboShowAddTabButton` | ［＋］を出す |
 | `nboKeyboardTabSwitch` | Ctrl+Tab・Ctrl+Shift+Tab で切り替える |
 | `nboDoChangeOnSetIndex` | コードで表示ページを変えたときも、`OnChanging`・`OnChange` を出す |
@@ -272,6 +285,10 @@ Language=en
 | `ImageIndex` | `TImageIndex` | 読み・書き | アイコンの番号。-1（既定値）ならアイコンなし |
 | `PageIndex` | `Integer` | 読み・書き | ページの位置。書くと並べ替わる（`OnPageMoved` は出ない） |
 | `TabVisible` | `Boolean` | 読み・書き | `False` でタブを隠す（ページは残る）。既定値は `True` |
+| `Hint` | `TTranslateString` | 読み・書き | タブにマウスを乗せたときに出すヒント（`ShowHint` に関わらず出る。空なら出ない） |
+| `Modified` | `Boolean` | 読み・書き | 変更あり。`True` のタブは、［×］の場所に「●」を出す（マウスを乗せると［×］になる）。実行時に使う |
+| `TabColorActive` | `TColor` | 読み・書き | このタブだけの、表示中のときの背景色。`clDefault`（既定値）なら `ActiveTabColor`。実行時に使う |
+| `TabColorOver` | `TColor` | 読み・書き | このタブだけの、マウスを乗せたときの背景色。`clDefault`（既定値）なら `HotTabColor`。実行時に使う |
 | `TabIndex` | `Integer` | 読み | 見えているタブだけで数えた番号。隠れていれば -1。実行時だけ |
 | `PageControl` | `TCPageControl` | 読み・書き | 入っている TCPageControl。書くと、その TCPageControl の末尾のページになる。実行時だけ |
 | `Color` | `TColor` | 読み・書き | ページの背景色（既定値は `clWindow`） |
@@ -404,9 +421,10 @@ Language=en
 |---|---|
 | キャプション | TCTitleBar の `Caption` を表示する。空のときはフォームの `Caption` を表示する。長い文字は「…」で省略する。操作は空き部分と同じ |
 | タブ | 押すとそのページを表示する。ドラッグで並べ替えられる（ドラッグ中に Esc、またはタブ列の外で離すと取りやめ） |
-| タブの［×］ | そのタブを閉じる |
+| タブの［×］・中ボタン | そのタブを閉じる（中ボタンは、［×］を出しているとき） |
 | ［＋］ | 末尾に新しいタブを作り、表示する |
 | ［◀］［▶］ | タブが入りきらないときだけ出る。押すと1枚分ずつスクロールする。タブ列の上でマウスホイールでもスクロールする |
+| タブにマウスを乗せる | `TCTabSheet.Hint` があれば、ヒントを出す |
 | ［∨］ | タブの一覧を出す。行を押すとそのタブを表示し、行の［×］でそのタブを閉じる |
 | 最小化・最大化・閉じる | Windows のタイトルバーと同じ。最大化ボタンにマウスを乗せると、スナップレイアウトが出る |
 | 空き部分 | ドラッグでフォームの移動、ダブルクリックで最大化／元に戻す、画面端へのスナップ、右クリックでシステムメニュー |
@@ -446,10 +464,12 @@ Language=en
 
 | したいこと | 設定 |
 |---|---|
-| タブの［×］を出さない | `Options` から `nboShowCloseButtons` を外す |
+| タブを閉じられないようにする（既定） | `Options` に `nboShowCloseButtons` を入れない（［×］・［∨］の一覧の［×］・右クリックの閉じる・中ボタンで閉じる、すべて無効） |
+| タブを閉じられるようにする | `Options` に `nboShowCloseButtons` を足す |
 | ［＋］を出さない | `Options` から `nboShowAddTabButton` を外す |
 | Ctrl+Tab で切り替えない | `Options` から `nboKeyboardTabSwitch` を外す |
 | ［∨］を出さない | `ShowTabListButton` を `False` にする |
+| タブ列を隠す | `ShowTabs` を `False` にする（ページだけが出る） |
 | 右クリックメニューの標準の項目を減らす | `TabMenuItems` から `tmiNew`・`tmiClose`・`tmiRename` を外す |
 | 右クリックメニューにアプリの項目を足す | TPopupMenu を置いて項目を作り、`TabPopupMenu` に選ぶ |
 | タブの一覧の上にアプリの項目を足す | TPopupMenu を置いて項目を作り、`TabListPopupMenu` に選ぶ |
@@ -490,6 +510,8 @@ Ctrl+Tab・Ctrl+Shift+Tab は、次の順番で届く。
 | タイトルバーの文字・記号 | `clBtnText`（フォームが非アクティブのときは `clGrayText`） |
 | 閉じるボタンにマウスを乗せたとき | 赤（#C42B1C）、記号は白（ダークでも同じ） |
 
+ここに書いた色は、プロパティで変えられる（3.1 の `ActiveTabColor`・`ActiveTextColor`・`TabTextColor`・`ModifiedTextColor`・`HotTabColor`・`ButtonColor`・`SeparatorColor`。タブごとには `TCTabSheet.TabColorActive`・`TabColorOver`）。表示中のタブの線は、`ActiveMarkSize` を 0 より大きくすると出る。変更ありのタブ（`TCTabSheet.Modified`）は、［×］の場所に「●」を出す。
+
 ボタンの記号は、Segoe Fluent Icons（なければ Segoe MDL2 Assets）の字で描く。
 
 ### 8.2 表示スケール（高 DPI）
@@ -515,9 +537,9 @@ Windows の表示スケール（125%、150% など）に合わせて、タブ・
 | タブが多いとき | 複数段（`MultiLine`）、またはスクロール | 1段のみ。［◀▶］とマウスホイールでスクロール |
 | タブの位置 | 上・下・左・右 | 上・下のみ |
 | タブの形 | `Style`（タブ・ボタン形） | `TabShape`（四角・角丸） |
-| `Options` の既定値 | 空（何も有効でない） | ［×］・［＋］・Ctrl+Tab が最初から有効 |
+| `Options` の既定値 | 空（何も有効でない） | Ctrl+Tab のみ有効。［×］・［＋］は足したときだけ |
 | 背景色（`Color`） | 指定できない | タブ列・ページとも指定できる |
-| 持たないもの | ― | `MultiLine`、`RaggedRight`、`ScrollOpposite`、`Style`、`HotTrack`、`ShowTabs`、`OnCloseTabClicked`、ドッキング関係（`DockSite` など） |
+| 持たないもの | ― | `MultiLine`、`RaggedRight`、`ScrollOpposite`、`Style`、`HotTrack`、`OnCloseTabClicked`、ドッキング関係（`DockSite` など） |
 | 対応OS | LCL が動くOSすべて | Windows 11 |
 
 ### 9.1 注意

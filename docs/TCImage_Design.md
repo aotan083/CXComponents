@@ -6,6 +6,8 @@
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 目的と方針
 
 - `TCImage`：`TImage` と同じ使い方で、bmp・jpg(jpeg)・png・svg・tif(tiff)・ico を扱える画像部品。

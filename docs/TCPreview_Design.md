@@ -18,7 +18,7 @@ TCPreview は、TCsEditor の本文をプレビュー（Markdown は文書、そ
 | 4 | 表示・非表示は TCsEditor の `ShowPreview`（`Ctrl+Shift+V`）で行う。TCPreview の `Visible` を直接変えても同じになる |
 | 5 | 設定の名前・既定値は TCMonacoEditor のプレビューの設定と同じ。頭の `Preview` は外す（`PreviewFontSize` → `FontSize` など） |
 | 6 | `uCmdpreview.pas`・`preview.html` など、TCMonacoEditor のファイルは変えない |
-| 7 | 動作環境：Lazarus 5.0 以降（テストは 5.0 RC1。TCsEditor と同じ）。Lazarus 4.8 は cx パッケージのコンパイルが通るだけで、動作の確認・テストはしない |
+| 7 | 動作環境：Lazarus 5.0 以降（テストは 5.0 RC1。TCsEditor と同じ） |
 
 ## 2. ファイルとパッケージ
 

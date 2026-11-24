@@ -1,8 +1,8 @@
 # TCsEditor Design Document
 
 Author: aotan083
-Date: 2026-11-03
-Version: 1.1
+Date: 2026-11-24
+Version: 1.2
 
 ---
 
@@ -19,7 +19,7 @@ TCsEditor is an editor component that holds multiple TCSynEdit instances in tabs
 | 5 | To place editors side by side, place multiple TCsEditor instances and let the application arrange them with TSplitter. The screen is not divided inside the component |
 | 6 | It works with 0 lines of code written by the user. Settings are done in the Object Inspector |
 | 7 | Build order: the minimap (chapter 10) is built last (chapter 17) |
-| 8 | Operating environment: Lazarus 5.0 or later (tested on 5.0 RC1). With Lazarus 4.8, the cx package only compiles; operation is neither verified nor tested (word wrap becomes the prototype component in 4.8). This component has no code that branches by version |
+| 8 | Operating environment: Lazarus 5.0 or later (tested on 5.0 RC1). This component has no code that branches by version |
 
 ## 2. Files and Packages
 
@@ -35,9 +35,9 @@ TCsEditor is an editor component that holds multiple TCSynEdit instances in tabs
 | `cx_icons.lrs` | cxdsgn (design time) | Remove the TCMFindDialog icon (chapter 12) |
 
 - To avoid adding a file for each component, the find/replace dialog, standard actions and minimap are also put in `uCsEditor.pas` (since it is the same unit, no circular reference arises for `FindDialog`).
-- interface uses: `Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, StdCtrls, Graphics, Dialogs, Menus, LCLType, LCLIntf, LMessages, ActnList, Clipbrd, Registry, ShellApi, ATTabs, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditMouseCmds, SynEditMarkupWordGroup, SynEditMarkupHighAll, SynEditWrappedView, csynedit, ucmmonacoview, CMonacoTabs, uCmonacos, uCPreview`
+- interface uses: `Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, StdCtrls, Graphics, Dialogs, Menus, LCLType, LCLIntf, LMessages, ActnList, Clipbrd, Registry, ShellApi, uCPageControl, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditMouseCmds, SynEditMarkupWordGroup, SynEditMarkupHighAll, SynEditWrappedView, csynedit, ucmmonacoview, CMonacoTabs, uCmonacos, uCPreview`
 - implementation uses: `LazUTF8, LConvEncoding, StrUtils, Math`
-- The required packages of cx stay as they are (SynEdit, atflatcontrols_package, WebView4Delphi). `TLazSynEditLineWrapPlugin` (`SynEditWrappedView`) is included in the SynEdit package.
+- The required packages of cx stay as they are (SynEdit, WebView4Delphi). `TLazSynEditLineWrapPlugin` (`SynEditWrappedView`) is included in the SynEdit package.
 
 ### 2.2 Reused Items
 
@@ -73,7 +73,7 @@ uCsEditor (TCsEditor)
 
 ```
 TCsEditor (TCustomPanel)
- ├ Tabs (TATTabs)                … top edge (alTop). Hidden when MultiDocument = False
+ ├ Tabs (TCTabBar)                … top edge (alTop). Hidden when MultiDocument = False
  ├ Vertical scroll bar (TScrollBar) … rightmost (alRight). Shown when Minimap = True (10.5)
  ├ Minimap (TCsMinimap)          … right edge (alRight). Shown when Minimap = True (chapter 10)
  └ Body (TCsSynEdit × number of tabs) … remaining area (alClient). Only one, for the visible tab, is Visible
@@ -164,7 +164,7 @@ TCsEditor (TCustomPanel)
 | `TabTearOff` | `Boolean` | `True` | `FTabTearOff` (4.11) |
 | `OpenDialog`, `SaveDialog` | `TOpenDialog`, `TSaveDialog` | nil | `FreeNotification` |
 | `FindDialog` | `TCsFindDialog` | nil | `FreeNotification` (chapter 8) |
-| `TabFlat`, `TabSeparator` | `Boolean` | `True`, `False` | `OptShowFlat`, `OptShowFlatSepar` of ATTabs |
+| `TabFlat`, `TabSeparator` | `Boolean` | `True`, `False` | `TabShape` of TCTabBar (`True` = `tsRectangle`, `False` = `tsRounded`) and `SeparatorColor` (`True` = the line color, `False` = `clNone`) |
 | `TabIcons`, `TabImages` | `Boolean`, `TImageList` | `True`, nil | 4.6 |
 | `WordWrap` | `Boolean` | `True` | 5.2 on `syn` of all tabs |
 | `LineNumbers` | `Boolean` | `False` | `Gutter.LineNumberPart.Visible` of all tabs |
@@ -298,22 +298,22 @@ Same as 4.4 of TCMonacoEditor (`OnQueryClose` → `ConfirmOnFormClose` confirmat
 
 ### 4.5 MultiDocument
 
-Same table as 4.5 of TCMonacoEditor. When `False`, the tabs (ATTabs) are hidden and there is always one tab.
+Same table as 4.5 of TCMonacoEditor. When `False`, the tabs (TCTabBar) are hidden and there is always one tab.
 
-### 4.6 Tabs (ATTabs)
+### 4.6 Tabs (TCTabBar)
 
 Use the same settings and the same appearance as TCMonacoEditor (`CMonacoTabs.pas`, `uCmonacos.pas`). The difference is that the processing connecting tabs and documents is written directly inside `TCsEditor` (`TCMTabBinder` is not used).
 
 | Item | Processing |
 |---|---|
-| Rebuild (`RebuildTabs`) | Create tabs in the order of `FPages`. Put the page in the tab's `TabObject`. The title is `Caption`, followed by ` *` if modified, and the hint is the full path |
+| Rebuild (`RebuildTabs`) | Create tabs in the order of `FPages`. Put the page in the tab's `Tag`. The title is `Caption`, followed by ` *` if modified, and the hint is the full path |
 | Update one (`UpdateTab`) | Title, hint and icon only |
 | Click | Switch `ActiveIndex` and focus the body |
 | [+] | `NewPage` |
-| [x] / middle button | `Close` (confirmation of 4.4). So as not to close in the middle of ATTabs' processing, it is closed later via `QueueAsyncCall` |
+| [x] / middle button | `Close` (confirmation of 4.4). So as not to close in the middle of the tab strip's processing, `OnPageClose` sets `CanClose := False` and it is closed later via `QueueAsyncCall` |
 | Reorder by dragging | `FPages.Move` |
-| Drag outside (`OnEndDrag`) | 4.11, 4.12 |
-| Appearance | `OptShowFlat := TabFlat`, `OptShowFlatSepar := TabSeparator`, `OptShowEntireColor := True` (paint the visible tab and the tab under the mouse with per-tab colors), no accent line, `OptMouseDragOutEnabled := False` |
+| Drag outside (`OnTabDragOut`) | 4.11, 4.12 |
+| Appearance | `TabShape` and `SeparatorColor` (table above), per-tab colors (`TabColorActive`, `TabColorOver`) to paint the visible tab and the tab under the mouse, and an accent line (thickness 2) above the visible tab |
 | Text | `ParentFont := False`. Not matched to `Font` and `FontSize` of TCsEditor (the tab height does not change, so enlarging would overflow). As in TCMonacoEditor, the normal-size font (`Screen.SystemFont`) is kept |
 | Icons | When `TabIcons = True` and there is no `TabImages`: get it from the extension with `SHGetFileInfo` (`SHGFI_USEFILEATTRIBUTES`, small icon) and put it in an internal image list (once per extension; untitled uses '.txt'). When `TabImages` exists: `OnGetTabImageIndex` (index 0 if not set). `False`: none |
 
@@ -351,7 +351,7 @@ Chapter 7.
 
 #### 4.11.1 Same as TCMonacoEditor
 
-Same structure and behavior as 4.11 of `TCMonacoEditor_Design.md`: detecting dragging outside (`Target = nil` in `OnEndDrag`, left button, `IsOutsideApp`, `QueueAsyncCall`), the initial value of `TearOff` (`False` for a single empty untitled tab), `OnTabDragOut`, writing a temporary file and starting the same EXE with `CreateProcessW`, how environment variables are passed, how the receiving editor is determined (`Owner.Name + '.' + Name`), window position, and merging (judging the same EXE, `WM_COPYDATA`, replies 0, 1, 2, 3 seconds, `AsyncMerge`).
+Same structure and behavior as 4.11 of `TCMonacoEditor_Design.md`: detecting dragging outside (`OnTabDragOut`, `IsOutsideApp`, `QueueAsyncCall`), the initial value of `TearOff` (`False` for a single empty untitled tab), `OnTabDragOut`, writing a temporary file and starting the same EXE with `CreateProcessW`, how environment variables are passed, how the receiving editor is determined (`Owner.Name + '.' + Name`), window position, and merging (judging the same EXE, `WM_COPYDATA`, replies 0, 1, 2, 3 seconds, `AsyncMerge`).
 
 #### 4.11.2 Differences
 
@@ -375,9 +375,9 @@ Same structure and behavior as 4.11 of `TCMonacoEditor_Design.md`: detecting dra
 
 When a tab is dragged onto another TCsEditor on the same form (one placed side by side) and released, that tab is moved. Because the inner component (`TCsSynEdit`) is moved as it is, the Undo history and cursor position are kept.
 
-**Detection** (in `OnEndDrag` of 4.11.1, before checking whether it was dragged outside)
+**Detection** (in `OnTabDragOut` of 4.11.1, before checking whether it was dragged outside)
 
-1. Get the control at the release position (`Mouse.CursorPos`) with `FindControlAtPosition(P, False)` and follow `Parent` to find a TCsEditor. If `Target` is not nil, follow from `Target`.
+1. Get the control at the release position (`AScreenPos` of `OnTabDragOut`) with `FindControlAtPosition(P, False)` and follow `Parent` to find a TCsEditor. If `ATarget` is not nil, follow from `ATarget`.
 2. If the TCsEditor found is not itself and is on the same form (same `GetParentForm`), move it. This is done with `QueueAsyncCall(AsyncMoveTab)` after the drag processing finishes.
 3. If none is found, proceed to 4.11 (whether it was dragged outside).
 
@@ -828,7 +828,7 @@ Before drawing, show a sample and get confirmation.
 |---|---|
 | Names | The tabbed version of TCSynEdit is `TCsEditor`, the page is `TCsPage`, the find/replace dialog is `TCsFindDialog`, and the standard actions are `TCsEditor…` |
 | Usage | Wherever it can be matched to TCMonacoEditor, everything is the same (names, behavior, default values). For a new document, `NewPage` |
-| Tabs | ATTabs. Appearance and behavior are the same as TCMonacoEditor |
+| Tabs | TCTabBar. Appearance and behavior are the same as TCMonacoEditor |
 | Contents of one tab | One `TCsSynEdit`, which inherits from TCSynEdit |
 | `Lines`, `Text` | Both are provided, as in TSynEdit |
 | `Font`, `FontSize` | `Font` is provided, and `FontSize` is the same as `Font.Size`. Default is BIZ UDGothic, 14 points |

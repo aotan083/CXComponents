@@ -1,10 +1,12 @@
 # TCPageControl 設計書
 
 作者: aotan083
-日付: 2026-10-29
-版: 1.0
+日付: 2026-11-24
+版: 1.2
 
 ---
+
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
 
 ## 1. 目的
 
@@ -100,10 +102,16 @@
 | `TabPosition` | `TTabPosition` | `tpTop` | published | ○ | `tpTop`・`tpBottom` だけ。`tpLeft`・`tpRight` は `tpTop` として出す。`TitleBar` を指定したときは使わない |
 | `TabHeight` | `Smallint` | 0 | published（0 より大きいときだけ保存） | ○ | タブの高さ（0＝自動。単体は 28、タイトルバー内はタイトルバーの高さ − 6。96dpi のとき） |
 | `TabWidth` | `Smallint` | 0 | published（0 より大きいときだけ保存） | ○ | タブの幅（0＝文字に合わせる。上限は `TabMaxWidth`） |
-| `Options` | `TCTabControlOptions` | `[nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch]` | published | ○ | 下の表。既定値は LCL と違う（LCL は `[]`）。置いただけで［×］・［＋］・Ctrl+Tab が使えるようにするため |
+| `Options` | `TCTabControlOptions` | `[nboKeyboardTabSwitch]` | published | ○ | 下の表。既定値は LCL と違う（LCL は `[]`）。設計時に作ったページが実行時に閉じられて壊れないよう、［×］・［＋］は既定で出さない。TCTabBar・TCTabBrowser は、自分の既定値（［×］・［＋］あり）に上書きする |
 | `TabShape` | `TCTabShape` | `tsRectangle` | published | 独自 | タブの形。`tsRounded` は上の角を丸くする（`TabPosition = tpBottom` なら下の角） |
 | `TabMaxWidth` | `Integer` | 240 | published | 独自 | `TabWidth = 0` のときのタブの最大の幅（96dpi のとき）。超える文字は「…」 |
 | `ShowTabListButton` | `Boolean` | `True` | published | 独自 | ［∨］を出す |
+| `ShowTabs` | `Boolean` | `True` | public | 独自 | タブ列を出す。`False` ならタブ列（`FStrip`）を隠し、ページが広がる（`UpdateStripPlace` が `FStrip.Visible := FShowTabs`）。`TCTabBrowser` の `HideSingleTab` が使う |
+| `ActiveMarkSize` | `Integer` | 0 | published | 独自 | 表示中のタブの線の太さ（96dpi の px。`S96` で拡大）。0 なら出さない |
+| `ActiveMarkColor` | `TColor` | `clHighlight` | published | 独自 | 線の色 |
+| `ActiveMarkAtBottom` | `Boolean` | `False` | published | 独自 | `True` ならタブの下、`False` ならタブの上 |
+| `ActiveTabColor`・`ActiveTextColor`・`TabTextColor`・`ModifiedTextColor`・`HotTabColor`・`ButtonColor` | `TColor` | `clDefault` | published | 独自 | 色の指定（`FStripColors`。5.8）。`clDefault` ならシステム色 |
+| `SeparatorColor` | `TColor` | `clNone` | published | 独自 | タブとタブの間の区切り線の色。`clNone` なら出さない |
 | `NewPageCaption` | `string` | '新しいタブ' | published（既定値と違うときだけ保存） | 独自 | ［＋］・メニューで作ったタブの文字 |
 | `TabMenuItems` | `TCTabMenuItems` | `[tmiNew, tmiClose, tmiRename]` | published | 独自 | 右クリックメニューに出す標準の項目 |
 | `TabPopupMenu` | `TPopupMenu` | nil | published | 独自 | タブの右クリックメニューに足すアプリのメニュー |
@@ -119,7 +127,7 @@
 
 | 値 | 動作 |
 |---|---|
-| `nboShowCloseButtons` | 各タブに［×］を出す |
+| `nboShowCloseButtons` | 各タブに［×］を出す。［∨］の一覧の各行の［×］、右クリックの「タブを閉じる」（`tmiClose`）、中ボタンでの閉じるも、この値があるときだけ有効 |
 | `nboShowAddTabButton` | ［＋］を出す |
 | `nboKeyboardTabSwitch` | Ctrl+Tab・Ctrl+Shift+Tab でタブを切り替える |
 | `nboDoChangeOnSetIndex` | コードで `ActivePage`・`ActivePageIndex`・`TabIndex` を変えたときも `OnChanging`・`OnChange` を出す（`OnChanging` で取りやめられたら変えない）。ないときは、コードで変えても出さない |
@@ -191,6 +199,7 @@ resourcestring（interface）：`rsCTabNew = '新しいタブ'`、`rsCTabClose =
 | 操作 | 対象 |
 |---|---|
 | タブの［×］（`DoCloseButtonClick`） | そのタブ（表示中に切り替えずに閉じる） |
+| タブの上で中ボタンを離す（`nboShowCloseButtons` があるとき） | そのタブ（［×］と同じ `DoCloseButtonClick`） |
 | 右クリック「タブを閉じる」（`DoMenuCloseClick`） | 右クリックしたタブ |
 | タブ一覧の［×］（`DoTabListCloseClick`） | その行のタブ |
 
@@ -231,7 +240,7 @@ resourcestring（interface）：`rsCTabNew = '新しいタブ'`、`rsCTabClose =
 - `Mouse.DragThreshold` 以上動いたらドラッグを始める。`Application.AddOnKeyDownBeforeHandler(DragKeyDown)` を付け、自動スクロールのタイマー（50ms）を動かす。
 - ドラッグ中は、落とす位置（`DropIndexAt`：見えているタブの中央より左なら、そのタブの前。どれでもなければ末尾）に `clHighlight` の縦線（幅2）を描く。
 - 自動スクロール：マウスがタブ列の見える範囲の左端・右端から `CPC_AUTOSCROLL` 以内なら、10（96dpi）ずつスクロールして落とす位置を計算し直す。
-- 離したとき（`FinishDrag`）：ドラッグを終え（`CancelDrag`）、タブ列の外なら何もしない。落とす位置をページの番号に直し（末尾なら `PageCount`）、元の番号より後ろなら 1 引く。同じなら何もしない。`MovePage(ページ, 新しい番号)` のあと `OnPageMoved(ページ, 元の番号, 新しい番号)`。
+- 離したとき（`FinishDrag`）：ドラッグを終え（`CancelDrag`）、タブ列の外なら、並べ替えはせず、離した画面の位置とその位置の部品（`FindDragTarget`）を `DoTabDragOut(ページ, 画面の位置, 部品)` で知らせる（何もしない。継いだ部品が使う）。落とす位置をページの番号に直し（末尾なら `PageCount`）、元の番号より後ろなら 1 引く。同じなら何もしない。`MovePage(ページ, 新しい番号)` のあと `OnPageMoved(ページ, 元の番号, 新しい番号)`。
 - ドラッグ中に Esc：`Key := 0`、`CancelDrag`（キーの受け取りを外し、状態を戻し、`MouseCapture := False`）。
 - LCL の `DragMode`・`DragKind`（ほかの部品へのドラッグ＆ドロップ）とは別の仕組み。
 
@@ -347,6 +356,13 @@ resourcestring（interface）：`rsCTabNew = '新しいタブ'`、`rsCTabClose =
 | 設計時の隠れたタブ | 文字 `clGrayText` |
 | `Font.Color` を指定したとき | `clDefault`・`clWindowText` 以外なら、その色で文字を描く |
 | ドラッグ中の縦線 | `clHighlight` |
+| `ActiveTabColor` を指定したとき | 表示中のタブの背景（`clWindow` の代わり）。`TCTabSheet.TabColorActive` があれば、そのタブだけそれが強い |
+| `ActiveTextColor`・`TabTextColor`・`ModifiedTextColor` を指定したとき | 表示中のタブの文字・それ以外のタブの文字・変更ありのタブの文字（この順に強い。`Font.Color` の指定より強い） |
+| `HotTabColor` を指定したとき | マウスを乗せた（押した）タブの背景（混ぜた色の代わり）。`TCTabSheet.TabColorOver` があれば、そのタブだけそれが強い |
+| `ButtonColor` を指定したとき | ［×］・［◀］［▶］・［＋］・［∨］の記号の色 |
+| `ActiveMarkSize` が 0 より大きいとき | 表示中のタブの上（`ActiveMarkAtBottom` なら下）に、`ActiveMarkColor` の線（幅 `S96(ActiveMarkSize)`）を、タブの背景のあとに塗る |
+| `SeparatorColor` を指定したとき | タブの右の隙間に縦線（タブの上下 6px を除く）。表示中のタブの両側には出さない |
+| `TCTabSheet.Modified = True` | ［×］の場所に、半径 `CPC_DOT_R`（4。96dpi）の塗りつぶした円（「●」。色は［×］と同じ）を描く。［×］にマウスを乗せたときは［×］ |
 | 無効のボタン | 記号 `clGrayText` |
 | ページの背景 | TCTabSheet の `Color`（既定値 `clWindow`） |
 | ページが0枚（表示中がない）のときのページの場所 | `clWindow` |
@@ -363,7 +379,6 @@ resourcestring（interface）：`rsCTabNew = '新しいタブ'`、`rsCTabClose =
 | `ScrollOpposite` | 複数段のときの並べ方の指定のため |
 | `Style`（`tsTabs`・`tsButtons`・`tsFlatButtons`） | 見た目は `TabShape` で決める |
 | `HotTrack` | マウスが乗ったタブは常に色を変える |
-| `ShowTabs` | タブ列を隠す使い方は対象外 |
 | `OnCloseTabClicked` | ［×］で自動で閉じ、取りやめは `OnPageClose` で行うため（5.4） |
 | `DockSite`・`OnDockDrop`・`OnDockOver`・`OnEndDock`・`OnStartDock`・`OnUnDock`・`OnGetDockCaption`・`OnGetSiteInfo` | ドッキングは対象外 |
 
@@ -382,6 +397,10 @@ resourcestring（interface）：`rsCTabNew = '新しいタブ'`、`rsCTabClose =
 | `DoAppMenuItemClick(AItem, APage)` | 右クリックメニューの `TabPopupMenu` の項目 | `PopupPage := APage`、`AItem.Click` |
 | `DoTabListItemClick(APage)` | タブ一覧の行 | `UserSelectPage(APage)` |
 | `DoTabListCloseClick(APage)` | タブ一覧の行の［×］ | `ClosePageByUser` |
+| `DoTabMenuRequested(APage)` | 右クリックメニューを出す直前（`ShowTabMenu` の始め。`PopupPage` を決めた直後）。`APage` はタブの無い所なら nil | 何もしない。継いだ部品が、右クリックしたタブを知るために上書きする（`TCTabBrowser` が `ContextTabIndex` に使う） |
+| `DoTabDragOut(APage, AScreenPos, ATarget)` | タブをドラッグして、タブ列の外で左ボタンを離した（Esc で取り消したときは来ない） | 何もしない。継いだ部品が使う（`TCTabBar` が `OnTabDragOut` を出す） |
+| `DoStripMouseUp(AButton, AShift, X, Y)` | タブ列の上でマウスの左ボタンを離した（タブ・［×］・［＋］の処理のあと。ドラッグの終わりのあとも） | 何もしない。継いだ部品が使う（`TCTabBar` が `OnTabMouseUp` を出す） |
+| `DoStripLayouted` | `PageChanged`（タブ列の並べ直し）のあと | 何もしない。継いだ部品が使う（`TCTabBar` が高さを合わせる） |
 | `DoEditCaptionConfirm(AText)` | 名前の編集中に Enter・フォーカスが外れた | 5.5.4 の確定 |
 | `DoEditCaptionCancel` | 名前の編集中に Esc | `EndEdit` |
 

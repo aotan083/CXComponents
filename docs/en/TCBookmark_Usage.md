@@ -6,6 +6,8 @@ Version: 1.3
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A bookmark management component like Firefox's bookmark screen. Place it on a form and just select the TCTabBrowser and TCMonacoEditor to open into in the Object Inspector, and it works. The application does not need to write any code.
@@ -35,7 +37,7 @@ A bookmark management component like Firefox's bookmark screen. Place it on a fo
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

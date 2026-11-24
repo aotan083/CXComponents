@@ -6,6 +6,8 @@ Version: 1.1
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 Based on TShellListView (LCL), build a file list that works like the right-hand pane of Windows Explorer. Just placing it on a form should give you open, copy, move, delete, rename, create new, drag & drop, context menu, automatic refresh, and back/forward.

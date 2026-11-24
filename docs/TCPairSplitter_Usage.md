@@ -6,6 +6,8 @@
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 概要とクラス
 
 TPairSplitter と同じ使い方の、「2 つの側（Side1・Side2）と、その間の境目」を 1 つにまとめた部品です。境目をドラッグして、2 つの側の大きさを変えます。TPairSplitter に次のことを足しています。
@@ -24,7 +26,7 @@ TPairSplitter と同じ使い方の、「2 つの側（Side1・Side2）と、そ
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 以降 |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 | パレット | CX |

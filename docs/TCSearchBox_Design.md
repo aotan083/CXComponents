@@ -6,6 +6,8 @@
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 目的と方針
 
 - Windows エクスプローラーの検索ボックスと同等の部品（`TCSearchBox`）。TCListView・TCTreeView と連動する。

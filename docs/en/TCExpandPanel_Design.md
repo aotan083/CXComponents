@@ -6,6 +6,8 @@ Version: 1.1
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 Build a VS Code Explorer-style "collapsible panel with a title bar" as two components.

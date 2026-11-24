@@ -2,9 +2,9 @@
   SPDX-License-Identifier: MIT
   https://github.com/aotan083/CXComponents }
 { TCMonacoEditor - フォームに貼るだけで使える、Monaco エディタの複合部品
-  環境: Lazarus 4.8 / FPC 3.2.2 / Windows 11 x64 / WebView4Delphi / ATFlatControls
+  環境: Lazarus 5.0 以降 / FPC 3.2.2 / Windows 11 x64 / WebView4Delphi
 
-  中身: タブ（ATTabs）・Monaco エディタ（TCMMonacoView）・スプリッター・Markdown プレビュー
+  中身: タブ（TCTabBar）・Monaco エディタ（TCMMonacoView）・スプリッター・Markdown プレビュー
         （TCMMarkdownPreview）・検索・置換・印刷。中の部品は見せない。
 
   【使い方】コードは書かない。
@@ -34,7 +34,7 @@ interface
 uses
   Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, Graphics, Dialogs, Menus,
   LCLType, ActnList, Registry, ShellApi,
-  ATTabs, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg;
+  uCPageControl, ucmmonacoview, ucmdpreview, CMonacoTabs, CMonacoPreview, CMonacoFindDlg;
 
 type
   { アプリ側が ucmonacos だけを uses すれば済むように、よく使う型を再公開する }
@@ -129,7 +129,7 @@ type
     FMonaco: TCMMonacoView;
     FPreview: TCMMarkdownPreview;
     FSplitter: TSplitter;
-    FTabs: TATTabs;
+    FTabs: TCTabBar;
     FTabBinder: TCMTabBinder;
     FPreviewBinder: TCMPreviewBinder;
     FHook: TCMFormHook;
@@ -147,6 +147,7 @@ type
     FPrintTempPreview: Boolean;   { 【段階5】印刷のために、プレビューを一時的に表示した }
     FTabFlat: Boolean;
     FTabSeparator: Boolean;
+    FTabLineColor: TColor;    { 区切り線の色（テーマで決まる。ApplyThemeColors） }
     FOsDark: Boolean;
     FOsDarkKnown: Boolean;
     FSelectionColorStyle: TCMSelectionColorStyle;   { 【2.13】 }
@@ -924,9 +925,11 @@ begin
   FPreviewLinkColorDark := DefPreviewLinkColorDark;
 
   { 中の部品（Owner は Self。フォームには保存されない） }
-  FTabs := TATTabs.Create(Self);
+  FTabs := TCTabBar.Create(Self);
   FTabs.Parent := Self;
   FTabs.Align := alTop;
+  FTabs.ParentFont := False;               { タブの文字は、エディタの Font に合わせない }
+  FTabs.Font.Assign(Screen.SystemFont);
   FTabFlat := True;
   FTabSeparator := False;
   FTabIcons := True;
@@ -935,7 +938,6 @@ begin
   FSysImages.Height := 16;
   FSysIconExts := TStringList.Create;
   FSysIconExts.Sorted := True;
-  FTabs.OptShowFlatMouseOver := True;      { マウスを乗せたタブだけ、色を変える }
 
   FMonaco := TCMMonacoView.Create(Self);
   FMonaco.Parent := Self;
@@ -1161,27 +1163,18 @@ begin
   Color := CActive;                       { 起動直後に見える背景。ダークで白く光らない }
   FSplitter.Color := CSplit;
 
-  FTabs.ColorBg := CBar;
-  FTabs.ColorTabPassive := CBar;
-  FTabs.ColorTabOver := COver;
-  FTabs.ColorTabActive := CActive;        { 台形（TabFlat=False）のとき }
-  FTabs.ColorFont := CFont;
-  FTabs.ColorFontModified := CFont;
-  FTabs.ColorFontActive := CFontActive;
-  FTabs.ColorFontHot := CFontActive;
-  FTabs.ColorBorderActive := CLine;
-  FTabs.ColorBorderPassive := CLine;
-  FTabs.ColorSeparator := CLine;
-  FTabs.ColorArrow := CFont;
-  FTabs.ColorArrowOver := CFontActive;
-  FTabs.ColorCloseX := CFont;
-  FTabs.ColorCloseXOver := CFontActive;
-  FTabs.ColorCloseBg := CBar;
-  FTabs.ColorCloseBgOver := COver;
-  FTabs.ColorCloseBorderOver := COver;
-  FTabs.ColorActiveMark := CMark;       { アクティブなタブの上の細い線 }
-  FTabs.OptActiveMarkSize := 2;
-  FTabs.OptShowActiveMarkInverted := False;   { 線をタブの上に出す }
+  FTabs.Color := CBar;
+  FTabs.HotTabColor := COver;
+  FTabs.ActiveTabColor := CActive;
+  FTabs.TabTextColor := CFont;
+  FTabs.ModifiedTextColor := CFont;
+  FTabs.ActiveTextColor := CFontActive;
+  FTabs.ButtonColor := CFont;
+  FTabLineColor := CLine;
+  if FTabSeparator then FTabs.SeparatorColor := CLine else FTabs.SeparatorColor := clNone;
+  FTabs.ActiveMarkColor := CMark;       { アクティブなタブの上の細い線 }
+  FTabs.ActiveMarkSize := 2;
+  FTabs.ActiveMarkAtBottom := False;    { 線をタブの上に出す }
   { フラット表示でも、選択中・マウスを乗せたタブを、タブごとの色で塗る }
   if FTabBinder <> nil then FTabBinder.SetTabColors(CActive, COver);
   FTabs.Invalidate;
@@ -1199,8 +1192,9 @@ end;
 
 procedure TCMonacoEditor.ApplyTabShape;
 begin
-  FTabs.OptShowFlat := FTabFlat;
-  FTabs.OptShowFlatSepar := FTabSeparator;
+  { フラット＝四角のタブ、そうでなければ角丸のタブ }
+  if FTabFlat then FTabs.TabShape := tsRectangle else FTabs.TabShape := tsRounded;
+  if FTabSeparator then FTabs.SeparatorColor := FTabLineColor else FTabs.SeparatorColor := clNone;
   FTabs.Invalidate;
 end;
 

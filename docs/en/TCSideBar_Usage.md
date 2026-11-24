@@ -6,6 +6,8 @@ Version: 1.2
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A component that combines an Edge-style sidebar ("icon bar + collapsible panel + splitter") into one.
@@ -28,7 +30,7 @@ A component that combines an Edge-style sidebar ("icon bar + collapsible panel +
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

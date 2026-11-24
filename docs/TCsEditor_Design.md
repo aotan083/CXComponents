@@ -1,8 +1,8 @@
 # TCsEditor 設計書
 
 作者: aotan083
-日付: 2026-11-03
-版: 1.1
+日付: 2026-11-24
+版: 1.2
 
 ---
 
@@ -19,7 +19,7 @@ TCsEditor は、TCSynEdit をタブで複数持つエディタ部品である。
 | 5 | エディタを並べるときは、TCsEditor を複数貼り、アプリが TSplitter で並べる。部品の中で画面を分けない |
 | 6 | 利用者が書くコードは 0 行で動く。設定はオブジェクトインスペクタ |
 | 7 | 作る順番：ミニマップ（10章）は最後に作る（17章） |
-| 8 | 動作環境：Lazarus 5.0 以降（テストは 5.0 RC1）。Lazarus 4.8 は cx パッケージのコンパイルが通るだけで、動作の確認・テストはしない（折り返しは 4.8 では試作版の部品になる）。この部品には版で分けるコードを持たない |
+| 8 | 動作環境：Lazarus 5.0 以降（テストは 5.0 RC1）。この部品には版で分けるコードを持たない |
 
 ## 2. ファイルとパッケージ
 
@@ -35,9 +35,9 @@ TCsEditor は、TCSynEdit をタブで複数持つエディタ部品である。
 | `cx_icons.lrs` | cxdsgn（設計時） | TCMFindDialog のアイコンを外す（12章） |
 
 - 部品ごとにファイルを増やさないため、検索・置換ダイアログ・標準アクション・ミニマップも `uCsEditor.pas` に入れる（同じユニットなので、`FindDialog` のための循環参照も起きない）。
-- interface の uses：`Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, StdCtrls, Graphics, Dialogs, Menus, LCLType, LCLIntf, LMessages, ActnList, Clipbrd, Registry, ShellApi, ATTabs, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditMouseCmds, SynEditMarkupWordGroup, SynEditMarkupHighAll, SynEditWrappedView, csynedit, ucmmonacoview, CMonacoTabs, uCmonacos, uCPreview`
+- interface の uses：`Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, StdCtrls, Graphics, Dialogs, Menus, LCLType, LCLIntf, LMessages, ActnList, Clipbrd, Registry, ShellApi, uCPageControl, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditMouseCmds, SynEditMarkupWordGroup, SynEditMarkupHighAll, SynEditWrappedView, csynedit, ucmmonacoview, CMonacoTabs, uCmonacos, uCPreview`
 - implementation の uses：`LazUTF8, LConvEncoding, StrUtils, Math`
-- cx の必要パッケージは今のまま（SynEdit・atflatcontrols_package・WebView4Delphi）。`TLazSynEditLineWrapPlugin`（`SynEditWrappedView`）は SynEdit パッケージに入っている。
+- cx の必要パッケージは今のまま（SynEdit・WebView4Delphi）。`TLazSynEditLineWrapPlugin`（`SynEditWrappedView`）は SynEdit パッケージに入っている。
 
 ### 2.2 使い回すもの
 
@@ -73,7 +73,7 @@ uCsEditor（TCsEditor）
 
 ```
 TCsEditor（TCustomPanel）
- ├ タブ（TATTabs）            … 上端（alTop）。MultiDocument = False なら隠す
+ ├ タブ（TCTabBar）            … 上端（alTop）。MultiDocument = False なら隠す
  ├ 縦のスクロールバー（TScrollBar）… 一番右（alRight）。Minimap = True のとき出す（10.5）
  ├ ミニマップ（TCsMinimap）     … 右端（alRight）。Minimap = True のとき出す（10章）
  └ 本文（TCsSynEdit × タブの数）… 残り（alClient）。見えているタブの 1 つだけ Visible
@@ -164,7 +164,7 @@ TCsEditor（TCustomPanel）
 | `TabTearOff` | `Boolean` | `True` | `FTabTearOff`（4.11） |
 | `OpenDialog`・`SaveDialog` | `TOpenDialog`・`TSaveDialog` | nil | `FreeNotification` |
 | `FindDialog` | `TCsFindDialog` | nil | `FreeNotification`（8章） |
-| `TabFlat`・`TabSeparator` | `Boolean` | `True`・`False` | ATTabs の `OptShowFlat`・`OptShowFlatSepar` |
+| `TabFlat`・`TabSeparator` | `Boolean` | `True`・`False` | TCTabBar の `TabShape`（`True`＝`tsRectangle`、`False`＝`tsRounded`）・`SeparatorColor`（`True`＝区切り線の色、`False`＝`clNone`） |
 | `TabIcons`・`TabImages` | `Boolean`・`TImageList` | `True`・nil | 4.6 |
 | `WordWrap` | `Boolean` | `True` | 全タブの `syn` に 5.2 |
 | `LineNumbers` | `Boolean` | `False` | 全タブの `Gutter.LineNumberPart.Visible` |
@@ -298,22 +298,22 @@ TCMonacoEditor の 4.4 と同じ（`OnQueryClose` → `ConfirmOnFormClose` の�
 
 ### 4.5 MultiDocument
 
-TCMonacoEditor の 4.5 と同じ表。`False` のときはタブ（ATTabs）を隠し、タブは常に 1 枚。
+TCMonacoEditor の 4.5 と同じ表。`False` のときはタブ（TCTabBar）を隠し、タブは常に 1 枚。
 
-### 4.6 タブ（ATTabs）
+### 4.6 タブ（TCTabBar）
 
 TCMonacoEditor（`CMonacoTabs.pas`・`uCmonacos.pas`）と同じ設定・同じ見た目にする。違いは、タブと文書をつなぐ処理を `TCsEditor` の中に直接書くこと（`TCMTabBinder` は使わない）。
 
 | 項目 | 処理 |
 |---|---|
-| 作り直す（`RebuildTabs`） | `FPages` の順にタブを作る。タブの `TabObject` にページを入れる。タイトルは `Caption`、変更ありなら後ろに ` *`、ヒントはフルパス |
+| 作り直す（`RebuildTabs`） | `FPages` の順にタブを作る。タブの `Tag` にページを入れる。タイトルは `Caption`、変更ありなら後ろに ` *`、ヒントはフルパス |
 | 1 つ更新（`UpdateTab`） | タイトル・ヒント・アイコンだけ |
 | クリック | `ActiveIndex` を切り替え、本文にフォーカス |
 | ［＋］ | `NewPage` |
-| ［×］・中ボタン | `Close`（4.4 の確認）。ATTabs の処理の途中で閉じないよう、`QueueAsyncCall` で後から閉じる |
+| ［×］・中ボタン | `Close`（4.4 の確認）。タブ列の処理の途中で閉じないよう、`OnPageClose` で `CanClose := False` にして、`QueueAsyncCall` で後から閉じる |
 | ドラッグで並べ替え | `FPages.Move` |
-| 外へドラッグ（`OnEndDrag`） | 4.11・4.12 |
-| 見た目 | `OptShowFlat := TabFlat`、`OptShowFlatSepar := TabSeparator`、`OptShowEntireColor := True`（タブごとの色で、見えているタブ・マウスを乗せたタブを塗る）、アクセントの線は出さない、`OptMouseDragOutEnabled := False` |
+| 外へドラッグ（`OnTabDragOut`） | 4.11・4.12 |
+| 見た目 | `TabShape`・`SeparatorColor`（上の表）、タブごとの色（`TabColorActive`・`TabColorOver`）で、見えているタブ・マウスを乗せたタブを塗る、表示中のタブの上にアクセントの線（太さ 2）を出す |
 | 文字 | `ParentFont := False`。TCsEditor の `Font`・`FontSize` には合わせない（タブの高さは変わらないので、大きくするとはみ出すため）。TCMonacoEditor と同じ、普通の大きさの文字（`Screen.SystemFont`）のまま |
 | アイコン | `TabIcons = True` で `TabImages` が無いとき：`SHGetFileInfo`（`SHGFI_USEFILEATTRIBUTES`・小さいアイコン）で拡張子から取り、内部の画像リストに入れる（同じ拡張子は 1 回。無題は '.txt'）。`TabImages` があるとき：`OnGetTabImageIndex`（無ければ 0 番）。`False`：なし |
 
@@ -351,7 +351,7 @@ TCMonacoEditor（`CMonacoTabs.pas`・`uCmonacos.pas`）と同じ設定・同じ�
 
 #### 4.11.1 TCMonacoEditor と同じ所
 
-`TCMonacoEditor_Design.md` 4.11 と同じ作り・同じ動き：外へ出したことの検知（`OnEndDrag` の `Target = nil`、左ボタン、`IsOutsideApp`、`QueueAsyncCall`）、`TearOff` の初めの値（無題・空の 1 枚なら `False`）、`OnTabDragOut`、一時ファイルを書いて同じ EXE を `CreateProcessW` で起動、環境変数の渡し方、受けるエディタの決め方（`Owner.Name + '.' + Name`）、ウィンドウの位置、結合（同じ EXE の判定、`WM_COPYDATA`、返事 0・1・2、3 秒、`AsyncMerge`）。
+`TCMonacoEditor_Design.md` 4.11 と同じ作り・同じ動き：外へ出したことの検知（`OnTabDragOut`、`IsOutsideApp`、`QueueAsyncCall`）、`TearOff` の初めの値（無題・空の 1 枚なら `False`）、`OnTabDragOut`、一時ファイルを書いて同じ EXE を `CreateProcessW` で起動、環境変数の渡し方、受けるエディタの決め方（`Owner.Name + '.' + Name`）、ウィンドウの位置、結合（同じ EXE の判定、`WM_COPYDATA`、返事 0・1・2、3 秒、`AsyncMerge`）。
 
 #### 4.11.2 違う所
 
@@ -375,9 +375,9 @@ TCMonacoEditor（`CMonacoTabs.pas`・`uCmonacos.pas`）と同じ設定・同じ�
 
 タブを、同じフォームの別の TCsEditor（並べて貼ったもの）の上へドラッグして離すと、そのタブを移す。中の部品（`TCsSynEdit`）ごと移すので、Undo の履歴・カーソル位置も残る。
 
-**検知**（4.11.1 の `OnEndDrag` で、外へ出したかを調べる前に）
+**検知**（4.11.1 の `OnTabDragOut` で、外へ出したかを調べる前に）
 
-1. 離した位置（`Mouse.CursorPos`）の部品を `FindControlAtPosition(P, False)` で取り、`Parent` をたどって TCsEditor を探す。`Target` が nil でないときは、`Target` からたどる。
+1. 離した位置（`OnTabDragOut` の `AScreenPos`）の部品を `FindControlAtPosition(P, False)` で取り、`Parent` をたどって TCsEditor を探す。`ATarget` が nil でないときは、`ATarget` からたどる。
 2. 見つかった TCsEditor が、自分ではなく、同じフォーム（`GetParentForm` が同じ）なら、移す。`QueueAsyncCall(AsyncMoveTab)` で、ドラッグの処理が終わってから行う。
 3. 見つからなければ、4.11（外へ出したか）へ進む。
 
@@ -828,7 +828,7 @@ TCMonacoEditor の 25 個と同じ（表示名・既定のショートカット�
 |---|---|
 | 名前 | TCSynEdit のタブ化版は `TCsEditor`、ページは `TCsPage`、検索・置換ダイアログは `TCsFindDialog`、標準アクションは `TCsEditor…` |
 | 使い方 | TCMonacoEditor に合わせられる所はすべて同じ（名前・動き・既定値）。新規は `NewPage` |
-| タブ | ATTabs。見た目・動きは TCMonacoEditor と同じ |
+| タブ | TCTabBar。見た目・動きは TCMonacoEditor と同じ |
 | 1 タブの中身 | TCSynEdit を継承した `TCsSynEdit` を 1 つ |
 | `Lines`・`Text` | TSynEdit と同じく両方持つ |
 | `Font`・`FontSize` | `Font` を持ち、`FontSize` は `Font.Size` と同じもの。既定は BIZ UDGothic、14 ポイント |

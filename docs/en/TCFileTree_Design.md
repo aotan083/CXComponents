@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 A component that lines up folders and files in a single tree rooted at a specified folder (`RootPath`). It looks the same as the Explorer of VS Code and can be used without TCListView. Just by placing it on a form and connecting properties, the following work.

@@ -1,16 +1,18 @@
 # TCTabBrowser 設計書
 
 作者: aotan083
-日付: 2026-11-05
-版: 1.1
+日付: 2026-11-24
+版: 1.4
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 目的
 
-TPageControl を元に、WebView2（WebView4Delphi の `TWVBrowser`・`TWVWindowParent`）を使ったタブ付きの Web ブラウザを作る。
+TCPageControl（タブ列を自分で描く部品。TCPageControl_Design.md）を元に、WebView2（WebView4Delphi の `TWVBrowser`・`TWVWindowParent`）を使ったタブ付きの Web ブラウザを作る。タブ列は TCPageControl のものを使うため、［×］・［＋］・タブのドラッグ・スクロール・タブ一覧があり、`TitleBar` に TCTitleBar を指定すればタイトルバーにも載る。
 
-- 1 タブ = `TTabSheet` 1 枚 ＋ `TCXWVWindowParent`（`TWVWindowParent` を継いだもの。9.1）1 つ ＋ `TWVBrowser` 1 つ。3 つとも `TTabSheet` が持ち主（Owner）で、タブを `Free` すると一緒に消える。
+- 1 タブ = `TCTabSheet` 1 枚 ＋ `TCXWVWindowParent`（`TWVWindowParent` を継いだもの。9.1）1 つ ＋ `TWVBrowser` 1 つ。3 つとも `TCTabSheet` が持ち主（Owner）で、タブを `Free` すると一緒に消える。
 - AnchorDocking でのドック・切り離しなどで、WebView2 を載せる窓が作り直されても、WebView2 を付け直して、開いていたページをそのまま表示する（9.1）。
 - タブは 0 枚にしない。最後のタブを閉じると、部品が新しいタブを作る。
 - ページが開こうとした新しいウィンドウは、常に止めて、新しいタブで開く。
@@ -27,7 +29,7 @@ TPageControl を元に、WebView2（WebView4Delphi の `TWVBrowser`・`TWVWindow
 | `uCXReg.pas` | cxdsgn（設計時） | パレット [CX] への登録（`RegisterComponents('CX', [..., TCTabBrowser, ...])`） |
 | `cx_icons.lrs` | cxdsgn（設計時） | アイコン（`TCTabBrowser`・`TCTabBrowser_150`・`TCTabBrowser_200`） |
 
-- `uCTabBrowser` の uses：`Classes, SysUtils, Controls, ComCtrls, Forms, Windows, ActiveX, Menus, Contnrs, uWVBrowser, uWVWindowParent, uWVBrowserBase, uWVLoader, uWVTypeLibrary, uWVEvents, uWVTypes, uWVCoreWebView2Args, uWVCoreWebView2DownloadOperation, uWVCoreWebView2ContextMenuItem, uWVCoreWebView2ContextMenuItemCollection, fpjson, jsonparser`
+- `uCTabBrowser` の uses：`uCPageControl`（TCPageControl・TCTabSheet）、`Classes, SysUtils, Controls, ComCtrls, Forms, Windows, ActiveX, Menus, Contnrs, uWVBrowser, uWVWindowParent, uWVBrowserBase, uWVLoader, uWVTypeLibrary, uWVEvents, uWVTypes, uWVCoreWebView2Args, uWVCoreWebView2DownloadOperation, uWVCoreWebView2ContextMenuItem, uWVCoreWebView2ContextMenuItemCollection, fpjson, jsonparser`
 - implementation の uses：`uCXRuntime`。
 - cx の必要パッケージ：`LCL`、WebView4Delphi の Lazarus 用パッケージ。
 - `{$MODE Delphi}`（イベントの代入に `@` を付けない）。
@@ -91,6 +93,7 @@ end;
 | 名前 | 型 | 初期値 | 中身 |
 |---|---|---|---|
 | `FHideSingleTab` | `Boolean` | `True` | `HideSingleTab` |
+| `FSingleTab` | `Boolean` | `True` | `SingleTab`（1 枚固定。`False` でタブブラウザ） |
 | `FUserAgent` | `string` | '' | `UserAgent` に書いた値 |
 | `FIgnoreCertificateErrors` | `Boolean` | `True` | `IgnoreCertificateErrors` |
 | `FSavePath` | `string` | `GetCurrentDir` | `SavePath` |
@@ -109,11 +112,8 @@ end;
 | `FDownloadIDGen` | `Integer` | 0 | ダウンロード ID の採番 |
 | `FDataFolder` | `string` | EXE のフォルダー + `TabBrowserData` | 全タブのデータフォルダー |
 | `FCacheSizeMB` | `Integer` | 0 | tabbrowser.json の `cacheSizeMB`（0 = 上限なし） |
-| `FTabPopupMenu` | `TPopupMenu` | Create で作る | 見出しの右クリックメニュー（`PopupMenu` に入れる） |
-| `FCloseMenuItem` | `TMenuItem` | Create で作る | 見出しのメニューの「閉じる」 |
-| `FContextMenuTabIndex` | `Integer` | -1 | 見出しで右クリックしたタブ（「閉じる」で使う） |
 | `FContextTabIndex` | `Integer` | -1 | `ContextTabIndex` |
-| `FHeaderPopupMenu`・`FPagePopupMenu` | `TPopupMenu` | nil | アプリの項目 |
+| `FHeaderPopupMenu`・`FPagePopupMenu` | `TPopupMenu` | nil | アプリの項目（`FHeaderPopupMenu` は、`TabPopupMenu` にも渡す） |
 | `FOnNewTabRequest` | `TTabNewTabRequestEvent` | nil | イベント |
 | `FPageMenuItems` | `TObjectList`（持ち主） | 空 | ページ部分に足した `TCTabPageMenuItem` |
 | `FPendingAction` | `TCTabPageMenuAction` | `pmaNone` | ページ部分で選ばれ、メニューが閉じた後に行うこと |
@@ -126,6 +126,12 @@ end;
 protected
   procedure Resize; override;      // inherited のあと SynchronizeBounds
   procedure Change; override;      // inherited のあと SynchronizeBounds・SynchronizeVisibility
+  procedure DoAddButtonClick; override;                         // ＋：NewTabMenuClick（OnNewTabRequest で URL を決めて Add）
+  procedure DoMenuNewClick; override;                           // 右クリックの「新しいタブ」：同じ
+  procedure DoCloseButtonClick(APage: TCTabSheet); override;    // ×：CloseByUser
+  procedure DoMenuCloseClick(APage: TCTabSheet); override;      // 右クリックの「閉じる」：CloseByUser
+  procedure DoTabListCloseClick(APage: TCTabSheet); override;   // タブ一覧の×：CloseByUser
+  procedure DoTabMenuRequested(APage: TCTabSheet); override;    // 見出しの右クリック：FContextTabIndex := IndexOf(APage)（タブの無い所は -1）
   procedure Notification(AComponent: TComponent; Operation: TOperation); override;
 public
   constructor Create(AOwner: TComponent); override;
@@ -156,6 +162,7 @@ public
   property ContextTabIndex: Integer read FContextTabIndex;
 published
   property HideSingleTab: Boolean read FHideSingleTab write SetHideSingleTab default True;
+  property SingleTab: Boolean read FSingleTab write SetSingleTab default True;
   property UserAgent: string read GetUserAgent write SetUserAgent;
   property IgnoreCertificateErrors: Boolean read FIgnoreCertificateErrors write SetIgnoreCertificateErrors default True;
   property OnDocumentComplete: TTabDocumentCompleteEvent read FOnDocumentComplete write FOnDocumentComplete;
@@ -169,7 +176,7 @@ published
   property OnNewTabRequest: TTabNewTabRequestEvent read FOnNewTabRequest write FOnNewTabRequest;
 ```
 
-- TPageControl から引き継いだ published プロパティ・イベントは、そのまま出す（取扱説明書 3.2・5.2）。
+- TCPageControl から引き継いだ published プロパティ・イベントは、そのまま出す（取扱説明書 3.2・5.2）。
 
 ## 6. 作る・壊す
 
@@ -177,8 +184,7 @@ Create：
 
 1. `inherited`。4章の初期値を入れる。3 つの `TObjectList` は `OwnsObjects = True` で作る。
 2. `FDataFolder := ExtractFilePath(ParamStr(0)) + 'TabBrowserData'`。設計時でなければ `LoadSettings`（7.11）。
-3. `Options := [nboShowCloseButtons]`、`OnCloseTabClicked := DoCloseTabClicked`。
-4. `FTabPopupMenu` を作り（持ち主は Self）、「閉じる」（`CloseMenuItemClick`）を 1 つ入れる。`PopupMenu := FTabPopupMenu`、`OnContextPopup := HandleTabContextPopup`。
+3. `Options := [nboShowCloseButtons, nboShowAddTabButton]`（Ctrl+Tab の `nboKeyboardTabSwitch` は入れない。WebView2 がキーを受けるため）、`TabMenuItems := [tmiClose]`（見出しの右クリックの標準の項目は「閉じる」だけ）。
 
 - Create では WebView2 に触らない（IDE でも安全にするため）。
 
@@ -199,9 +205,10 @@ Destroy：
 
 `Insert(i, AURL)`：
 
+0. `FSingleTab` かつ `PageCount >= 1` なら、`Navigate(AURL)` で今のタブに開き、今のタブの番号を返して抜ける（2 枚目は作らない。`Add`・新しいウィンドウの要求（7.6）も、ここを通る）。
 1. `if not CXStartWebView2(Err) then raise Exception.Create(Err)`（9章）。
 2. `i` を 0 ～ `PageCount` に収める。
-3. `TTabSheet` を作り（持ち主は Self）、`PageControl := Self`、`PageIndex := i`。
+3. `TCTabSheet` を作り（持ち主は Self）、`PageControl := Self`、`PageIndex := i`。
 4. `TCXWVWindowParent`（9.1）を作り（持ち主はタブ）、`Parent` をタブ、`Align := alClient`。変数・フィールドの型は `TWVWindowParent` のまま（`TCXWVWindowParent` はその子なので、そのまま入る）。
 5. `TWVBrowser` を作り（持ち主はタブ）、次のイベントをつなぐ。
 
@@ -235,7 +242,7 @@ Destroy：
 | `FindWindowParent(Sheet)` | タブの `Controls` から最初の `TWVWindowParent` を返す。無ければ nil |
 | `SynchronizeBounds` | 表示中のタブの `WindowParent.UpdateSize` |
 | `SynchronizeVisibility` | 全タブの `Browser.IsVisible := (番号 = ActivePageIndex)` |
-| `UpdateTabHeaderVisibility` | `ShowTabs := not (FHideSingleTab and (PageCount <= 1))` |
+| `UpdateTabHeaderVisibility` | `ShowTabs := not (FSingleTab or (FHideSingleTab and (PageCount <= 1)))`（TCPageControl の `ShowTabs`。False でタブ列が消え、ページが広がる。`TitleBar` に載せているときは、タイトルバーの中のタブ列が消える） |
 | `SetActiveIndex(V)` | 0 ～ `PageCount - 1` のときだけ、`ActivePageIndex := V`、`SynchronizeBounds`、`SynchronizeVisibility` |
 | `SetUserAgent(V)` | 違えば覚え、`Initialized` の全タブに設定する（まだのタブは `BrowserAfterCreated` で設定） |
 | `SetIgnoreCertificateErrors(V)` | 同じ考え方 |
@@ -292,7 +299,7 @@ Destroy：
 
 ### 7.6 Browser のイベントの橋渡し
 
-タブの番号は、`Sender`（`TWVBrowser`）の `Owner`（`TTabSheet`）の `PageIndex`（`TabIndexOfBrowser`。見つからなければ -1）。
+タブの番号は、`Sender`（`TWVBrowser`）の `Owner`（`TCTabSheet`）の `PageIndex`（`TabIndexOfBrowser`。見つからなければ -1）。
 
 | 手続き | 処理 |
 |---|---|
@@ -330,24 +337,23 @@ Destroy：
 
 ### 7.9 右クリックメニュー
 
-**見出し**（`HandleTabContextPopup`）
+**見出し**（TCPageControl が出す）
 
-1. `FContextMenuTabIndex := IndexOfTabAt(X, Y)`。タブが無い所なら `Handled := True`（出さない）で抜ける。
-2. `FContextTabIndex := FContextMenuTabIndex`。
-3. `FTabPopupMenu` から「閉じる」以外を消す。
-4. `FHeaderPopupMenu` があれば、`OnPopup` を呼ぶ。呼んだ後も `FHeaderPopupMenu` があれば、区切り線を足し、`CopyMenuToHeader` で写す。最後が区切り線なら消す。
+見出しの右クリックは、TCPageControl の `ShowTabMenu` が出す。標準の項目は `TabMenuItems`（この部品では `[tmiClose]`）。アプリの項目は、`TabPopupMenu`（= `FHeaderPopupMenu`。`SetHeaderPopupMenu` が渡す）の項目が、区切り線の後ろに並ぶ。
 
-`CopyMenuToHeader(Src, Dest)`：`Visible` の項目だけ、`TMenuItem` を作る（持ち主は `FTabPopupMenu`）。区切り線は '-'。それ以外は `Caption`・`Enabled`・`Checked`・`ShortCut` を写し、`Tag := PtrInt(元の項目)`。子が無ければ `OnClick := HeaderCopyItemClick`、子があれば同じ手続きで写す。
+1. `ShowTabMenu` が、`DoTabMenuRequested(APage)` を呼ぶ（`OnPopup` より前）。ここで `FContextTabIndex := IndexOf(APage)`（タブの無い所は -1）。
+2. 標準の項目を作る。「閉じる」は右クリックしたタブがあるときだけ。
+3. `TabPopupMenu` に項目があれば、`OnPopup` を呼び、区切り線（標準の項目があるときだけ）の後ろに写す。項目は `Caption`・`Enabled`・`Visible`・`Checked`・`RadioItem`・`GroupIndex`・`ImageIndex`（`TabPopupMenu.Images`）・`ShortCut`・`Hint`・`Default` を写し、選ばれたら元の項目の `Click` を呼ぶ。
+4. 出す項目が 1 つもなければ、メニューは出さない（タブの無い所で `HeaderPopupMenu` が無いとき）。
 
-`HeaderCopyItemClick`：`Tag` の元の項目が、まだ `FHeaderPopupMenu` の中にあれば（`MenuContainsItem`。ポインタを比べるだけ）`Click`。
+`CloseByUser(APage)`：［×］（`DoCloseButtonClick`）・右クリックの「閉じる」（`DoMenuCloseClick`）・タブ一覧の［×］（`DoTabListCloseClick`）は、すべてこれを呼ぶ。`IndexOf(APage)` が範囲の中なら、`CanClose := True` で `OnPageClose` を呼び、`CanClose` なら `Remove(番号)`。TCPageControl の標準の閉じ方（`Free`）を使わないのは、`Remove` の中で Browser のイベントを外してから閉じる必要があるため。
 
-`CloseMenuItemClick`：`Remove(FContextMenuTabIndex)`。`DoCloseTabClicked`：`Sender` が `TTabSheet` ならそのタブ、`Sender = Self` なら表示中のタブを `Remove`。
-
+`SetHeaderPopupMenu(V)`：`FHeaderPopupMenu := V`、`TabPopupMenu := V`（TCPageControl が前の値の `RemoveFreeNotification` と新しい値の `FreeNotification` を行う）。そのあと、前の値が `FPagePopupMenu` と同じなら `FreeNotification(Self)` を付け直し（TCPageControl が通知の登録を外したため）、新しい値にも `FreeNotification(Self)`。
 **ページ**（`BrowserContextMenuRequested`）
 
 1. `ReleasePageMenuItemsOf(nil)`（前回足した項目を消す）。
 2. `FContextTabIndex := TabIndexOfBrowser(Browser)`。
-3. 標準の項目は止めない（`Handled` は設定しない）。その後ろに、区切り線、「新規作成」（`pmaNew`）、「閉じる」（`pmaClose`）を足す。
+3. 標準の項目は止めない（`Handled` は設定しない）。その後ろに、区切り線、「新規作成」（`pmaNew`）、「閉じる」（`pmaClose`）を足す（`FSingleTab` のときは足さない）。
 4. `FPagePopupMenu` があれば `OnPopup` を呼ぶ。呼んだ後も `FPagePopupMenu` があり、見える項目が 1 つでもあれば（`HasVisibleItem`）、区切り線を足して `CopyMenuToPage` で写す。
 
 `AddPageMenuItem`：`CoreWebView2Environment.CreateContextMenuItem` で作る（古いランタイムで作れなければ何も足さない）。`TCTabPageMenuItem` に `CommandId`・`Action`・`Source`・`Browser` を入れ、区切り線以外は `IsEnabled`、チェックは `IsChecked`。`pmaNone` 以外は `AddAllBrowserEvents(Browser)`（選ばれたときに `OnCustomItemSelected` が来るようにする）。`AppendValue` に成功したら `FPageMenuItems` に足して返す。
@@ -358,7 +364,7 @@ Destroy：
 
 `DoPendingMenu`：`FindTabOfBrowser(FPendingBrowser)`（ポインタを比べるだけ。消えていれば -1）を `FContextTabIndex` に入れ、予定を消してから実行する。`pmaNew` → `NewTabMenuClick`、`pmaClose` → タブがあれば `Remove`、`pmaApp` → 元の項目が `FPagePopupMenu` の中にまだあれば `Click`。
 
-**`HeaderPopupMenu`・`PagePopupMenu` の設定**：前の値が、もう一方と違うときだけ `RemoveFreeNotification`。新しい値に `FreeNotification`。`Notification` の `opRemove` で、消えたものを nil にする。
+**`PagePopupMenu` の設定**：前の値が `FHeaderPopupMenu` と違うときだけ `RemoveFreeNotification`。新しい値に `FreeNotification`。`Notification` の `opRemove` で、消えたものを `FHeaderPopupMenu`・`FPagePopupMenu` とも nil にする（`FHeaderPopupMenu` が消えたときは、TCPageControl の `Notification` が `TabPopupMenu` も nil にする）。
 
 ### 7.10 タブを閉じる（Remove）・新しいタブ
 
@@ -376,7 +382,7 @@ Destroy：
 
 `DoNewTabRequest(Reason)`：`URL := 'about:blank'`、`Accept := True` で `OnNewTabRequest` を呼ぶ。`Accept = False` なら、`ntrMenuNew` は '' を返し、`ntrLastTabClosed` は 'about:blank' にする。URL が空なら 'about:blank'。
 
-`NewTabMenuClick`：`DoNewTabRequest(ntrMenuNew)` が空でなければ `Add`。
+`NewTabMenuClick`：`DoNewTabRequest(ntrMenuNew)` が空でなければ `Add`。［＋］（`DoAddButtonClick`）・右クリックの「新しいタブ」（`DoMenuNewClick`）・ページの右クリックの「新規作成」（`pmaNew`）は、すべてこれを呼ぶ（TCPageControl の標準の［＋］は、空のページを作って `OnNewPage` を出すため、使わない）。
 
 ### 7.11 設定ファイル（LoadSettings）
 
@@ -474,6 +480,10 @@ type
 | TCMonacoEditor と一緒に固まる | `UserDataFolder := FDataFolder` と `CreateBrowser(…, False)`（7.1） |
 | キャッシュの上限が効かない | tabbrowser.json の場所（7.11）、`AdditionalBrowserArguments` |
 | ドック・切り離しのあと、前からあるタブが映らない | タブの窓が `TCXWVWindowParent` か（7.1 の 4）、`DestroyWnd` で預けたか・`CreateWnd` で付け直したか（`FParked`。9.1）。`Browser.ParentWindow` が新しい窓の `Handle` になっているか |
+| ［＋］が出ない | `Options` に `nboShowAddTabButton` があるか。.lfm に古い `Options = [nboShowCloseButtons]` が保存されていると、既定値（6章）が上書きされる |
+| 見出しの右クリックでアプリの項目が出ない | `HeaderPopupMenu`（= `TabPopupMenu`）が設定されているか。`SetHeaderPopupMenu`・`ShowTabMenu`・`DoTabMenuRequested`（7.9） |
+| 右クリックしたタブの番号（`ContextTabIndex`）が違う | `DoTabMenuRequested` が `FContextTabIndex` を入れているか（7.9） |
+| タブをタイトルバーに載せたのに、タブ列が出ない | タブが 1 枚で `HideSingleTab = True` になっていないか（`UpdateTabHeaderVisibility`。7.2） |
 
 ## 11. この版の変更（1.1）
 
@@ -496,3 +506,47 @@ type
 | 4 | WebView4Delphi | 変更なし（手を入れない） |
 
 - 公開しているプロパティ・メソッド・イベントは変えない。
+
+## 12. この版の変更（1.2）
+
+コードを直すための手順。取説には入れない。
+
+### 12.1 今と変更後
+
+| No | 項目 | 今（1.1）の動作・問題点 | 変更後（1.2） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | 元のクラス | `TPageControl`。タブ列は Windows 標準のタブ部品で、タブ列だけをタイトルバーに載せられない（タイトルバーに別のタブ列を置くと 2 段になる）。ダーク表示・［×］・［＋］なども自由に描けない | `TCPageControl`。タブ列は自前の描画で、`TitleBar` に TCTitleBar を指定するとタイトルバーに載る。ページは、この部品の場所に残る | Firefox のように、タイトルバーとタブを 1 段にしたアプリを作れるようにする | 公開プロパティが TCPageControl のものになる。`MultiLine`・`RaggedRight`・`ScrollOpposite`・`Style`・`HotTrack`・`OnCloseTabClicked` などが無くなり、.lfm に残っていると読み込みでエラーになる |
+| 2 | ページの型 | `TTabSheet` | `TCTabSheet` | 1 のため | `Owner is TTabSheet` の判定を、すべて `TCTabSheet` に替える |
+| 3 | ［×］ | `OnCloseTabClicked`（Windows 版の LCL では出ない）と右クリックの「閉じる」 | タブの［×］（自前の描画）。タブ一覧の［×］もある。すべて `CloseByUser`（`OnPageClose` で取りやめられる）から `Remove` | Windows でも［×］で閉じられるようにする | `OnPageClose` が使えるようになる（今までは無かった） |
+| 4 | ［＋］ | なし | 出る（`nboShowAddTabButton`）。`NewTabMenuClick`（`OnNewTabRequest` の `ntrMenuNew`）で、WebView2 つきのタブを作る | 新しいタブをボタンで作れるようにする | .lfm に古い `Options` が保存されている既存のフォームは、［＋］が出ない（`Options` を直す） |
+| 5 | 見出しの右クリック | `PopupMenu`・`OnContextPopup` を自分で使い、「閉じる」とアプリの項目を組み立てる。タブのない所では出さない | TCPageControl の `ShowTabMenu` に任せる。`TabMenuItems = [tmiClose]`、アプリの項目は `TabPopupMenu`（= `HeaderPopupMenu`）。`ContextTabIndex` は `DoTabMenuRequested` で記録する | 自前の組み立てを減らし、TCPageControl と動きをそろえる | タブのない所でも、`HeaderPopupMenu` の項目が出る。項目のアイコン（`TabPopupMenu.Images`）が出る。`PopupMenu`・`OnContextPopup` は、アプリが使えるようになる |
+| 6 | タブ列を隠す | LCL の `ShowTabs` | TCPageControl の `ShowTabs`（今回追加） | TCPageControl に隠す手段がなかったため | `TitleBar` に載せているとき、1 枚だと、タイトルバーの中が空になる（`HideSingleTab := False` で避けられる） |
+| 7 | 動作環境 | Lazarus 4.8・5.0 RC1 | 5.0 以降 | `CListView` が 5.0 の `ShellCtrls` を使うため | 4.8 では cx がコンパイルできない |
+
+### 12.2 直す所
+
+| No | ファイル | 変更 |
+|---|---|---|
+| 1 | `uCTabBrowser.pas` | 元のクラスを `TCPageControl` に。`TTabSheet` を `TCTabSheet` に。`Create` の `Options`・`TabMenuItems`。`FTabPopupMenu`・`FCloseMenuItem`・`FContextMenuTabIndex`・`HandleTabContextPopup`・`CloseMenuItemClick`・`DoCloseTabClicked`・`CopyMenuToHeader`・`HeaderCopyItemClick` を消す。`CloseByUser`・`DoAddButtonClick`・`DoMenuNewClick`・`DoCloseButtonClick`・`DoMenuCloseClick`・`DoTabListCloseClick`・`DoTabMenuRequested` を足す。`SetHeaderPopupMenu` が `TabPopupMenu` に渡す |
+| 2 | `uCPageControl.pas` | `ShowTabs`（既定 True。False でタブ列を隠す）と、`DoTabMenuRequested`（右クリックメニューを出す直前に呼ぶ。何もしない）を足す。ほかの動きは変えない |
+| 3 | `demo\Lazarus\tcTabBrowser\unit1.lfm` | `Options` に `nboShowAddTabButton` を足す |
+
+- 公開しているプロパティ・メソッド・イベントのうち、TCTabBrowser で足したものは変えない。
+- 確認したこと（Lazarus 5.0 RC1、Windows 11）：［＋］・［×］・右クリックの「閉じる」・`HeaderPopupMenu` の項目と `ContextTabIndex`・タブのドラッグ・最後のタブを閉じたときの新規作成・`HideSingleTab`・`TitleBar` に載せた表示。
+
+## 13. この版の変更（1.3）
+
+### 13.1 今と変更後
+
+| No | 項目 | 今（1.2）の動作・問題点 | 変更後（1.3） | 変える理由 | リスク |
+|---|---|---|---|---|---|
+| 1 | 1 枚だけの Web ブラウザとして使う（既定値を `True` にする） | タブ列は、タブが 1 枚以下のとき（`HideSingleTab`）だけ隠れる。`Add`・新しいウィンドウの要求で、タブが増える。ページの右クリックに「新規作成」「閉じる」が出る。使わないようにするには、イベントを何本も書く必要がある | `SingleTab`（既定値 `True`。`False` にするとタブブラウザ）。`True` なら、タブ列を常に隠し、`Add`・`Insert` は 2 枚目を作らず今のタブで開き（新しいウィンドウの要求も `Add` を通るので、同じ）、ページの右クリックに「新規作成」「閉じる」を出さない | TCsEditor の 1 枚固定のように、タブなしの Web ブラウザとして使えるようにする | 既定値を `True` にするので、タブを複数使う既存のフォーム・コードは、`SingleTab := False`（.lfm では `SingleTab = False`）が要る。`False` にしないまま `Add` を繰り返すと、タブが増えない（`while Count < 3 do Add(…)` のような繰り返しは、終わらなくなる）。`SingleTab` を、タブを足したあとで `True` にしても、すでにあるタブは消さない |
+| 2 | 空のタブ列 | タブが 0 枚の間、［∨］だけが出る空の帯が出ていた | 0 枚の間は、タブ列を隠す（`Create` で `UpdateTabHeaderVisibility`） | 入れ子のとき、2 段に見えるため | なし |
+
+### 13.2 直す所
+
+| No | ファイル | 変更 |
+|---|---|---|
+| 1 | `uCTabBrowser.pas` | `FSingleTab`・`SetSingleTab`・`SingleTab`。`UpdateTabHeaderVisibility` は `ShowTabs := not (FSingleTab or (FHideSingleTab and (PageCount <= 1)))`。`Insert` の最初で、`FSingleTab` かつ `PageCount >= 1` なら、`Navigate(AURL)`・今のタブの番号を返して抜ける（`CXStartWebView2` より前）。`BrowserContextMenuRequested` は、`FSingleTab` のとき、区切り線・「新規作成」・「閉じる」を足さない |
+
+- 確認したこと（Lazarus 5.0 RC1、Windows 11）：`SingleTab = True` で `Add` を 3 回呼んで `Count = 1`、タブ列なし、`target="_blank"` のリンクが同じタブで開く、ページの右クリックに WebView2 の標準の項目だけが出る。

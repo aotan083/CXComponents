@@ -1,26 +1,32 @@
 # TCTabBrowser 取扱説明書
 
 作者: aotan083
-日付: 2026-11-05
-版: 1.2
+日付: 2026-11-24
+版: 1.5
 
 ---
+
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
 
 ## 1. 概要とクラス
 
 WebView2（Microsoft Edge のしくみ）を使った、タブ付きの Web ブラウザです。タブごとに別の Web ページを表示し、ページの保存（HTML・MHTML・画像・PDF）、JavaScript の実行、ダウンロードの受け取り、右クリックメニューへの項目の追加ができます。
 
 ```
-+-----------+-----------+------------------------------+
-| Google  × | GitHub  × |                              |
-+-----------+-----------+------------------------------+
++-----------+-----------+---+---------------------------+
+| Google  × | GitHub  × | ＋ |                       ∨ |
++-----------+-----------+---+---------------------------+
 |                                                      |
 |   表示中のタブの Web ページ                             |
 |                                                      |
 +------------------------------------------------------+
 ```
 
-- タブの見出しの［×］で、そのタブを閉じる。
+- タブ列は、この部品が自分で描く（Windows 標準のタブ部品ではない）。タブは 1 段で、入りきらないときは［◀］［▶］でスクロールする。［∨］でタブの一覧を開く。
+- タブの見出しの［×］で、そのタブを閉じる。末尾の［＋］で、新しいタブを足す。
+- `TitleBar` に TCTitleBar を指定すると、タブ列がタイトルバーに載る（Firefox のようにタブとタイトルバーが 1 段になる）。ページは、この部品を置いた場所に出る。使い方は 9.12。
+- タブをドラッグして、並べ替えられる。
+- **既定値の `SingleTab = True` は、タブを使わない 1 枚だけの Web ブラウザ**。`CTabBrowser1.SingleTab := False` にすると、**タブブラウザ**として動く（9.1・9.13）。
 - タブは 0 枚にならない。最後のタブを閉じると、部品が新しいタブを 1 枚作る。
 - ページが新しいウィンドウを開こうとしたときは、ウィンドウを開かずに新しいタブで開く。
 - 同じアプリの中のほかの WebView2（TCMonacoEditor など）とは別のブラウザのプロセスで動くため、互いの処理で固まらない。
@@ -28,7 +34,7 @@ WebView2（Microsoft Edge のしくみ）を使った、タブ付きの Web ブ�
 
 | 項目 | 内容 |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 以降 |
 | FPC | 3.2.2 |
 | OS | Windows 11（64 ビット） |
 | パレット | CX |
@@ -38,12 +44,12 @@ WebView2（Microsoft Edge のしくみ）を使った、タブ付きの Web ブ�
 
 | クラス | ユニット | パッケージ | 元のクラス | 中身 |
 |---|---|---|---|---|
-| `TCTabBrowser` | `uCTabBrowser` | cx | `TPageControl` | WebView2 を使った、タブ付きの Web ブラウザ。ページの保存（HTML・MHTML・画像・PDF）、JavaScript の実行、ダウンロードの受け取り、右クリックメニューへの項目の追加ができる |
+| `TCTabBrowser` | `uCTabBrowser` | cx | `TCPageControl` | WebView2 を使った、タブ付きの Web ブラウザ。ページの保存（HTML・MHTML・画像・PDF）、JavaScript の実行、ダウンロードの受け取り、右クリックメニューへの項目の追加ができる |
 
 | 型 | ユニット | 中身 |
 |---|---|---|
 | `TCTabPanel` | `uCTabBrowser` | タブの情報（`Panels[i]`・`ActiveTab` で取る）。4.2 |
-| `TTabNewTabReason` | `uCTabBrowser` | 部品が新しいタブを作る理由。`ntrMenuNew`（右クリックメニューの「新規作成」）・`ntrLastTabClosed`（最後のタブを閉じた） |
+| `TTabNewTabReason` | `uCTabBrowser` | 部品が新しいタブを作る理由。`ntrMenuNew`（［＋］・Web ページの右クリックメニューの「新規作成」）・`ntrLastTabClosed`（最後のタブを閉じた） |
 | `TTabDocumentCompleteEvent` | `uCTabBrowser` | `procedure(Sender: TObject; ATabIndex: Integer; ASuccess: Boolean) of object`。`OnDocumentComplete` の型 |
 | `TTabNewWindowRequestedEvent` | `uCTabBrowser` | `procedure(Sender: TObject; ATabIndex: Integer; var AURI: string; var AAccept: Boolean) of object`。`OnNewWindowRequested` の型 |
 | `TTabBasicAuthenticationRequestedEvent` | `uCTabBrowser` | `procedure(Sender: TObject; ATabIndex: Integer; const AWebView: ICoreWebView2; const AArgs: ICoreWebView2BasicAuthenticationRequestedEventArgs) of object`。`OnBasicAuthenticationRequested` の型 |
@@ -59,7 +65,7 @@ WebView2（Microsoft Edge のしくみ）を使った、タブ付きの Web ブ�
 
 ## 2. フォームに置いて動かすまで
 
-1. パレット [CX] から、TCTabBrowser をフォームに置く。
+1. パレット [CX] から、TCTabBrowser をフォームに置く。タブブラウザとして使うときは、オブジェクトインスペクタで `SingleTab` を `False` にする（既定値の `True` は、タブを使わない 1 枚だけの Web ブラウザ）。
 2. 実行ファイル（EXE）と同じフォルダーに、WebView2Loader.dll（64 ビット版）を置く。WebView4Delphi のリポジトリ（https://github.com/salvadordf/WebView4Delphi）から入手する。
 3. EXE と同じフォルダーに、WebView2.ini を置く（2.1）。
 4. フォームの `OnShow` に、最初のタブを開く処理を書く（9.1）。
@@ -103,8 +109,11 @@ Language=
 | 動き | 中身 |
 |---|---|
 | タブの見出し | 最初は「タブ n」。ページのタイトルが決まると、タイトルに変わる |
-| 見出しを隠す | `HideSingleTab = True`（既定値）なら、タブが1枚以下のときは見出しを隠す |
-| ［×］ | そのタブを閉じる |
+| タブ列を隠す | `HideSingleTab = True`（既定値）なら、タブが1枚以下のときはタブ列を隠す（`TitleBar` に載せているときは、タイトルバーの中のタブ列が消える） |
+| 1 枚固定（`SingleTab = True`。既定値） | タブ列を常に隠す。`Add`・`Insert`・ページが開こうとした新しいウィンドウは、2 枚目を作らず、今のタブで開く。Web ページの右クリックに「新規作成」「閉じる」を出さない |
+| ［×］ | そのタブを閉じる（`OnPageClose` で取りやめられる） |
+| ［＋］ | `OnNewTabRequest`（`AReason = ntrMenuNew`）で URL を決め、末尾に新しいタブを作って表示する |
+| タブのドラッグ | タブを並べ替える。ページも一緒に動く |
 | 表示中のタブを閉じた | 右隣のタブを表示する。右隣がなければ左隣 |
 | 最後のタブを閉じた | `OnNewTabRequest`（`AReason = ntrLastTabClosed`）で URL を決め、閉じたタブがその URL を表示していれば何もしない。それ以外は、タブを閉じて、その URL で新しいタブを作る（タブは0枚にならない） |
 | ページが新しいウィンドウを開こうとした | ウィンドウを開かず、末尾の新しいタブで開く |
@@ -141,27 +150,28 @@ Language=en
 | `Panels[AIndex]` | `TCTabPanel` | 読み | その番号のタブの情報（4.2）。範囲の外のときは、どの値も ''。実行時だけ |
 | `ActiveTab` | `TCTabPanel` | 読み | 表示中のタブの情報（4.2）。実行時だけ |
 | `ContextTabIndex` | `Integer` | 読み | 最後に右クリックしたタブの番号（既定値は -1）。6章。実行時だけ |
-| `HideSingleTab` | `Boolean` | 読み・書き | `True`（既定値）なら、タブが1枚以下のときは見出しを隠す |
+| `HideSingleTab` | `Boolean` | 読み・書き | `True`（既定値）なら、タブが1枚以下のときはタブ列を隠す（`ShowTabs` で切り替える） |
+| `SingleTab` | `Boolean` | 読み・書き | `True`（既定値）なら、1 枚固定の Web ブラウザになる。`False` にすると、タブブラウザとして動く（タブ列・複数のタブ・［＋］・右クリックの「新規作成」「閉じる」）。`True` のとき、タブ列を常に隠し、`Add`・`Insert` は 2 枚目を作らず今のタブで開き、ページの右クリックに「新規作成」「閉じる」を出さない。タブを複数使うときは、最初のタブを足す前に `False` にする（フォームでは、オブジェクトインスペクタで `False` にする）。`True` にしたとき、すでに複数のタブがあれば、増やさないだけで、消さない |
 | `UserAgent` | `string` | 読み・書き | 読むと、表示中のタブで使っている User-Agent（タブがないときは設定した値）。書くと、すべてのタブとこれから作るタブに設定する。'' なら WebView2 の標準 |
 | `IgnoreCertificateErrors` | `Boolean` | 読み・書き | `True`（既定値）なら、証明書のエラーを無視してページを表示する。すべてのタブとこれから作るタブに設定する。インターネット上の一般のサイトを表示するアプリでは、`False` にすることを考える |
 | `SavePath` | `string` | 読み・書き | `SaveScreenCapture`・`SavePDF` でファイル名を省いたときの保存先のフォルダー（既定値は、部品を作ったときのカレントフォルダー） |
-| `HeaderPopupMenu` | `TPopupMenu` | 読み・書き | タブの見出しの右クリックメニューに足す項目（6章） |
+| `HeaderPopupMenu` | `TPopupMenu` | 読み・書き | タブの見出しの右クリックメニューに足す項目（6章）。`TabPopupMenu` と同じもの |
 | `PagePopupMenu` | `TPopupMenu` | 読み・書き | Web ページの右クリックメニューに足す項目（6章） |
 
-### 3.2 TPageControl から引き継いだもの
+### 3.2 TCPageControl から引き継いだもの
 
 | 名前 | 型 | 読み書き | 中身 |
 |---|---|---|---|
-| `ActivePage` | `TTabSheet` | 読み・書き | 表示中のタブのページ。書くと切り替わる（`ActiveIndex` と同じ働き）。実行時に使う |
+| `ActivePage` | `TCTabSheet` | 読み・書き | 表示中のタブのページ。書くと切り替わる（`ActiveIndex` と同じ働き）。実行時に使う |
 | `Align` | `TAlign` | 読み・書き | 親の中での配置 |
 | `Anchors` | `TAnchors` | 読み・書き | 親の大きさが変わったときに、どの辺を合わせて動くか |
 | `AnchorSideBottom` | `TAnchorSide` | 読み・書き | 下の辺を、どの部品のどこに合わせるか |
 | `AnchorSideLeft` | `TAnchorSide` | 読み・書き | 左の辺を、どの部品のどこに合わせるか |
 | `AnchorSideRight` | `TAnchorSide` | 読み・書き | 右の辺を、どの部品のどこに合わせるか |
 | `AnchorSideTop` | `TAnchorSide` | 読み・書き | 上の辺を、どの部品のどこに合わせるか |
-| `AutoSize` | `Boolean` | 読み・書き | 中身に合わせて大きさを変えるか |
 | `BiDiMode` | `TBiDiMode` | 読み・書き | 右から左に並べるか |
 | `BorderSpacing` | `TControlBorderSpacing` | 読み・書き | 周りの余白 |
+| `Color` | `TColor` | 読み・書き | タブ列の背景色（`TitleBar` を指定しないとき。既定値は `clBtnFace`） |
 | `Constraints` | `TSizeConstraints` | 読み・書き | 大きさの上限・下限 |
 | `Cursor` | `TCursor` | 読み・書き | 上に来たときのマウスカーソル |
 | `DragCursor` | `TCursor` | 読み・書き | ドラッグ中のマウスカーソル |
@@ -174,30 +184,44 @@ Language=en
 | `HelpKeyword` | `string` | 読み・書き | ヘルプのキーワード |
 | `HelpType` | `THelpType` | 読み・書き | ヘルプを番号で引くか（`htContext`）、キーワードで引くか（`htKeyword`） |
 | `Hint` | `TTranslateString` | 読み・書き | ヒントの文字 |
-| `HotTrack` | `Boolean` | 読み・書き | マウスを乗せたタブを強調するか |
-| `Images` | `TCustomImageList` | 読み・書き | タブのアイコン（番号は `OnGetImageIndex` で決める） |
-| `ImagesWidth` | `Integer` | 読み・書き | アイコンの幅 |
+| `Images` | `TCustomImageList` | 読み・書き | タブのアイコン（TCImageList も使える。番号は `OnGetImageIndex` で決める） |
+| `ImagesWidth` | `Integer` | 読み・書き | アイコンの幅（表示スケール 100% のときの px）。0（既定値）なら `Images` の幅 |
 | `Left` | `Integer` | 読み・書き | 左端の位置 |
-| `MultiLine` | `Boolean` | 読み・書き | タブを複数の段に並べるか |
 | `Name` | `TComponentName` | 読み・書き | 部品の名前 |
-| `Options` | `TCTabControlOptions` | 読み・書き | タブの設定（既定値は `[nboShowCloseButtons]`）。`nboShowCloseButtons` を外すと、タブの［×］が出なくなる |
+| `Options` | `TCTabControlOptions` | 読み・書き | タブの設定（下の表）。既定値は `[nboShowCloseButtons, nboShowAddTabButton]` |
 | `ParentBiDiMode` | `Boolean` | 読み・書き | 親の `BiDiMode` を使うか |
+| `ParentColor` | `Boolean` | 読み・書き | 親の色を使うか（既定値は `False`） |
 | `ParentFont` | `Boolean` | 読み・書き | 親の `Font` を使うか |
 | `ParentShowHint` | `Boolean` | 読み・書き | 親の `ShowHint` を使うか |
-| `RaggedRight` | `Boolean` | 読み・書き | 複数の段のとき、タブを右端までそろえないか |
-| `ScrollOpposite` | `Boolean` | 読み・書き | 複数の段のとき、選んだ段を反対側へ動かすか |
+| `PopupMenu` | `TPopupMenu` | 読み・書き | ページの何もない所を右クリックしたときに出すメニュー（Web ページの上は WebView2 が受けるため出ない） |
 | `ShowHint` | `Boolean` | 読み・書き | ヒントを出すか |
-| `Style` | `TTabStyle` | 読み・書き | タブの形（タブ・ボタン・平らなボタン） |
-| `TabHeight` | `Smallint` | 読み・書き | タブの高さ（0 で自動） |
+| `ShowTabListButton` | `Boolean` | 読み・書き | ［∨］（タブの一覧）を出すか（既定値は `True`） |
+| `ShowTabs` | `Boolean` | 読み・書き | タブ列を出すか（既定値は `True`）。`HideSingleTab` が切り替えるため、直接は変えない（8.1）。実行時だけ |
+| `TabHeight` | `Smallint` | 読み・書き | タブの高さ。0（既定値）なら自動 |
 | `TabIndex` | `Integer` | 読み・書き | 表示中のタブの番号（`ActiveIndex` と同じ働き） |
+| `TabListPopupMenu` | `TPopupMenu` | 読み・書き | タブの一覧の上に足す項目 |
+| `TabMaxWidth` | `Integer` | 読み・書き | `TabWidth = 0` のときの最大の幅（既定値は 240）。入りきらない文字は「…」 |
+| `TabMenuItems` | `TCTabMenuItems` | 読み・書き | 見出しの右クリックメニューに出す標準の項目。この部品の既定値は `[tmiClose]`（6章） |
 | `TabOrder` | `TTabOrder` | 読み・書き | Tab キーで移る順番 |
-| `TabPosition` | `TTabPosition` | 読み・書き | タブの位置（上・下・左・右） |
+| `TabPopupMenu` | `TPopupMenu` | 読み・書き | `HeaderPopupMenu` と同じもの（8.1） |
+| `TabPosition` | `TTabPosition` | 読み・書き | タブ列の位置。`tpTop`（既定値）・`tpBottom`。`TitleBar` を指定したときは使わない |
+| `TabShape` | `TCTabShape` | 読み・書き | タブの形。`tsRectangle`（既定値。四角）・`tsRounded`（角丸） |
 | `TabStop` | `Boolean` | 読み・書き | Tab キーで止まるか |
-| `TabWidth` | `Smallint` | 読み・書き | タブの幅（0 で文字に合わせる） |
+| `TabWidth` | `Smallint` | 読み・書き | タブの幅。0（既定値）なら文字に合わせる |
 | `Tag` | `PtrInt` | 読み・書き | アプリが自由に使える数値 |
+| `TitleBar` | `TCTitleBar` | 読み・書き | タブ列を入れるタイトルバー。空ならタブ列はこの部品の中に出る（9.12） |
 | `Top` | `Integer` | 読み・書き | 上端の位置 |
 | `Visible` | `Boolean` | 読み・書き | 表示するか |
 | `Width` | `Integer` | 読み・書き | 幅 |
+
+**`Options` の値**
+
+| 値 | 中身 |
+|---|---|
+| `nboShowCloseButtons` | 各タブに［×］を出す |
+| `nboShowAddTabButton` | ［＋］を出す |
+| `nboKeyboardTabSwitch` | Ctrl+Tab・Ctrl+Shift+Tab で切り替える（Web ページにフォーカスがあるときは、キーが届かない） |
+| `nboDoChangeOnSetIndex` | コードで表示するタブを変えたときも、`OnChanging`・`OnChange` を出す |
 
 ## 4. メソッドと TCTabPanel
 
@@ -208,8 +232,8 @@ Language=en
 | 名前 | 引数 | 戻り値 | 中身 |
 |---|---|---|---|
 | `Create` | `AOwner: TComponent` | ― | 作る。コードで作るときに使う（9.10） |
-| `Add` | `const AURL: string = 'about:blank'` | `Integer` | 末尾にタブを足し、`AURL` を開いて表示する。足したタブの番号を返す。読み込みは待たない |
-| `Insert` | `i: Integer; const AURL: string = 'about:blank'` | `Integer` | 番号 `i` の位置にタブを足し、`AURL` を開いて表示する。`i` は 0 ～ `Count` の範囲に収める。足したタブの番号を返す |
+| `Add` | `const AURL: string = 'about:blank'` | `Integer` | 末尾にタブを足し、`AURL` を開いて表示する。足したタブの番号を返す。読み込みは待たない。`SingleTab = True`（既定値）で、すでにタブがあるときは、2 枚目を作らず、今のタブで開く（返す番号は今のタブ）。タブブラウザとして使うときは `SingleTab := False` |
+| `Insert` | `i: Integer; const AURL: string = 'about:blank'` | `Integer` | 番号 `i` の位置にタブを足し、`AURL` を開いて表示する。`i` は 0 ～ `Count` の範囲に収める。足したタブの番号を返す。`SingleTab = True` で、すでにタブがあるときは、`Add` と同じ |
 | `Remove` | ― | ― | 表示中のタブを閉じる（2章の「タブの動き」） |
 | `Remove` | `i: Integer` | ― | 番号 `i` のタブを閉じる。範囲の外なら何もしない |
 
@@ -281,42 +305,45 @@ Language=en
 
 - `OnNewTabRequest` の `ntrLastTabClosed` で返す URL は、ページを開いた後に表示される URL と同じ書き方にする（末尾の「/」の有無など）。違うと、最後のタブを閉じるたびにタブが作り直される。
 
-### 5.2 TPageControl から引き継いだもの
+### 5.2 TCPageControl から引き継いだもの
 
 | 名前 | 引数 | 中身 |
 |---|---|---|
 | `OnChange` | `Sender: TObject` | 表示中のタブが変わった後 |
 | `OnChanging` | `Sender: TObject; var AllowChange: Boolean` | 表示中のタブが変わる前。`AllowChange := False` で取りやめる |
+| `OnContextPopup` | `Sender: TObject; MousePos: TPoint; var Handled: Boolean` | 右クリックメニューを出す直前。`Handled := True` で出さない |
 | `OnDragDrop` | `Sender, Source: TObject; X, Y: Integer` | LCL のドラッグ（アプリの中の部品どうし）でドロップされた |
 | `OnDragOver` | `Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept: Boolean` | LCL のドラッグで、ドラッグしている物が上に来た。`Accept` で受けるかを決める |
-| `OnEndDock` | `Sender, Target: TObject; X, Y: Integer` | ドッキングが終わった |
 | `OnEndDrag` | `Sender, Target: TObject; X, Y: Integer` | LCL のドラッグが終わった |
 | `OnEnter` | `Sender: TObject` | フォーカスが入った |
 | `OnExit` | `Sender: TObject` | フォーカスが出た |
-| `OnGetImageIndex` | `Sender: TObject; TabIndex: Integer; var ImageIndex: Integer` | タブのアイコンの番号を決めるとき（`Images` を使うとき） |
-| `OnMouseDown` | `Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer` | タブの見出しでマウスのボタンが押された |
+| `OnGetImageIndex` | `Sender: TObject; TabIndex: Integer; var ImageIndex: Integer` | タブを描く前。`ImageIndex` に使うアイコンの番号を入れられる（`Images` を使うとき） |
+| `OnMouseDown` | `Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer` | マウスのボタンが押された |
 | `OnMouseEnter` | `Sender: TObject` | マウスが上に入った |
 | `OnMouseLeave` | `Sender: TObject` | マウスが外に出た |
-| `OnMouseMove` | `Sender: TObject; Shift: TShiftState; X, Y: Integer` | タブの見出しでマウスが動いた |
-| `OnMouseUp` | `Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer` | タブの見出しでマウスのボタンが離された |
+| `OnMouseMove` | `Sender: TObject; Shift: TShiftState; X, Y: Integer` | マウスが動いた |
+| `OnMouseUp` | `Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer` | マウスのボタンが離された |
 | `OnMouseWheel` | `Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean` | ホイールが回された |
 | `OnMouseWheelDown` | `Sender: TObject; Shift: TShiftState; MousePos: TPoint; var Handled: Boolean` | ホイールが手前に回された |
 | `OnMouseWheelUp` | `Sender: TObject; Shift: TShiftState; MousePos: TPoint; var Handled: Boolean` | ホイールが奥に回された |
+| `OnPageClose` | `Sender: TObject; APage: TCTabSheet; var CanClose: Boolean` | ［×］・右クリックの「閉じる」・タブ一覧の［×］でタブを閉じる前。`CanClose := False` で取りやめる |
+| `OnPageMoved` | `Sender: TObject; APage: TCTabSheet; AOldIndex, ANewIndex: Integer` | ドラッグでタブを動かした後 |
 | `OnResize` | `Sender: TObject` | 大きさが変わった |
-| `OnStartDock` | `Sender: TObject; var DragObject: TDragDockObject` | ドッキングのドラッグを始めた |
 | `OnStartDrag` | `Sender: TObject; var DragObject: TDragObject` | LCL のドラッグを始めた |
 
 - Web ページの上のマウス・キーは、WebView2 が受けるため、これらのイベントは出ない。
-
+- `OnNewPage`・`OnPageRename` は、この部品では使わない（［＋］では `OnNewTabRequest` が出る。8.1）。
 ## 6. 右クリックメニュー
 
 | 右クリックした場所 | 出るメニュー |
 |---|---|
 | タブの見出し（タブの上） | 「閉じる」→ 区切り線 → `HeaderPopupMenu` の項目 |
-| タブの見出し（タブのない所） | 何も出ない |
+| タブの見出し（タブのない所） | `HeaderPopupMenu` の項目（`HeaderPopupMenu` を設定していなければ、何も出ない） |
 | Web ページ | WebView2 の標準の項目（右クリックした場所に合ったもの）→ 区切り線 →「新規作成」「閉じる」→ 区切り線 → `PagePopupMenu` の項目 |
 
-- 「閉じる」は、右クリックしたタブを閉じる。「新規作成」は、末尾に新しいタブを足して表示する（URL は `OnNewTabRequest` で決める）。
+- 「閉じる」は、右クリックしたタブを閉じる（`OnPageClose` で取りやめられる）。「新規作成」は、末尾に新しいタブを足して表示する（URL は `OnNewTabRequest` で決める）。
+- `SingleTab = True` のときは、Web ページの右クリックに「新規作成」「閉じる」は出ない（WebView2 の標準の項目の後ろに、`PagePopupMenu` の項目だけが並ぶ）。
+- タブの見出しに出す標準の項目は、`TabMenuItems`（既定値は `[tmiClose]`）で決まる。`tmiNew` を足すと、「新しいタブ」が出る（［＋］と同じ）。`tmiRename` は足さない（タブの名前はページのタイトルで決まる）。
 - `HeaderPopupMenu`・`PagePopupMenu` を設定しないときは、アプリの項目と、その前の区切り線は出ない。
 - 両方に同じ TPopupMenu を設定できる。
 - メニューを出す直前に、TPopupMenu の `OnPopup` を呼ぶ。項目の有効・無効やチェックは、`OnPopup` の中で合わせる。
@@ -326,23 +353,22 @@ Language=en
 
 | 元の項目 | 写した後 |
 |---|---|
-| `Visible = False` | 写さない |
+| `Visible = False` | 出ない |
 | `Caption = '-'` | 区切り線 |
 | `Caption` | そのまま（& のアクセスキーも含む） |
 | `Enabled` | そのまま |
 | `Checked` | そのまま（チェック付きの項目になる） |
 | 子の項目あり | サブメニューになり、子の項目も同じ決まりで写す |
-| アイコン（`ImageIndex`・`Bitmap`） | 写さない |
+| アイコン（`ImageIndex`） | `HeaderPopupMenu`：その TPopupMenu の `Images` で出る。`PagePopupMenu`：出ない |
 | ショートカットキー | `HeaderPopupMenu`：表示される。`PagePopupMenu`：表示されない |
 
 **右クリックしたタブ（`ContextTabIndex`）**
 
 | とき | 入る値 |
 |---|---|
-| タブの見出しを右クリックした | そのタブの番号 |
+| タブの見出しを右クリックした | そのタブの番号（タブのない所なら -1） |
 | Web ページを右クリックした | そのページのタブの番号 |
 | `PagePopupMenu` の項目を実行するとき | 右クリックしたタブの今の番号。その間にタブが閉じられていれば -1 |
-
 ## 7. ブラウザのデータと設定ファイル
 
 | 項目 | 場所 |
@@ -365,23 +391,25 @@ Language=en
 
 | 名前 | 理由 |
 |---|---|
-| `PopupMenu` | タブの見出しの右クリックメニューに使っている。項目を足すときは `HeaderPopupMenu`・`PagePopupMenu` を使う |
-| `OnContextPopup` | タブの見出しの右クリックに使っている |
-| `OnCloseTabClicked` | ［×］でタブを閉じるのに使っている |
-| `ShowTabs` | `HideSingleTab` で部品が切り替える |
+| `TabPopupMenu` | `HeaderPopupMenu` と同じもの。項目を足すときは `HeaderPopupMenu` を使う |
+| `ShowTabs` | `HideSingleTab`・`SingleTab` で部品が切り替える。タブ列を隠すときは、どちらかを使う |
+| `NewPageCaption`・`OnNewPage` | ［＋］は、空のページではなく、WebView2 つきのタブを作る（`OnNewTabRequest` で URL を決める）ため、使わない |
+| `OnPageRename`・`tmiRename` | タブの名前は、ページのタイトルで決まるため、使わない |
 
 ### 8.2 そのほか
 
 - Windows 専用。
-- タブ（`TTabSheet`）を、`Add`・`Insert`・`Remove` 以外の方法（IDE の「ページを追加」、`TTabSheet.Create` など）で足したり消したりしない。ブラウザのないタブになる。
+- タブ（`TCTabSheet`）を、`Add`・`Insert`・`Remove` 以外の方法（IDE の「ページを追加」、`TCTabSheet.Create` など）で足したり消したりしない。ブラウザのないタブになる。
 - 古い WebView2 ランタイムでは、Web ページの右クリックメニューに「新規作成」「閉じる」とアプリの項目が出ず、WebView2 の標準の項目だけになる。
 - Web ページにフォーカスがあるときは、キー（F5 を除く）がアプリに届かない。フォームの `OnKeyDown` や ActionList のショートカットは動かない。
 - IDE の上（設計時）では、タブもブラウザも作らない。空の枠だけが出る。
 - AnchorDocking でのドック・切り離しなどで、部品の窓が作り直されても、どのタブも開いていたページをそのまま表示する。
-
+- タブ列は、この部品が自分で描く。色は、システムの色（`clBtnFace`・`clWindow` など）を使うため、アプリ全体をダーク表示にする仕組み（MetaDarkStyle）を使うと、それに合う。
 ## 9. 使い方の例
 
 ### 9.1 起動したときに最初のタブを開く
+
+タブブラウザとして使うときは、`SingleTab := False` にしておく（フォームでは、オブジェクトインスペクタで `False` にする）。
 
 ```pascal
 procedure TForm1.FormShow(Sender: TObject);
@@ -519,7 +547,7 @@ begin
 end;
 ```
 
-### 9.9 右クリックの「新規作成」と最後のタブを閉じたときに開くページを決める
+### 9.9 ［＋］・右クリックの「新規作成」と、最後のタブを閉じたときに開くページを決める
 
 ```pascal
 procedure TForm1.CTabBrowser1NewTabRequest(Sender: TObject;
@@ -559,3 +587,46 @@ begin
   end;
 end;
 ```
+
+### 9.12 タブ列をタイトルバーに載せる
+
+1. TCTitleBar をフォームに置く（自動で `Align = alTop` になる）。
+2. TCTabBrowser を、ページを出したい場所に置く（`Align = alClient` など）。
+3. TCTabBrowser の `TitleBar` に、その TCTitleBar を選ぶ。タブ列がタイトルバーの中に移り、ページは TCTabBrowser の場所に残る。
+
+```pascal
+uses
+  uCTabBrowser, uCTitleBar;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  CTabBrowser1.Align := alClient;
+  CTabBrowser1.TitleBar := CTitleBar1;   // IDE で選んでもよい
+end;
+```
+
+- タブ列の左右に、ボタンなどの部品を置くときは、TCTitleBar の中に `Align = alLeft`・`alRight` で置く。タブ列は、その間の残りの幅に入る。
+- タブが1枚のときにタブ列が消える（`HideSingleTab = True`）のが困るときは、`HideSingleTab := False` にする。
+
+### 9.13 1 枚だけの Web ブラウザとして使う・タブブラウザとして使う（SingleTab）
+
+`SingleTab` の既定値は `True`（タブを使わない、1 枚だけの Web ブラウザ）。**タブブラウザとして使うときは、`SingleTab := False` にする**（9.1 などの、`Add` を何度も呼ぶ例は、すべて `False` が前提）。
+
+```pascal
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  CTabBrowser1.Align := alClient;
+  // SingleTab は、既定値の True のまま（1 枚固定）
+  CTabBrowser1.Add('https://www.lazarus-ide.org/');   // 最初の 1 枚
+end;
+
+procedure TForm1.btnGoClick(Sender: TObject);
+begin
+  CTabBrowser1.Navigate(Edit1.Text);   // 今のタブで開く（Add でも同じ）
+end;
+```
+
+- タブ列は出ない。`Add`・`Insert`・ページが開こうとした新しいウィンドウは、すべて今のタブで開く。
+- Web ページの右クリックには、「新規作成」「閉じる」が出ない。
+- 戻る・進む・再読み込みは、`Back`・`Next`・`Reload` で行う（9.3）。
+- タブブラウザにするには、`CTabBrowser1.SingleTab := False;` とする（フォームでは、`SingleTab` を `False` にする）。そのとき、タブ列・［＋］・［×］・右クリックの「新規作成」「閉じる」が使える。

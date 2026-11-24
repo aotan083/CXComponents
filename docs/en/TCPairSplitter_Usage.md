@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A component used like TPairSplitter: it combines two sides (Side1 and Side2) and the splitter between them. Dragging the splitter changes the size of the two sides. It adds the following to TPairSplitter.
@@ -24,7 +26,7 @@ A component used like TPairSplitter: it combines two sides (Side1 and Side2) and
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

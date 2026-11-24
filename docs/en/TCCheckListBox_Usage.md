@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Class
 
 A component that adds to the LCL TCheckListBox a "single check" feature (only one item can be checked) and properties for getting the checked item without looping.
@@ -25,7 +27,7 @@ A component that adds to the LCL TCheckListBox a "single check" feature (only on
 
 | Item | Details |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

@@ -6,6 +6,8 @@ Version: 1.3
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Class
 
 A folder tree view that works like the left pane of Windows Explorer. Just by placing it on a form, copying, moving, deleting, renaming, drag and drop, and the right-click menu for folders all work the same as in Explorer. No code is needed on the application side.
@@ -31,7 +33,7 @@ v Network
 
 | Item | Description |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

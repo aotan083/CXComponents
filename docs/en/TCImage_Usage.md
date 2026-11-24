@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 - `TCImage`: an image component used just like `TImage`, which handles bmp, jpg (jpeg), png, svg, tif (tiff) and ico.
@@ -13,7 +15,7 @@ Version: 1.0
 
 | Item | Content |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

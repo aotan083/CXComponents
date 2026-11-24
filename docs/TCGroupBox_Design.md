@@ -6,6 +6,8 @@
 
 ---
 
+**動作環境**：Lazarus 5.0 以降（FPC 3.2.2）。Lazarus 4.8 以前は対象外。
+
 ## 1. 目的
 
 - 標準の TGroupBox（Windows のネイティブ部品）では、中に置いた標準部品が消えることがある。これをなくすため、LCL が描く `TCustomPanel` を元にし、枠と見出しを自分で描くグループボックス TCGroupBox を作る。見た目・プロパティ・イベントは TGroupBox に合わせる。

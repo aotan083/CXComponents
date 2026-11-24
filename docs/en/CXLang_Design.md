@@ -6,6 +6,8 @@ Version: 1.1
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose and Policy
 
 Make the strings that the cx components show on screen (menus, buttons, messages) switchable between Japanese and English.

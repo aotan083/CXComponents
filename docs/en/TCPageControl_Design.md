@@ -1,10 +1,12 @@
 # TCPageControl Design Document
 
 Author: aotan083
-Date: 2026-10-29
-Version: 1.0
+Date: 2026-11-24
+Version: 1.2
 
 ---
+
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
 
 ## 1. Purpose
 
@@ -100,10 +102,16 @@ There is only one row of tabs.
 | `TabPosition` | `TTabPosition` | `tpTop` | published | ○ | Only `tpTop` and `tpBottom`. `tpLeft` and `tpRight` are shown as `tpTop`. Not used when `TitleBar` is specified |
 | `TabHeight` | `Smallint` | 0 | published (stored only when greater than 0) | ○ | Tab height (0 = automatic. 28 when standalone; title bar height − 6 inside the title bar; at 96dpi) |
 | `TabWidth` | `Smallint` | 0 | published (stored only when greater than 0) | ○ | Tab width (0 = fit to the text. Upper limit is `TabMaxWidth`) |
-| `Options` | `TCTabControlOptions` | `[nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch]` | published | ○ | See the table below. The default differs from LCL (LCL is `[]`), so that [×], [＋] and Ctrl+Tab work as soon as the control is placed |
+| `Options` | `TCTabControlOptions` | `[nboKeyboardTabSwitch]` | published | ○ | See the table below. The default differs from LCL (LCL is `[]`). [×] and [＋] are off by default so that pages built at design time cannot be destroyed at runtime. TCTabBar and TCTabBrowser override it with their own default (with [×] and [＋]) |
 | `TabShape` | `TCTabShape` | `tsRectangle` | published | Original | Tab shape. `tsRounded` rounds the upper corners (the lower corners when `TabPosition = tpBottom`) |
 | `TabMaxWidth` | `Integer` | 240 | published | Original | Maximum tab width when `TabWidth = 0` (at 96dpi). Text beyond it becomes "…" |
 | `ShowTabListButton` | `Boolean` | `True` | published | Original | Show [∨] |
+| `ShowTabs` | `Boolean` | `True` | public | Original | Show the tab strip. If `False`, the tab strip (`FStrip`) is hidden and the page grows (`UpdateStripPlace` sets `FStrip.Visible := FShowTabs`). Used by `HideSingleTab` of `TCTabBrowser` |
+| `ActiveMarkSize` | `Integer` | 0 | published | Original | Thickness of the line on the visible tab (px at 96dpi; enlarged with `S96`). 0 means not shown |
+| `ActiveMarkColor` | `TColor` | `clHighlight` | published | Original | Color of the line |
+| `ActiveMarkAtBottom` | `Boolean` | `False` | published | Original | `True`: below the tab; `False`: above the tab |
+| `ActiveTabColor`, `ActiveTextColor`, `TabTextColor`, `ModifiedTextColor`, `HotTabColor`, `ButtonColor` | `TColor` | `clDefault` | published | Original | Color settings (`FStripColors`; 5.8). `clDefault` means the system color |
+| `SeparatorColor` | `TColor` | `clNone` | published | Original | Color of the separator line between tabs. `clNone` means not shown |
 | `NewPageCaption` | `string` | 'New Tab' | published (stored only when different from the default) | Original | Text of a tab created with [＋] or the menu |
 | `TabMenuItems` | `TCTabMenuItems` | `[tmiNew, tmiClose, tmiRename]` | published | Original | Standard items shown in the right-click menu |
 | `TabPopupMenu` | `TPopupMenu` | nil | published | Original | Application menu appended to the tab right-click menu |
@@ -119,7 +127,7 @@ There is only one row of tabs.
 
 | Value | Behavior |
 |---|---|
-| `nboShowCloseButtons` | Show [×] on each tab |
+| `nboShowCloseButtons` | Show [×] on each tab. [×] on each row of the [∨] list, context-menu "Close tab" (`tmiClose`) and middle-click close are enabled only when this is set |
 | `nboShowAddTabButton` | Show [＋] |
 | `nboKeyboardTabSwitch` | Switch tabs with Ctrl+Tab and Ctrl+Shift+Tab |
 | `nboDoChangeOnSetIndex` | Also fire `OnChanging` and `OnChange` when `ActivePage`, `ActivePageIndex` or `TabIndex` is changed in code (if `OnChanging` cancels, no change is made). Without it, changes made in code do not fire them |
@@ -191,6 +199,7 @@ The right-click menu "New Tab" (`DoMenuNewClick`) works the same way.
 | Operation | Target |
 |---|---|
 | [×] of a tab (`DoCloseButtonClick`) | That tab (closed without switching to it) |
+| Releasing the middle button over a tab (when `nboShowCloseButtons` is set) | That tab (`DoCloseButtonClick`, same as [×]) |
 | Right-click "Close Tab" (`DoMenuCloseClick`) | The right-clicked tab |
 | [×] in the tab list (`DoTabListCloseClick`) | The tab of that row |
 
@@ -231,7 +240,7 @@ Procedure:
 - Dragging starts when the mouse moves `Mouse.DragThreshold` or more. `Application.AddOnKeyDownBeforeHandler(DragKeyDown)` is attached and the auto-scroll timer (50ms) is started.
 - During the drag, a vertical `clHighlight` line (width 2) is drawn at the drop position (`DropIndexAt`: if left of the center of a visible tab, before that tab; if none applies, the end).
 - Auto-scroll: when the mouse is within `CPC_AUTOSCROLL` of the left or right end of the visible range of the tab strip, it scrolls by 10 (at 96dpi) at a time and recomputes the drop position.
-- On release (`FinishDrag`): end the drag (`CancelDrag`); if outside the tab strip, do nothing. Convert the drop position to a page index (`PageCount` for the end), and subtract 1 if it is after the original index. If it is the same, do nothing. After `MovePage(page, new index)`, `OnPageMoved(page, original index, new index)`.
+- On release (`FinishDrag`): end the drag (`CancelDrag`); if outside the tab strip, do not reorder, and notify the screen position of the release and the control at that position (`FindDragTarget`) with `DoTabDragOut(page, screen position, control)` (does nothing; used by descendants). Convert the drop position to a page index (`PageCount` for the end), and subtract 1 if it is after the original index. If it is the same, do nothing. After `MovePage(page, new index)`, `OnPageMoved(page, original index, new index)`.
 - Esc during a drag: `Key := 0`, `CancelDrag` (detach key reception, restore state, `MouseCapture := False`).
 - This is a mechanism separate from LCL's `DragMode` and `DragKind` (drag and drop to other components).
 
@@ -347,6 +356,13 @@ Symbol glyph codes: `SYM_LEFT = $E76B`, `SYM_RIGHT = $E76C`, `SYM_ADD = $E710`, 
 | Hidden tab at design time | Text `clGrayText` |
 | When `Font.Color` is specified | If other than `clDefault` and `clWindowText`, the text is drawn in that color |
 | Vertical line during a drag | `clHighlight` |
+| When `ActiveTabColor` is specified | Background of the visible tab (instead of `clWindow`). `TCTabSheet.TabColorActive`, if set, takes precedence for that tab only |
+| When `ActiveTextColor`, `TabTextColor` or `ModifiedTextColor` is specified | Text of the visible tab, text of the other tabs, text of a modified tab (stronger in this order; stronger than the `Font.Color` setting) |
+| When `HotTabColor` is specified | Background of the tab under (or pressed by) the mouse (instead of the blended color). `TCTabSheet.TabColorOver`, if set, takes precedence for that tab only |
+| When `ButtonColor` is specified | Color of the symbols of [×], [◀] [▶], [+] and [∨] |
+| When `ActiveMarkSize` is greater than 0 | A line of `ActiveMarkColor` (width `S96(ActiveMarkSize)`) above the visible tab (below if `ActiveMarkAtBottom`), painted after the tab background |
+| When `SeparatorColor` is specified | A vertical line in the gap to the right of each tab (excluding 6px at the top and bottom). Not drawn on either side of the visible tab |
+| `TCTabSheet.Modified = True` | A filled circle (the "●"; same color as [×]) of radius `CPC_DOT_R` (4 at 96dpi) is drawn in the place of [×]. When the mouse is over it, [×] is shown |
 | Disabled button | Symbol `clGrayText` |
 | Page background | `Color` of TCTabSheet (default `clWindow`) |
 | Page area when there are 0 pages (no displayed page) | `clWindow` |
@@ -363,7 +379,6 @@ Symbol glyph codes: `SYM_LEFT = $E76B`, `SYM_RIGHT = $E76C`, `SYM_ADD = $E710`, 
 | `ScrollOpposite` | It specifies the arrangement when there are multiple rows |
 | `Style` (`tsTabs`, `tsButtons`, `tsFlatButtons`) | The appearance is decided by `TabShape` |
 | `HotTrack` | A tab under the mouse always changes color |
-| `ShowTabs` | Hiding the tab strip is out of scope |
 | `OnCloseTabClicked` | [×] closes automatically, and cancelling is done with `OnPageClose` (5.4) |
 | `DockSite`, `OnDockDrop`, `OnDockOver`, `OnEndDock`, `OnStartDock`, `OnUnDock`, `OnGetDockCaption`, `OnGetSiteInfo` | Docking is out of scope |
 
@@ -382,6 +397,10 @@ Processing for mouse and key operations is gathered into the following methods. 
 | `DoAppMenuItemClick(AItem, APage)` | An item of `TabPopupMenu` in the right-click menu | `PopupPage := APage`, `AItem.Click` |
 | `DoTabListItemClick(APage)` | A row of the tab list | `UserSelectPage(APage)` |
 | `DoTabListCloseClick(APage)` | [×] of a row of the tab list | `ClosePageByUser` |
+| `DoTabMenuRequested(APage)` | Just before a right-click menu is shown (at the start of `ShowTabMenu`, right after `PopupPage` is set). `APage` is nil where there is no tab | Does nothing. A descendant overrides it to learn which tab was right-clicked (`TCTabBrowser` uses it for `ContextTabIndex`) |
+| `DoTabDragOut(APage, AScreenPos, ATarget)` | A tab was dragged and the left button was released outside the tab strip (not raised when canceled with Esc) | Does nothing. Used by descendants (`TCTabBar` raises `OnTabDragOut`) |
+| `DoStripMouseUp(AButton, AShift, X, Y)` | The left mouse button was released over the tab strip (after the processing for a tab, [×] and [+]; also after the end of a drag) | Does nothing. Used by descendants (`TCTabBar` raises `OnTabMouseUp`) |
+| `DoStripLayouted` | After `PageChanged` (re-layout of the tab strip) | Does nothing. Used by descendants (`TCTabBar` fits its height) |
 | `DoEditCaptionConfirm(AText)` | Enter or focus lost during name editing | Commit in 5.5.4 |
 | `DoEditCaptionCancel` | Esc during name editing | `EndEdit` |
 

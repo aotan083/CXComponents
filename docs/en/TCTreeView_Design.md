@@ -6,6 +6,8 @@ Version: 1.1
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 Based on TShellTreeView (LCL), build a folder tree that works like the left pane of Windows Explorer. Just by placing it on a form, copy, move, delete, rename, drag and drop, the right-click menu, and automatic refresh all work.

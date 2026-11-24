@@ -2,7 +2,7 @@
   SPDX-License-Identifier: MIT
   https://github.com/aotan083/CXComponents }
 { TCsEditor - TCSynEdit をタブで複数持つエディタ部品（TCsEditor_Design.md）
-  環境: Lazarus 5.0 以降 / FPC 3.2.2 / Windows 11 x64 / ATFlatControls（Lazarus 4.8 はコンパイルが通るだけ）
+  環境: Lazarus 5.0 以降 / FPC 3.2.2 / Windows 11 x64
 
   使い方（名前・動き・既定値）は TCMonacoEditor と同じ。編集の部分を Monaco（WebView2）から TCSynEdit に替えた。
   ・フォームに貼るだけで使える。設定はオブジェクトインスペクタ。
@@ -19,7 +19,7 @@ interface
 uses
   Windows, Classes, SysUtils, Controls, Forms, ExtCtrls, StdCtrls, Graphics, Dialogs, Menus,
   LCLType, LCLIntf, LMessages, ActnList, Clipbrd, Registry, ShellApi,
-  ATTabs, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditMouseCmds, SynEditMarkupWordGroup,
+  uCPageControl, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditMouseCmds, SynEditMarkupWordGroup,
   SynEditMarkupHighAll, SynEditWrappedView, csynedit, ucmmonacoview, CMonacoTabs, uCmonacos, uCPreview;
 
 type
@@ -247,7 +247,7 @@ type
     FPages: TList;                  { 今あるタブ（並びの順） }
     FAllPages: TList;               { 作ったページすべて（閉じたものも。壊すときに解放する） }
     FCur: TCsPage;                  { 見えているタブ }
-    FTabs: TATTabs;
+    FTabs: TCTabBar;
     FMinimap: TCsMinimap;
     FVBar: TScrollBar;              { ミニマップを出している間の縦のスクロールバー（10.5） }
     FUpdatingBar: Boolean;          { FVBar を合わせ直している間 }
@@ -258,7 +258,6 @@ type
     FReadyDone: Boolean;
     FFocusPending: Boolean;
     FUpdatingTabs: Boolean;
-    FDropHandled: Boolean;
     FFocusOnMouseUp: Boolean;
     FSuppressChange: Integer;       { 0 より大きい間は、中の部品の OnChange を知らせない }
     FLastCurLine, FLastCurCol: Integer;
@@ -350,13 +349,12 @@ type
     procedure ApplyTabShape;
     procedure ApplyTabIcons;
     procedure ApplyTabColors;
-    procedure TabClick(Sender: TObject);
+    procedure TabClick(Sender: TObject; AIndex: Integer);
     procedure TabPlusClick(Sender: TObject);
-    procedure TabClose(Sender: TObject; ATabIndex: Integer; var ACanClose, ACanContinue: Boolean);
-    procedure TabDropQuery(Sender: TObject; AIndexFrom, AIndexTo: Integer; var ACanDrop: Boolean);
-    procedure TabMove(Sender: TObject; AIndexFrom, AIndexTo: Integer);
+    procedure PageClose(Sender: TObject; APage: TCTabSheet; var CanClose: Boolean);
+    procedure PageMoved(Sender: TObject; APage: TCTabSheet; AOldIndex, ANewIndex: Integer);
     procedure TabsMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    procedure TabsEndDrag(Sender, Target: TObject; X, Y: Integer);
+    procedure TabDragOut(Sender: TObject; AIndex: Integer; const AScreenPos: TPoint; ATarget: TControl);
     procedure AsyncTabClose(Data: PtrInt);
     procedure AsyncFocus(Data: PtrInt);
     procedure AsyncSetFocus(Data: PtrInt);
@@ -2055,22 +2053,18 @@ begin
   FSysIconExts := TStringList.Create;
   FSysIconExts.Sorted := True;
 
-  FTabs := TATTabs.Create(Self);
+  FTabs := TCTabBar.Create(Self);
   FTabs.Parent := Self;
-  FTabs.Align := alTop;
-  FTabs.OptShowPlusTab := True;
-  FTabs.OptShowFlatMouseOver := True;
-  FTabs.OptShowEntireColor := True;
-  FTabs.OptMouseDragOutEnabled := False;   { ほかの ATTabs へタブだけを移す機能は止める（4.11・4.12 で行う） }
+  FTabs.Align := alTop;                   { ［＋］は TCTabBar の既定値で出る }
   FTabs.TabStop := False;
   FTabs.ParentFont := False;              { タブの文字は Font・FontSize に合わせない（大きくするとはみ出すため。4.6） }
+  FTabs.Font.Assign(Screen.SystemFont);   { ParentFont を外しても、そのときの Font（エディタの大きな文字）が残るため、システムの標準にする }
   FTabs.OnTabClick := @TabClick;
   FTabs.OnTabPlusClick := @TabPlusClick;
-  FTabs.OnTabClose := @TabClose;
-  FTabs.OnTabDropQuery := @TabDropQuery;
-  FTabs.OnTabMove := @TabMove;
-  FTabs.OnMouseUp := @TabsMouseUp;
-  FTabs.OnEndDrag := @TabsEndDrag;
+  FTabs.OnPageClose := @PageClose;
+  FTabs.OnPageMoved := @PageMoved;
+  FTabs.OnTabMouseUp := @TabsMouseUp;
+  FTabs.OnTabDragOut := @TabDragOut;      { 別のエディタへ移す・アプリの外へ出す（4.11・4.12） }
 
   FMinimap := TCsMinimap.Create(Self);
   FMinimap.FEditor := Self;
@@ -2423,18 +2417,18 @@ procedure TCsEditor.RebuildTabs;
 var
   I: Integer;
   P: TCsPage;
-  D: TATTabData;
+  D: TCTabSheet;
 begin
   if FTabs = nil then Exit;
   FUpdatingTabs := True;
   try
-    FTabs.Clear;
+    FTabs.ClearTabs;
     for I := 0 to FPages.Count - 1 do
     begin
       P := TCsPage(FPages[I]);
-      D := FTabs.AddTab(-1, TabCaptionFor(P), P, P.Modified);
-      D.TabHint := P.FFileName;
-      D.TabImageIndex := ImageIndexFor(P);
+      D := FTabs.AddTab(TabCaptionFor(P), PtrInt(P));   { 変更ありの印は、題名の「 *」で出す }
+      D.Hint := P.FFileName;
+      D.ImageIndex := ImageIndexFor(P);
     end;
     ApplyTabColors;
     if FCur <> nil then FTabs.TabIndex := FPages.IndexOf(FCur);
@@ -2447,26 +2441,24 @@ end;
 procedure TCsEditor.UpdateTab(P: TCsPage);
 var
   I: Integer;
-  D: TATTabData;
+  D: TCTabSheet;
 begin
   if FTabs = nil then Exit;
   I := FPages.IndexOf(P);
   if (I < 0) or (I >= FTabs.TabCount) then Exit;
-  D := FTabs.GetTabData(I);
-  if D = nil then Exit;
-  D.TabCaption := TabCaptionFor(P);
-  D.TabModified := P.Modified;
-  D.TabHint := P.FFileName;
-  D.TabImageIndex := ImageIndexFor(P);
+  D := FTabs.Tabs[I];
+  D.Caption := TabCaptionFor(P);
+  D.Hint := P.FFileName;
+  D.ImageIndex := ImageIndexFor(P);
   FTabs.Invalidate;
 end;
 
 procedure TCsEditor.ApplyTabShape;
 begin
   if FTabs = nil then Exit;
-  FTabs.OptShowFlat := FTabFlat;
-  FTabs.OptShowFlatSepar := FTabSeparator;
-  FTabs.Invalidate;
+  { フラット＝四角のタブ、そうでなければ角丸のタブ。区切り線は、色（ApplyTabColors）を付けたときだけ出る }
+  if FTabFlat then FTabs.TabShape := tsRectangle else FTabs.TabShape := tsRounded;
+  ApplyTabColors;
 end;
 
 procedure TCsEditor.ApplyTabIcons;
@@ -2483,7 +2475,7 @@ procedure TCsEditor.ApplyTabColors;
 var
   CBar, COver, CActive, CFont, CFontActive, CLine, CMark: TColor;
   I: Integer;
-  D: TATTabData;
+  D: TCTabSheet;
 begin
   if IsDarkTheme then
   begin
@@ -2498,38 +2490,27 @@ begin
   CMark := TColor($D47800);                  { アクセント線 #0078D4 }
   Color := CActive;
   if FTabs = nil then Exit;
-  FTabs.ColorBg := CBar;
-  FTabs.ColorTabPassive := CBar;
-  FTabs.ColorTabOver := COver;
-  FTabs.ColorTabActive := CActive;
-  FTabs.ColorFont := CFont;
-  FTabs.ColorFontModified := CFont;
-  FTabs.ColorFontActive := CFontActive;
-  FTabs.ColorFontHot := CFontActive;
-  FTabs.ColorBorderActive := CLine;
-  FTabs.ColorBorderPassive := CLine;
-  FTabs.ColorSeparator := CLine;
-  FTabs.ColorArrow := CFont;
-  FTabs.ColorArrowOver := CFontActive;
-  FTabs.ColorCloseX := CFont;
-  FTabs.ColorCloseXOver := CFontActive;
-  FTabs.ColorCloseBg := CBar;
-  FTabs.ColorCloseBgOver := COver;
-  FTabs.ColorCloseBorderOver := COver;
-  FTabs.ColorActiveMark := CMark;       { アクティブなタブの上の細い線 }
-  FTabs.OptActiveMarkSize := 2;
-  FTabs.OptShowActiveMarkInverted := False;
+  FTabs.Color := CBar;
+  FTabs.HotTabColor := COver;
+  FTabs.ActiveTabColor := CActive;
+  FTabs.TabTextColor := CFont;
+  FTabs.ModifiedTextColor := CFont;
+  FTabs.ActiveTextColor := CFontActive;
+  FTabs.ButtonColor := CFont;
+  if FTabSeparator then FTabs.SeparatorColor := CLine else FTabs.SeparatorColor := clNone;
+  FTabs.ActiveMarkColor := CMark;       { アクティブなタブの上の細い線 }
+  FTabs.ActiveMarkSize := 2;
+  FTabs.ActiveMarkAtBottom := False;
   for I := 0 to FTabs.TabCount - 1 do
   begin
-    D := FTabs.GetTabData(I);
-    if D = nil then Continue;
+    D := FTabs.Tabs[I];
     D.TabColorActive := CActive;
     D.TabColorOver := COver;
   end;
   FTabs.Invalidate;
 end;
 
-procedure TCsEditor.TabClick(Sender: TObject);
+procedure TCsEditor.TabClick(Sender: TObject; AIndex: Integer);
 begin
   if FUpdatingTabs then Exit;
   if (FTabs.TabIndex >= 0) and (FTabs.TabIndex < FPages.Count) then
@@ -2552,11 +2533,13 @@ begin
   FFocusOnMouseUp := True;
 end;
 
-procedure TCsEditor.TabClose(Sender: TObject; ATabIndex: Integer; var ACanClose, ACanContinue: Boolean);
+procedure TCsEditor.PageClose(Sender: TObject; APage: TCTabSheet; var CanClose: Boolean);
+var
+  ATabIndex: Integer;
 begin
-  { ATTabs の処理の途中で閉じないよう、あとで閉じる（確認のダイアログもその外で出す） }
-  ACanClose := False;
-  ACanContinue := False;
+  { タブ列の処理の途中で閉じないよう、あとで閉じる（確認のダイアログもその外で出す）。タブ自体は、ここでは消さない }
+  CanClose := False;
+  ATabIndex := FTabs.IndexOf(APage);
   if (ATabIndex >= 0) and (ATabIndex < FPages.Count) then
     Application.QueueAsyncCall(@AsyncTabClose, PtrInt(FPages[ATabIndex]));
 end;
@@ -2570,25 +2553,11 @@ begin
   if P.Close then FocusLater;
 end;
 
-procedure TCsEditor.TabDropQuery(Sender: TObject; AIndexFrom, AIndexTo: Integer; var ACanDrop: Boolean);
+procedure TCsEditor.PageMoved(Sender: TObject; APage: TCTabSheet; AOldIndex, ANewIndex: Integer);
 begin
-  { ドラッグが終わる前に並びを入れ替えておく }
-  ACanDrop := True;
-  if (AIndexFrom >= 0) and (AIndexTo >= 0) and (AIndexFrom < FPages.Count) and (AIndexTo < FPages.Count) then
-    FPages.Move(AIndexFrom, AIndexTo);
-  FDropHandled := True;
-end;
-
-procedure TCsEditor.TabMove(Sender: TObject; AIndexFrom, AIndexTo: Integer);
-begin
-  if (AIndexFrom < 0) or (AIndexTo < 0) then Exit;
-  if FDropHandled then
-  begin
-    FDropHandled := False;
-    if Assigned(FOnDocListChange) then FOnDocListChange(Self);
-    Exit;
-  end;
-  if (AIndexFrom < FPages.Count) and (AIndexTo < FPages.Count) then FPages.Move(AIndexFrom, AIndexTo);
+  { タブ列は、もう並べ替えてある。ページの並びを合わせる }
+  if (AOldIndex < 0) or (ANewIndex < 0) then Exit;
+  if (AOldIndex < FPages.Count) and (ANewIndex < FPages.Count) then FPages.Move(AOldIndex, ANewIndex);
   if Assigned(FOnDocListChange) then FOnDocListChange(Self);
 end;
 
@@ -5346,15 +5315,16 @@ begin
 end;
 
 { タブのドラッグの終わり：同じフォームの別の TCsEditor の上なら移す（4.12）。アプリの外なら分離（4.11） }
-procedure TCsEditor.TabsEndDrag(Sender, Target: TObject; X, Y: Integer);
+procedure TCsEditor.TabDragOut(Sender: TObject; AIndex: Integer; const AScreenPos: TPoint; ATarget: TControl);
 var
   P: TPoint;
   Dest: TCsEditor;
+  Target: TObject;
 begin
-  Screen.Cursor := crDefault;
   if (FTabs = nil) or not FTabs.Visible or (FCur = nil) then Exit;
-  if MainButtonDown then Exit;                     { Esc で取り消した }
-  P := Mouse.CursorPos;
+  { Esc で取り消したときは、TCTabBar が知らせない }
+  P := AScreenPos;
+  Target := ATarget;
   Dest := EditorAt(Target, P);
   if (Dest <> nil) and (Dest <> Self) and (GetParentForm(Dest) = GetParentForm(Self)) then
   begin

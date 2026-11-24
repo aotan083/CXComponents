@@ -6,6 +6,8 @@ Version: 1.2
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 Build a bookmark management component like Firefox's bookmark screen. Place it on a form and just select `TargetBrowser` and `TargetEditor` (no code needed) to open bookmarks in TCTabBrowser and TCMonacoEditor.

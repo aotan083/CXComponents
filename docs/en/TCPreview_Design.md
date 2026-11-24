@@ -18,7 +18,7 @@ TCPreview is a component that displays the body text of a TCsEditor as a preview
 | 4 | Show/hide is done with `ShowPreview` of TCsEditor (`Ctrl+Shift+V`). Changing `Visible` of TCPreview directly has the same effect |
 | 5 | Setting names and default values are the same as the TCMonacoEditor preview settings. The leading `Preview` is dropped (`PreviewFontSize` -> `FontSize`, etc.) |
 | 6 | TCMonacoEditor files such as `uCmdpreview.pas` and `preview.html` are not changed |
-| 7 | Operating environment: Lazarus 5.0 or later (tested on 5.0 RC1, same as TCsEditor). Lazarus 4.8 only compiles the cx package; operation is not verified or tested |
+| 7 | Operating environment: Lazarus 5.0 or later (tested on 5.0 RC1, same as TCsEditor) |
 
 ## 2. Files and Packages
 

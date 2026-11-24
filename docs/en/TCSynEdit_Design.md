@@ -18,7 +18,7 @@ Build a text editor based on TSynEdit, with the following added.
 - Events that report state changes (file name, insert/overwrite, caret, undo/redo, modified, selection, focus).
 - File drop, and the operations Ctrl+S, Shift+F10, F12, and Ctrl+wheel.
 
-**Operating environment**: Lazarus 5.0 or later (tested with 5.0 RC1). For Lazarus 4.8, we only make sure the cx package compiles; operation is not verified or tested (defects found on 4.8 are not fixed). There is no version-specific code (it is written with the 4.8 names and compiles unchanged on 5.0). On 5.0, `TSynHighlighterAttributes`, `TSynCustomHighlighter`, `SYN_ATTR_...`, `SetLine`, `SetRange` and so on produce "old style" warnings, but behavior is the same (they are scheduled to be removed in Lazarus 5.99; they will be rewritten then).
+**Operating environment**: Lazarus 5.0 or later (tested with 5.0 RC1). There is no version-specific code. On 5.0, `TSynHighlighterAttributes`, `TSynCustomHighlighter`, `SYN_ATTR_...`, `SetLine`, `SetRange` and so on produce "old style" warnings, but behavior is the same (they are scheduled to be removed in Lazarus 5.99; they will be rewritten then).
 
 TCsEditor (`TCsEditor_Design.md`) holds one of this component per tab. What TCsEditor uses are the color schemes `csVSLight` and `csVSDark`, `Language`, `ApplyEditStyle` (inherited to add colors), and `CSLanguageForFile`.
 
@@ -351,7 +351,7 @@ For each color scheme, the following color set is decided. The existing four are
 **Everything else (a highlighter other than Pascal, or `csVSLight` / `csVSDark`)**: set in the following order.
 
 1. Set all attributes (the `Highlighter.AttrCount` items `Highlighter.Attribute[i]`) to text color `Text`, background `Bg`, and `Style := []` (so that attributes not in the table do not remain in the default colors meant for a white background).
-   - However, "overlay attributes" (descendants of `TLazEditTextAttributeModifier` in Lazarus 5.0; descendants of `TSynHighlighterAttributesModifier` in 4.8) get text color, background, and frame set to `clNone` and `Style := []`. Overlay attributes are used laid on top of the color of the underlying attribute (comment, string, and so on), so setting `Text` on them would erase the underlying color (for example, Pascal's `Ansi Comment`, `Curly Comment`, and `Slash Comment` would wipe out the green of `Comment` with white, and `String_Singlequote` and others would wipe out the color of `Str`). With `clNone`, the color of the underlying attribute shows through unchanged.
+   - However, "overlay attributes" (descendants of `TLazEditTextAttributeModifier` in Lazarus 5.0) get text color, background, and frame set to `clNone` and `Style := []`. Overlay attributes are used laid on top of the color of the underlying attribute (comment, string, and so on), so setting `Text` on them would erase the underlying color (for example, Pascal's `Ansi Comment`, `Curly Comment`, and `Slash Comment` would wipe out the green of `Comment` with white, and `String_Singlequote` and others would wipe out the color of `Str`). With `clNone`, the color of the underlying attribute shows through unchanged.
    - Whether an attribute is an overlay is decided by walking up the class parents and checking whether any has the name `TLazEditTextAttributeModifier` or `TSynHighlighterAttributesModifier` (so that no version-specific code is needed).
 2. Set the attributes that every highlighter has (`GetDefaultAttribute(...)`; skip if nil). `GetDefaultAttribute` is protected in the base class of highlighters, so place in the implementation a class that merely inherits, `THlAccess = class(TSynCustomHighlighter)`, and call `THlAccess(Highlighter).GetDefaultAttribute(...)`. The type of the `Highlighter` property is `TLazEditCustomHighlighter` in 5.0, so the attribute list (`AttrCount`, `Attribute[i]`) is also read after casting to `TSynCustomHighlighter(Highlighter)`.
 
@@ -510,7 +510,7 @@ As in TCMonacoEditor, clicking or dragging in the line-number column selects lin
 
 ### 9.1 Class
 
-- The attribute type is `TSynHighlighterAttributes` (the 4.8 name. A warning appears on 5.0, but it compiles as is). The return value of `GetTokenAttribute` is also `TSynHighlighterAttributes`.
+- The attribute type is `TSynHighlighterAttributes` (a warning appears on 5.0, but it compiles as is). The return value of `GetTokenAttribute` is also `TSynHighlighterAttributes`.
 
 ```pascal
 TCSynMarkdownSyn = class(TSynCustomHighlighter)
@@ -631,7 +631,7 @@ Steps for building the code. Not included in the user manual.
 | 6 | `ApplyEditStyle` | private | protected virtual (5.3) | So that the component inside TCsEditor can add colors such as the caret line | None (behavior does not change) |
 | 7 | `Language` | None | Public property (5.2, 7.2) | So that TCsEditor can decide the language | None |
 | 8 | Note in User Manual 7.2 | "Setting `Key := 0` in `OnKeyDown` stops the component's behavior" | "Stop it with the form's `KeyPreview` and `OnKeyDown`" (7.8) | Because it did not match the code's behavior (it is handled before `OnKeyDown`) | A change to the user manual only (the code is not changed) |
-| 9 | Operating environment | Lazarus 4.8 and 5.0 RC1 | 5.0 or later. On 4.8, only the cx compile succeeds (Chapter 1). There is no version-specific code | Because the SynEdit of 5.0 changed | Operation of applications that use TCSynEdit on 4.8 is not guaranteed. "Old style" warnings appear on 5.0 |
+| 9 | Operating environment | Lazarus 4.8 and 5.0 RC1 | 5.0 or later. There is no version-specific code | Because the SynEdit of 5.0 changed | "Old style" warnings appear on 5.0 |
 | 10 | Unused highlighters of its own | Remain | Freed when the language is switched (7.2) | Because when the application put in its own highlighter, the first highlighter remained | None |
 | 11 | Number color | Pascal only | Every highlighter that has `NumberAttri` (7.4.3) | Because many 5.0 highlighters do not return numbers through "an attribute that every highlighter has" | None |
 | 12 | Overlay attributes | Step 1 sets the `Text` color | Set to `clNone` (step 1 of 7.4.3) | Because Pascal comments and strings turned white and were not color-coded | Parts whose color was decided by an overlay attribute, such as names in Pascal's declaration section, take the color of the underlying attribute. `csVSLight` is fixed in the same way |

@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A component that searches the files in a folder **by the text inside them** (grep search). It has no screen of its own (when placed on a form, it appears in the component area below the form).
@@ -22,7 +24,7 @@ A component that searches the files in a folder **by the text inside them** (gre
 
 | Item | Contents |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

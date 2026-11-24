@@ -6,6 +6,8 @@ Version: 1.5
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A fully offline editor built on WebView2 and Monaco Editor (the editing part of VS Code) that works just by dropping it on a form. Tabs, editor, preview (Markdown and code), find, replace, and printing are all built into a single component. Besides Markdown, it can also edit source code such as Pascal. All settings are made in the Object Inspector; the application does not need to write any code.
@@ -33,7 +35,7 @@ A fully offline editor built on WebView2 and Monaco Editor (the editing part of 
 
 | Item | Description |
 |---|---|
-| Lazarus | 4.8 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

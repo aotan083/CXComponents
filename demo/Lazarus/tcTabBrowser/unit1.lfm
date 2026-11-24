@@ -20,8 +20,9 @@ object Form1: TForm1
     Height = 200
     Top = 54
     Width = 200
-    Options = [nboShowCloseButtons]
+    Options = [nboShowCloseButtons, nboShowAddTabButton]
     TabOrder = 1
+    SingleTab = False
     SavePath = 'C:\app\laz\lazarus50RC1'
   end
 end

@@ -6,6 +6,8 @@ Version: 1.1 (blue line of the splitter and the range of the panel width changed
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 Build an Edge-style sidebar ("icon bar + collapsible panel + splitter") as a single component (TCSideBar). Pages (TCSideBarPage) are held as child components, so that components can be placed on top of a page in the form designer.

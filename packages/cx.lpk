@@ -172,9 +172,6 @@
         <PackageName Value="SynEdit"/>
       </Item>
       <Item>
-        <PackageName Value="atflatcontrols_package"/>
-      </Item>
-      <Item>
         <PackageName Value="WebView4Delphi"/>
       </Item>
       <Item>

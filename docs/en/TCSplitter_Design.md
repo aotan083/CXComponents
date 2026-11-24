@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose
 
 - The standard TSplitter does not change its look when the mouse is over it, and the line while dragging is black, so it does not look like the splitter of VS Code. TCSplitter is a splitter based on TSplitter that shows a colored line when the mouse is over it and while it is dragged.

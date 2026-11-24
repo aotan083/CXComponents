@@ -16,7 +16,8 @@ uses
   uWVCoreWebView2Args, uWVCoreWebView2DownloadOperation,
   // 【右クリックメニュー】 ページ部分のメニューに項目を足すためのラッパー
   uWVCoreWebView2ContextMenuItem, uWVCoreWebView2ContextMenuItemCollection,
-  fpjson, jsonparser;
+  fpjson, jsonparser,
+  uCPageControl;   { タブ列を自分で描く TCPageControl・TCTabSheet（タイトルバーにも載せられる） }
 
 type
   TCTabBrowser = class; // 前方宣言（TCTabPanelがTCTabBrowserを参照するため）
@@ -110,10 +111,11 @@ type
   end;
 
   // メインコンポーネントクラス
-  TCTabBrowser = class(TPageControl)
+  TCTabBrowser = class(TCPageControl)
   private
     FRunScriptResult: wvstring;
     FHideSingleTab: Boolean;
+    FSingleTab: Boolean;           // True（既定値）：1 枚固定（タブ列なし。Add・Insert・新しいウィンドウの要求は、今のタブで開く）。False でタブブラウザ
     FUserAgent: string;
     FIgnoreCertificateErrors: Boolean;
     FWaitCompleted: Boolean;
@@ -124,9 +126,6 @@ type
     FOnNewWindowRequested: TTabNewWindowRequestedEvent;
     FOnBasicAuthenticationRequested: TTabBasicAuthenticationRequestedEvent;
     FSavePath: string;
-    FTabPopupMenu: TPopupMenu;
-    FCloseMenuItem: TMenuItem;
-    FContextMenuTabIndex: Integer;
     FWaitAborted: Boolean;
     FWaitTargetComponent: TComponent;
     // 【DL対応】
@@ -156,6 +155,7 @@ type
     procedure LoadSettings;
 
     procedure SetHideSingleTab(const AValue: Boolean);
+    procedure SetSingleTab(const AValue: Boolean);
     procedure SetUserAgent(const AValue: string);
     procedure SetIgnoreCertificateErrors(const AValue: Boolean);
     procedure UpdateTabHeaderVisibility;
@@ -170,7 +170,7 @@ type
     function GetActiveTab: TCTabPanel;
 
     // ActiveページからTWVWindowParentを検索する
-    function FindWindowParent(ATabSheet: TTabSheet): TWVWindowParent;
+    function FindWindowParent(ATabSheet: TCTabSheet): TWVWindowParent;
 
     // WebView2初期化完了時に呼ばれる（UpdateSize反映用）
     procedure BrowserAfterCreated(Sender: TObject);
@@ -202,12 +202,9 @@ type
     // 【DL対応】 指定Browserに属する監視中ダウンロードを破棄する（タブ削除前に呼ぶ）
     procedure ReleaseDownloadsOf(ABrowser: TWVBrowser);
 
-    // 【項番33】 「×」ボタンクリック時のハンドラ（対象タブをRemoveする）
-    procedure DoCloseTabClicked(Sender: TObject);
-
-    // 【項番33】 右クリックメニュー「閉じる」用のハンドラ
-    procedure HandleTabContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
-    procedure CloseMenuItemClick(Sender: TObject);
+    // 【項番33】 タブの「×」・右クリックの「閉じる」・タブ一覧の「×」で閉じる。
+    // OnPageClose（取りやめ用）を呼んでから Remove する（Browser のイベントを外してから閉じるため、自分の Remove を通す）
+    procedure CloseByUser(APage: TCTabSheet);
 
     // SaveToFile用の一時的な完了検知ハンドラ
     procedure SaveToFileHandler(ASender: TObject; ASuccess: Boolean; const AHTML: wvstring);
@@ -248,10 +245,6 @@ type
       AEnabled, AChecked: Boolean): TCoreWebView2ContextMenuItem;
     // 【右クリックメニュー】 アプリの項目を、ページ部分のメニューに写す（サブメニューは再帰）
     procedure CopyMenuToPage(ASrc: TMenuItem; const ACollection: ICoreWebView2ContextMenuItemCollection; ABrowser: TWVBrowser);
-    // 【右クリックメニュー】 アプリの項目を、見出しのメニューに写す（サブメニューは再帰）
-    procedure CopyMenuToHeader(ASrc, ADest: TMenuItem);
-    // 【右クリックメニュー】 見出しに写した項目が選ばれたとき、元の項目の Click を呼ぶ
-    procedure HeaderCopyItemClick(Sender: TObject);
     // 【右クリックメニュー】 ページ部分に足した項目を解放する（ABrowser=nil なら全部）
     procedure ReleasePageMenuItemsOf(ABrowser: TWVBrowser);
     // 【右クリックメニュー】 OnNewTabRequest を呼び、開くURLを返す（新規作成で中止なら空文字）
@@ -261,10 +254,17 @@ type
     // 【右クリックメニュー】 Browser のタブ番号を、ポインタを比べるだけで探す（破棄済みでも安全。無ければ -1）
     function FindTabOfBrowser(ABrowser: TWVBrowser): Integer;
 
-
   protected
     procedure Resize; override;
     procedure Change; override;
+    // 【×・＋・右クリック】 TCPageControl の操作を受ける所。新規・閉じるは自分の Add・Remove で行う
+    procedure DoAddButtonClick; override;
+    procedure DoMenuNewClick; override;
+    procedure DoCloseButtonClick(APage: TCTabSheet); override;
+    procedure DoMenuCloseClick(APage: TCTabSheet); override;
+    procedure DoTabListCloseClick(APage: TCTabSheet); override;
+    // 見出しを右クリックしたタブの番号を、ContextTabIndex に記録する
+    procedure DoTabMenuRequested(APage: TCTabSheet); override;
     // 待機中の対象コンポーネントが破棄された場合を検知する
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
@@ -339,7 +339,11 @@ type
     // アプリの TPopupMenu の OnPopup・項目の OnClick の中で使う。
     property ContextTabIndex: Integer read FContextTabIndex;
   published
+    property Options default [nboShowCloseButtons, nboShowAddTabButton];
     property HideSingleTab: Boolean read FHideSingleTab write SetHideSingleTab default True;
+    // 1 枚固定の Web ブラウザとして使う（既定値 True）。False にすると、タブブラウザとして動く。True のとき：タブ列を常に隠す。Add・Insert は 2 枚目を作らず、今のタブで開く
+    // （ページが開こうとした新しいウィンドウも、同じタブで開く）。ページの右クリックメニューに「新規作成」「閉じる」を出さない
+    property SingleTab: Boolean read FSingleTab write SetSingleTab default True;
     // 【項番20】 User-Agent設定（未設定時はWebView2標準）
     property UserAgent: string read GetUserAgent write SetUserAgent;
     // 【項番32】 証明書エラー自動スキップ（既定値True。ライブラリ自体の既定はFalseのため注意）
@@ -397,6 +401,7 @@ constructor TCTabBrowser.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FHideSingleTab := True;
+  FSingleTab := True;   // 既定値は 1 枚固定。タブブラウザとして使うときは、SingleTab := False
   FUserAgent := '';
   FIgnoreCertificateErrors := True; // 【項番32】 仕様書通り既定値True
   FSavePath := GetCurrentDir; // 起動時点のカレントフォルダを既定値とする
@@ -423,20 +428,14 @@ begin
   if not (csDesigning in ComponentState) then
     LoadSettings;
 
-  // 【項番33】 各タブに「×」ボタンを表示し、クリック時にRemoveを実行する
-  // （Windows環境では表示されない可能性があるため、右クリックメニューも併用する）
-  Options := [nboShowCloseButtons];
-  OnCloseTabClicked := DoCloseTabClicked;
-
-  // 【項番33】 右クリックメニュー「閉じる」
-  FContextMenuTabIndex := -1;
-  FTabPopupMenu := TPopupMenu.Create(Self);
-  FCloseMenuItem := TMenuItem.Create(FTabPopupMenu);
-  FCloseMenuItem.Caption := CXT(sTbClose);
-  FCloseMenuItem.OnClick := CloseMenuItemClick;
-  FTabPopupMenu.Items.Add(FCloseMenuItem);
-  Self.PopupMenu := FTabPopupMenu;
-  Self.OnContextPopup := HandleTabContextPopup;
+  // 【項番33】 各タブに「×」、末尾に「＋」を出す（TCPageControl が自分で描くため、Windows でも出る）。
+  // Ctrl+Tab でのタブの切り替えは、WebView2 がキーを受けるため入れない
+  Options := [nboShowCloseButtons, nboShowAddTabButton];
+  // 右クリックの標準の項目は「閉じる」だけ（「新しいタブ」は＋で、名前の変更はページの題名に任せる）。
+  // アプリの項目は HeaderPopupMenu（TabPopupMenu に渡す）で足す
+  TabMenuItems := [tmiClose];
+  // タブが 0 枚の間は、タブ列（［∨］だけが出る空の帯）を隠す。最初のタブを足したときに、HideSingleTab に従って切り替わる
+  UpdateTabHeaderVisibility;
 end;
 
 destructor TCTabBrowser.Destroy;
@@ -593,6 +592,16 @@ begin
   end;
 end;
 
+// 【SingleTab】 1 枚固定。タブ列を隠す（すでに複数のタブがあるときは、増やさないだけで、消しない）
+procedure TCTabBrowser.SetSingleTab(const AValue: Boolean);
+begin
+  if FSingleTab <> AValue then
+  begin
+    FSingleTab := AValue;
+    UpdateTabHeaderVisibility;
+  end;
+end;
+
 procedure TCTabBrowser.SetHideSingleTab(const AValue: Boolean);
 begin
   if FHideSingleTab <> AValue then
@@ -602,11 +611,11 @@ begin
   end;
 end;
 
-// 【項番21】 LCL公式のShowTabsプロパティ（TCustomTabControl由来）を利用。
+// 【項番21】 TCPageControl の ShowTabs（False でタブ列を隠し、ページだけを出す）を利用。
 // タブが1枚以下、かつHideSingleTab=Trueのときのみ非表示にする。
 procedure TCTabBrowser.UpdateTabHeaderVisibility;
 begin
-  ShowTabs := not (FHideSingleTab and (PageCount <= 1));
+  ShowTabs := not (FSingleTab or (FHideSingleTab and (PageCount <= 1)));
 end;
 
 // 【項番20】 User-Agent設定：既存の初期化済みタブすべてに反映する
@@ -649,7 +658,7 @@ begin
   end;
 end;
 
-function TCTabBrowser.FindWindowParent(ATabSheet: TTabSheet): TWVWindowParent;
+function TCTabBrowser.FindWindowParent(ATabSheet: TCTabSheet): TWVWindowParent;
 var
   i: Integer;
 begin
@@ -693,12 +702,22 @@ end;
 // 【項番4】 Insert の実装
 function TCTabBrowser.Insert(i: Integer; const AURL: string): Integer;
 var
-  NewTabSheet: TTabSheet;
+  NewTabSheet: TCTabSheet;
   NewWindowParent: TWVWindowParent;
   NewBrowser: TWVBrowser;
   ClampedIndex: Integer;
   Err: string;
 begin
+  // 【SingleTab】 1 枚固定：2 枚目は作らず、今のタブで開く（Add・新しいウィンドウの要求もここを通る）
+  if FSingleTab and (PageCount >= 1) then
+  begin
+    Navigate(AURL);
+    Result := ActivePageIndex;
+    if Result < 0 then
+      Result := 0;
+    Exit;
+  end;
+
   // WebView2 の準備：ローダーが無ければ作って起動する（WebView2.ini を読む。uCXRuntime）。
   // ほかの部品が先に作っていれば、それを使う。準備できなければ、タブを作らずに例外を出す
   if not CXStartWebView2(Err) then
@@ -712,7 +731,7 @@ begin
     ClampedIndex := PageCount;
 
   // 1. タブページの生成（Ownerを Self にすることで自動破棄される）
-  NewTabSheet := TTabSheet.Create(Self);
+  NewTabSheet := TCTabSheet.Create(Self);
   NewTabSheet.PageControl := Self;
   NewTabSheet.PageIndex := ClampedIndex; // 指定位置へ移動
 
@@ -918,8 +937,8 @@ begin
 
   TabIdx := -1;
   if (ASender is TWVBrowser) and Assigned(TWVBrowser(ASender).Owner) and
-     (TWVBrowser(ASender).Owner is TTabSheet) then
-    TabIdx := TTabSheet(TWVBrowser(ASender).Owner).PageIndex;
+     (TWVBrowser(ASender).Owner is TCTabSheet) then
+    TabIdx := TCTabSheet(TWVBrowser(ASender).Owner).PageIndex;
 
   Success := False;
   if Assigned(AArgs) then
@@ -959,8 +978,8 @@ begin
 
   TabIdx := -1;
   if (ASender is TWVBrowser) and Assigned(TWVBrowser(ASender).Owner) and
-     (TWVBrowser(ASender).Owner is TTabSheet) then
-    TabIdx := TTabSheet(TWVBrowser(ASender).Owner).PageIndex;
+     (TWVBrowser(ASender).Owner is TCTabSheet) then
+    TabIdx := TCTabSheet(TWVBrowser(ASender).Owner).PageIndex;
 
   Accept := True; // 既定値：受け入れる（自タブで開く）
   if Assigned(FOnNewWindowRequested) then
@@ -980,8 +999,8 @@ begin
 
   TabIdx := -1;
   if (ASender is TWVBrowser) and Assigned(TWVBrowser(ASender).Owner) and
-     (TWVBrowser(ASender).Owner is TTabSheet) then
-    TabIdx := TTabSheet(TWVBrowser(ASender).Owner).PageIndex;
+     (TWVBrowser(ASender).Owner is TCTabSheet) then
+    TabIdx := TCTabSheet(TWVBrowser(ASender).Owner).PageIndex;
 
   FOnBasicAuthenticationRequested(Self, TabIdx, AWebView, AArgs);
 end;
@@ -989,13 +1008,13 @@ end;
 // 【項番29】 タイトル確定時に、該当タブのTabSheet.Captionを自動更新する
 procedure TCTabBrowser.BrowserDocumentTitleChanged(Sender: TObject);
 var
-  TabSheet: TTabSheet;
+  TabSheet: TCTabSheet;
   NewTitle: string;
 begin
   if not (Sender is TWVBrowser) then Exit;
-  if not (Assigned(TWVBrowser(Sender).Owner) and (TWVBrowser(Sender).Owner is TTabSheet)) then Exit;
+  if not (Assigned(TWVBrowser(Sender).Owner) and (TWVBrowser(Sender).Owner is TCTabSheet)) then Exit;
 
-  TabSheet := TTabSheet(TWVBrowser(Sender).Owner);
+  TabSheet := TCTabSheet(TWVBrowser(Sender).Owner);
   NewTitle := string(TWVBrowser(Sender).DocumentTitle);
 
   if NewTitle <> '' then
@@ -1041,13 +1060,13 @@ begin
   end;
 end;
 
-// 【DL対応】 Browserの所有者（TTabSheet）からタブ番号を逆引きする
+// 【DL対応】 Browserの所有者（TCTabSheet）からタブ番号を逆引きする
 function TCTabBrowser.TabIndexOfBrowser(ABrowser: TObject): Integer;
 begin
   Result := -1;
   if (ABrowser is TWVBrowser) and Assigned(TWVBrowser(ABrowser).Owner) and
-     (TWVBrowser(ABrowser).Owner is TTabSheet) then
-    Result := TTabSheet(TWVBrowser(ABrowser).Owner).PageIndex;
+     (TWVBrowser(ABrowser).Owner is TCTabSheet) then
+    Result := TCTabSheet(TWVBrowser(ABrowser).Owner).PageIndex;
 end;
 
 // 【DL対応】 恒久的なOnDownloadStartingハンドラ：
@@ -1168,65 +1187,57 @@ begin
       FDownloads.Delete(i); // OwnsObjects=Trueのため自動で解放される
 end;
 
-// 【項番33】 「×」ボタンクリック時のハンドラ：対象タブをRemoveする
-// (Senderが実際に何を渡すかはLCLの実装本体で未確認のため、実機での確認が必要)
-procedure TCTabBrowser.DoCloseTabClicked(Sender: TObject);
+// 【項番33】 タブの「×」・右クリックの「閉じる」・タブ一覧の「×」で閉じる。
+// OnPageClose（CanClose := False で取りやめ）を呼んでから、自分の Remove で閉じる。
+// TCPageControl の標準の閉じ方（Free）を使わないのは、Browser のイベントを外してから閉じる必要があるため。
+procedure TCTabBrowser.CloseByUser(APage: TCTabSheet);
 var
-  TabSheet: TTabSheet;
+  CanClose: Boolean;
+  Idx: Integer;
 begin
-  TabSheet := nil;
-
-  if Sender is TTabSheet then
-    TabSheet := TTabSheet(Sender)
-  else if Sender = Self then
-    TabSheet := ActivePage; // Senderがコントロール自体の場合のフォールバック
-
-  if Assigned(TabSheet) then
-    Remove(TabSheet.PageIndex);
+  if APage = nil then Exit;
+  Idx := IndexOf(APage);
+  if Idx < 0 then Exit;
+  CanClose := True;
+  if Assigned(OnPageClose) then
+    OnPageClose(Self, APage, CanClose);
+  if CanClose then
+    Remove(Idx);
 end;
 
-// 【項番33】 右クリック時、クリックされたタブを特定して記憶する。
-// タブ以外（余白部分）を右クリックした場合はメニューを出さない。
-procedure TCTabBrowser.HandleTabContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
-var
-  i: Integer;
-  Sep: TMenuItem;
+procedure TCTabBrowser.DoCloseButtonClick(APage: TCTabSheet);
 begin
-  FContextMenuTabIndex := IndexOfTabAt(MousePos.X, MousePos.Y);
-  Handled := (FContextMenuTabIndex < 0); // タブ以外なら既定のメニュー表示を抑止
-  if Handled then Exit;
-
-  // 【右クリックメニュー】 アプリが右クリックしたタブを知れるように記録する
-  FContextTabIndex := FContextMenuTabIndex;
-
-  // 【右クリックメニュー】 前回写したアプリの項目を消す（「閉じる」だけを残す）
-  for i := FTabPopupMenu.Items.Count - 1 downto 0 do
-    if FTabPopupMenu.Items[i] <> FCloseMenuItem then
-      FTabPopupMenu.Items[i].Free;
-
-  if not Assigned(FHeaderPopupMenu) then Exit;
-
-  // 【右クリックメニュー】 アプリが項目の状態を合わせられるよう、先に OnPopup を呼ぶ
-  if Assigned(FHeaderPopupMenu.OnPopup) then
-    FHeaderPopupMenu.OnPopup(FHeaderPopupMenu);
-  // OnPopup の中で HeaderPopupMenu が外されることもあるため、もう一度確かめる
-  if not Assigned(FHeaderPopupMenu) then Exit;
-
-  // 【右クリックメニュー】 「閉じる」→ 区切り線 → アプリの項目 の順に並べる。
-  // 表示する項目が1つも無ければ、区切り線も入れない。
-  Sep := TMenuItem.Create(FTabPopupMenu);
-  Sep.Caption := '-';
-  FTabPopupMenu.Items.Add(Sep);
-  CopyMenuToHeader(FHeaderPopupMenu.Items, FTabPopupMenu.Items);
-  if FTabPopupMenu.Items[FTabPopupMenu.Items.Count - 1] = Sep then
-    Sep.Free;
+  CloseByUser(APage);
 end;
 
-// 【項番33】 「閉じる」メニュー項目クリック時：記憶しておいたタブをRemoveする
-procedure TCTabBrowser.CloseMenuItemClick(Sender: TObject);
+procedure TCTabBrowser.DoMenuCloseClick(APage: TCTabSheet);
 begin
-  if FContextMenuTabIndex >= 0 then
-    Remove(FContextMenuTabIndex);
+  CloseByUser(APage);
+end;
+
+procedure TCTabBrowser.DoTabListCloseClick(APage: TCTabSheet);
+begin
+  CloseByUser(APage);
+end;
+
+// 【＋ボタン・右クリックの「新しいタブ」】 TCPageControl が空のページを作るのではなく、
+// 「新規作成」と同じ決まり（OnNewTabRequest で URL を決めて Add）で、WebView2 つきのタブを作る
+procedure TCTabBrowser.DoAddButtonClick;
+begin
+  NewTabMenuClick(Self);
+end;
+
+procedure TCTabBrowser.DoMenuNewClick;
+begin
+  NewTabMenuClick(Self);
+end;
+
+// 【右クリックメニュー】 見出しを右クリックしたタブの番号を、ContextTabIndex に記録する。
+// アプリの TPopupMenu の OnPopup より前に呼ばれる（TCPageControl.ShowTabMenu）。タブの無い所なら -1
+procedure TCTabBrowser.DoTabMenuRequested(APage: TCTabSheet);
+begin
+  inherited DoTabMenuRequested(APage);
+  FContextTabIndex := IndexOf(APage);
 end;
 
 // 【項番10】 テキストファイル読み込み表示
@@ -1823,12 +1834,19 @@ end;
 
 // HeaderPopupMenu の設定。同じ TPopupMenu を PagePopupMenu にも指定できるため、
 // 破棄の通知の登録は、もう一方で使っていないときだけ外す
+// 見出しのメニューは TCPageControl が出す。アプリの項目は、その TabPopupMenu に渡す
+// （「閉じる」の後ろに区切り線と一緒に並び、OnPopup も先に呼ばれる）。
+// TabPopupMenu の付け替えで、TCPageControl 側が破棄の通知の登録を外すため、PagePopupMenu と同じ物なら登録し直す
 procedure TCTabBrowser.SetHeaderPopupMenu(const AValue: TPopupMenu);
+var
+  OldMenu: TPopupMenu;
 begin
   if FHeaderPopupMenu = AValue then Exit;
-  if Assigned(FHeaderPopupMenu) and (FHeaderPopupMenu <> FPagePopupMenu) then
-    FHeaderPopupMenu.RemoveFreeNotification(Self);
+  OldMenu := FHeaderPopupMenu;
   FHeaderPopupMenu := AValue;
+  TabPopupMenu := AValue;
+  if Assigned(OldMenu) and (OldMenu = FPagePopupMenu) then
+    OldMenu.FreeNotification(Self);
   if Assigned(FHeaderPopupMenu) then
     FHeaderPopupMenu.FreeNotification(Self);
 end;
@@ -1842,51 +1860,6 @@ begin
   FPagePopupMenu := AValue;
   if Assigned(FPagePopupMenu) then
     FPagePopupMenu.FreeNotification(Self);
-end;
-
-// 見出しのメニューへ、ASrc の子項目を写す。
-// 写した項目の Tag に元の項目を持たせ、選ばれたら元の項目の Click を呼ぶ。
-procedure TCTabBrowser.CopyMenuToHeader(ASrc, ADest: TMenuItem);
-var
-  i: Integer;
-  S, N: TMenuItem;
-begin
-  for i := 0 to ASrc.Count - 1 do
-  begin
-    S := ASrc.Items[i];
-    if not S.Visible then Continue;   // 非表示の項目は写さない
-
-    N := TMenuItem.Create(FTabPopupMenu);
-    if S.IsLine then
-      N.Caption := '-'                // 区切り線
-    else
-    begin
-      N.Caption := S.Caption;         // & のアクセスキーもそのまま
-      N.Enabled := S.Enabled;
-      N.Checked := S.Checked;
-      N.ShortCut := S.ShortCut;       // 見出しでは表示される
-      N.Tag := PtrInt(S);
-      if S.Count = 0 then
-        N.OnClick := HeaderCopyItemClick;
-    end;
-    ADest.Add(N);
-
-    // 子項目があればサブメニューにして、同じ決まりで写す
-    if (not S.IsLine) and (S.Count > 0) then
-      CopyMenuToHeader(S, N);
-  end;
-end;
-
-// 見出しに写した項目が選ばれたとき：元の項目がまだアプリのメニューにあれば Click を呼ぶ
-// （OnClick・Action・AutoCheck は LCL の通常の動作になる）
-procedure TCTabBrowser.HeaderCopyItemClick(Sender: TObject);
-var
-  Src: TMenuItem;
-begin
-  if not (Sender is TMenuItem) then Exit;
-  Src := TMenuItem(TMenuItem(Sender).Tag);
-  if Assigned(FHeaderPopupMenu) and MenuContainsItem(FHeaderPopupMenu.Items, Src) then
-    Src.Click;
 end;
 
 // ページ部分のメニューに項目を1つ足す。
@@ -2004,10 +1977,13 @@ begin
     MenuList := Args.MenuItems;
     if not Assigned(MenuList) then Exit;
 
-    // 部品の項目
-    AddPageMenuItem(MenuList, Browser, '', COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_SEPARATOR, pmaNone, nil, True, False);
-    AddPageMenuItem(MenuList, Browser, CXT(sTbNew), COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaNew, nil, True, False);
-    AddPageMenuItem(MenuList, Browser, CXT(sTbClose), COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaClose, nil, True, False);
+    // 部品の項目（SingleTab のときは、「新規作成」「閉じる」を出さない）
+    if not FSingleTab then
+    begin
+      AddPageMenuItem(MenuList, Browser, '', COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_SEPARATOR, pmaNone, nil, True, False);
+      AddPageMenuItem(MenuList, Browser, CXT(sTbNew), COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaNew, nil, True, False);
+      AddPageMenuItem(MenuList, Browser, CXT(sTbClose), COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, pmaClose, nil, True, False);
+    end;
 
     // アプリの項目（アプリが項目の状態を合わせられるよう、先に OnPopup を呼ぶ）
     if Assigned(FPagePopupMenu) then

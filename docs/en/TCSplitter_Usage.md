@@ -6,13 +6,15 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Overview and Classes
 
 A splitter used in the same way as TSplitter. A colored line appears when the mouse is over it and while it is being dragged. With the standard TSplitter, the look does not change when the mouse is over it.
 
 | Item | Contents |
 |---|---|
-| Lazarus | 4.8, 5.0RC1 |
+| Lazarus | 5.0RC1 or later |
 | FPC | 3.2.2 |
 | OS | Windows 11 (64-bit) |
 | Palette | CX |

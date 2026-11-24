@@ -6,6 +6,8 @@ Version: 1.6
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose and Policy
 
 - TCaiClient is a non-visual component (`TComponent`) that lets an application call an AI API.

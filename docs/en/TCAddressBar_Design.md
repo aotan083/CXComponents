@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose and Policy
 
 - A component equivalent to the Windows Explorer address bar (back, forward, up, breadcrumbs, path input, history, refresh). It works together with TCListView and TCTreeView.

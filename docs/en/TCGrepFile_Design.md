@@ -6,6 +6,8 @@ Version: 1.0
 
 ---
 
+**Operating environment**: Lazarus 5.0 or later (FPC 3.2.2). Lazarus 4.8 and earlier are not supported.
+
 ## 1. Purpose and Policy
 
 - A component (`TCGrepFile`) that **searches the files in a folder by the text inside them** (grep search). A `TComponent` without a screen of its own. It can be used on its own.

@@ -18,7 +18,7 @@ TSynEdit を元に、次を足したテキストエディタを作る。
 - 状態の変化（ファイル名・挿入/上書き・カーソル・元に戻す/やり直し・変更あり・選択・フォーカス）を知らせるイベント。
 - ファイルのドロップ、Ctrl+S・Shift+F10・F12・Ctrl+ホイールの操作。
 
-**動作環境**：Lazarus 5.0 以降（テストは 5.0 RC1）。Lazarus 4.8 は、cx パッケージのコンパイルが通るようにするだけで、動作の確認・テストはしない（4.8 で不具合が出ても直さない）。版で分けるコードはない（4.8 の名前で書き、5.0 でもそのまま通る）。5.0 では `TSynHighlighterAttributes`・`TSynCustomHighlighter`・`SYN_ATTR_…`・`SetLine`・`SetRange` などが「古い書き方」の警告になるが、動きは同じ（Lazarus 5.99 で取り除かれる予定。そのときに書き直す）。
+**動作環境**：Lazarus 5.0 以降（テストは 5.0 RC1）。版で分けるコードはない。5.0 では `TSynHighlighterAttributes`・`TSynCustomHighlighter`・`SYN_ATTR_…`・`SetLine`・`SetRange` などが「古い書き方」の警告になるが、動きは同じ（Lazarus 5.99 で取り除かれる予定。そのときに書き直す）。
 
 TCsEditor（`TCsEditor_Design.md`）は、この部品を 1 タブに 1 つ持つ。TCsEditor が使うのは、配色 `csVSLight`・`csVSDark`、`Language`、`ApplyEditStyle`（継承して色を足す）、`CSLanguageForFile`。
 
@@ -351,7 +351,7 @@ Loaded：`inherited` のあと `ApplyEditStyle`（読み込みが終わってか
 **それ以外（Pascal 以外の色分け、または `csVSLight`・`csVSDark`）**：次の順で入れる。
 
 1. すべての属性（`Highlighter.AttrCount` 個の `Highlighter.Attribute[i]`）を、文字色 `Text`・背景 `Bg`・`Style := []` にする（表にない属性が、白い背景向けの既定の色のまま残らないように）。
-   - ただし「上書き用の属性」（Lazarus 5.0 の `TLazEditTextAttributeModifier` の子孫。4.8 では `TSynHighlighterAttributesModifier` の子孫）は、文字色・背景・枠を `clNone`、`Style := []` にする。上書き用の属性は、元の属性（コメント・文字列など）の色の上に重ねて使われるため、`Text` を入れると元の色が消える（例：Pascal の `Ansi Comment`・`Curly Comment`・`Slash Comment` が `Comment` の緑を、`String_Singlequote` などが `Str` の色を白で消す）。`clNone` なら元の属性の色がそのまま出る。
+   - ただし「上書き用の属性」（Lazarus 5.0 の `TLazEditTextAttributeModifier` の子孫）は、文字色・背景・枠を `clNone`、`Style := []` にする。上書き用の属性は、元の属性（コメント・文字列など）の色の上に重ねて使われるため、`Text` を入れると元の色が消える（例：Pascal の `Ansi Comment`・`Curly Comment`・`Slash Comment` が `Comment` の緑を、`String_Singlequote` などが `Str` の色を白で消す）。`clNone` なら元の属性の色がそのまま出る。
    - 上書き用かどうかは、クラスの親をたどり、名前が `TLazEditTextAttributeModifier` か `TSynHighlighterAttributesModifier` のものがあるかで決める（版で分けるコードを作らないため）。
 2. どの色分けにもある属性（`GetDefaultAttribute(…)`。nil なら飛ばす）に入れる。`GetDefaultAttribute` は色分けの基のクラスで protected なので、implementation に継承しただけのクラス `THlAccess = class(TSynCustomHighlighter)` を置き、`THlAccess(Highlighter).GetDefaultAttribute(…)` で呼ぶ。`Highlighter` プロパティの型は 5.0 では `TLazEditCustomHighlighter` なので、属性の一覧（`AttrCount`・`Attribute[i]`）も `TSynCustomHighlighter(Highlighter)` にしてから読む。
 
@@ -510,7 +510,7 @@ TCMonacoEditor と同じく、行番号の欄をクリック・ドラッグし�
 
 ### 9.1 クラス
 
-- 属性の型は `TSynHighlighterAttributes`（4.8 の名前。5.0 では警告が出るが、そのまま通る）。`GetTokenAttribute` の戻り値も `TSynHighlighterAttributes`。
+- 属性の型は `TSynHighlighterAttributes`（5.0 では警告が出るが、そのまま通る）。`GetTokenAttribute` の戻り値も `TSynHighlighterAttributes`。
 
 ```pascal
 TCSynMarkdownSyn = class(TSynCustomHighlighter)
@@ -631,7 +631,7 @@ TCMdTokenKind = (mtText, mtSpace, mtHeading, mtStrong, mtEmphasis, mtCode,
 | 6 | `ApplyEditStyle` | private | protected virtual（5.3） | TCsEditor の中の部品が、カーソル行などの色を足すため | なし（動きは変わらない） |
 | 7 | `Language` | なし | public のプロパティ（5.2・7.2） | TCsEditor が言語を決めるため | なし |
 | 8 | 取説 7.2 の注意 | 「`OnKeyDown` で `Key := 0` にすると部品の動作が止まる」 | 「フォームの `KeyPreview` と `OnKeyDown` で止める」（7.8） | コードの動き（`OnKeyDown` より先に処理する）と合っていなかったため | 取説だけの変更（コードは変えない） |
-| 9 | 動作環境 | Lazarus 4.8・5.0 RC1 | 5.0 以降。4.8 は cx のコンパイルが通るだけ（1章）。版で分けるコードはない | 5.0 の SynEdit が変わったため | 4.8 で TCSynEdit を使ったアプリは、動作を保証しない。5.0 で「古い書き方」の警告が出る |
+| 9 | 動作環境 | Lazarus 4.8・5.0 RC1 | 5.0 以降。版で分けるコードはない | 5.0 の SynEdit が変わったため | 5.0 で「古い書き方」の警告が出る |
 | 10 | 使っていない自分の色分け | 残る | 言語を切り替えたときに壊す（7.2） | アプリが自分の色分けを入れたとき、最初の色分けが残っていたため | なし |
 | 11 | 数値の色 | Pascal だけ | `NumberAttri` がある色分けすべて（7.4.3） | 5.0 の色分けの多くは、数値を「どの色分けにもある属性」で返さないため | なし |
 | 12 | 上書き用の属性 | 手順 1 で `Text` の色を入れる | `clNone` にする（7.4.3 の手順 1） | Pascal のコメント・文字列が白になり、色分けされなかったため | Pascal の宣言部の名前など、上書き用の属性で色が決まっていた部分は、元の属性の色になる。`csVSLight` も同じく直る |

@@ -44,8 +44,14 @@ type
   private
     FImageIndex: TImageIndex;
     FTabVisible: Boolean;
+    FModified: Boolean;
+    FTabColorActive: TColor;
+    FTabColorOver: TColor;
     FOnShow: TNotifyEvent;
     FOnHide: TNotifyEvent;
+    procedure SetModified(AValue: Boolean);
+    procedure SetTabColorActive(AValue: TColor);
+    procedure SetTabColorOver(AValue: TColor);
     function GetPageControl: TCPageControl;
     function GetPageIndex: Integer;
     function GetTabIndex: Integer;
@@ -66,6 +72,11 @@ type
     procedure RefreshShowing;
     property PageControl: TCPageControl read GetPageControl write SetPageControl;
     property TabIndex: Integer read GetTabIndex;
+    { 変更あり。True のタブは、［×］の場所に「●」を出す（マウスを乗せると［×］になる）。実行時に使う }
+    property Modified: Boolean read FModified write SetModified;
+    { このタブだけの色（表示中のとき・マウスを乗せたとき）。clDefault なら、タブ列の指定（ActiveTabColor・HotTabColor）に従う。実行時に使う }
+    property TabColorActive: TColor read FTabColorActive write SetTabColorActive;
+    property TabColorOver: TColor read FTabColorOver write SetTabColorOver;
   published
     property Caption;
     property Color default clWindow;
@@ -113,6 +124,14 @@ type
   TCPageRenameEvent = procedure(Sender: TObject; APage: TCTabSheet; var ACaption: string;
     var CanRename: Boolean) of object;
   TCPageMovedEvent  = procedure(Sender: TObject; APage: TCTabSheet; AOldIndex, ANewIndex: Integer) of object;
+  { TCTabBar のイベントの型 }
+  TCTabIndexEvent   = procedure(Sender: TObject; AIndex: Integer) of object;
+  { タブをドラッグして、タブ列の外で離した。AScreenPos は離した画面の位置、ATarget はその位置の部品（無ければ nil） }
+  TCTabDragOutEvent = procedure(Sender: TObject; AIndex: Integer; const AScreenPos: TPoint;
+    ATarget: TControl) of object;
+
+  { タブ列の色の番号（TCPageControl の ActiveTabColor など。clDefault なら、システムの色で決まる） }
+  TCStripColorKind = (sckActive, sckActiveText, sckText, sckModifiedText, sckHot, sckButton, sckSeparator);
 
   { タブ列の上の場所の種類 }
   TCStripHitKind = (shNone, shTab, shTabClose, shPrev, shNext, shAdd, shList);
@@ -234,6 +253,11 @@ type
     FTabShape: TCTabShape;
     FOptions: TCTabControlOptions;
     FShowTabListButton: Boolean;
+    FShowTabs: Boolean;           // False のときタブ列を隠す（TCTabBrowser の HideSingleTab が使う）
+    FStripColors: array[TCStripColorKind] of TColor;  // 色の指定（clDefault＝システムの色）。sckSeparator だけ clNone＝出さない
+    FActiveMarkSize: Integer;     // 表示中のタブの線の太さ（96dpi の px）。0 なら出さない
+    FActiveMarkColor: TColor;
+    FActiveMarkAtBottom: Boolean; // True ならタブの下に、False ならタブの上に出す
     FNewPageCaption: string;
     FTabMenuItems: TCTabMenuItems;
     FTabPopupMenu: TPopupMenu;
@@ -263,6 +287,12 @@ type
     procedure SetNewPageCaption(const AValue: string);
     procedure SetOptions(AValue: TCTabControlOptions);
     procedure SetShowTabListButton(AValue: Boolean);
+    procedure SetShowTabs(AValue: Boolean);
+    function GetStripColor(AIndex: Integer): TColor;
+    procedure SetStripColor(AIndex: Integer; AValue: TColor);
+    procedure SetActiveMarkSize(AValue: Integer);
+    procedure SetActiveMarkColor(AValue: TColor);
+    procedure SetActiveMarkAtBottom(AValue: Boolean);
     procedure SetTabHeight(AValue: Smallint);
     procedure SetTabMaxWidth(AValue: Integer);
     procedure SetTabPopupMenu(AValue: TPopupMenu);
@@ -300,6 +330,14 @@ type
     procedure DoAppMenuItemClick(AItem: TMenuItem; APage: TCTabSheet); virtual;
     procedure DoTabListItemClick(APage: TCTabSheet); virtual;
     procedure DoTabListCloseClick(APage: TCTabSheet); virtual;
+    { 右クリックメニューを出す直前（APage = 右クリックしたタブ。タブの無い所なら nil）。何もしない。継いだ部品が使う }
+    procedure DoTabMenuRequested(APage: TCTabSheet); virtual;
+    { タブをドラッグして、タブ列の外で離した（Esc で取り消したときは来ない）。何もしない。継いだ部品が使う }
+    procedure DoTabDragOut(APage: TCTabSheet; const AScreenPos: TPoint; ATarget: TControl); virtual;
+    { タブ列の上でマウスの左ボタンを離した（タブ・［×］・［＋］などの処理のあと）。何もしない。継いだ部品が使う }
+    procedure DoStripMouseUp(AButton: TMouseButton; AShift: TShiftState; X, Y: Integer); virtual;
+    { タブ列の並べ直し・描き直しのあと。何もしない。継いだ部品が使う }
+    procedure DoStripLayouted; virtual;
     procedure DoEditCaptionConfirm(const AText: string); virtual;
     procedure DoEditCaptionCancel; virtual;
     { 内部 }
@@ -340,6 +378,8 @@ type
     property Pages[Index: Integer]: TCTabSheet read GetPage;
     property PopupPage: TCTabSheet read FPopupPage;
     property TabStrip: TCTabStrip read FStrip;
+    { タブ列を出すか（既定 True）。False にするとタブ列を隠し、ページだけを出す }
+    property ShowTabs: Boolean read FShowTabs write SetShowTabs default True;
   published
     property ActivePage: TCTabSheet read GetActivePage write SetActivePage;
     property TabIndex: Integer read FPageIndex write SetActivePageIndex default -1;
@@ -351,7 +391,7 @@ type
     property TabMaxWidth: Integer read FTabMaxWidth write SetTabMaxWidth default 240;
     property TabShape: TCTabShape read FTabShape write SetTabShape default tsRectangle;
     property Options: TCTabControlOptions read FOptions write SetOptions
-      default [nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch];
+      default [nboKeyboardTabSwitch];
     property ShowTabListButton: Boolean read FShowTabListButton write SetShowTabListButton default True;
     property NewPageCaption: string read FNewPageCaption write SetNewPageCaption stored IsNewPageCaptionStored;
     property TabMenuItems: TCTabMenuItems read FTabMenuItems write FTabMenuItems
@@ -359,6 +399,19 @@ type
     property TabPopupMenu: TPopupMenu read FTabPopupMenu write SetTabPopupMenu;
     property TabListPopupMenu: TPopupMenu read FTabListPopupMenu write SetTabListPopupMenu;
     property TitleBar: TCTitleBar read FTitleBar write SetTitleBar;
+    { 表示中のタブの線。ActiveMarkSize が 0（既定値）なら出さない }
+    property ActiveMarkSize: Integer read FActiveMarkSize write SetActiveMarkSize default 0;
+    property ActiveMarkColor: TColor read FActiveMarkColor write SetActiveMarkColor default clHighlight;
+    property ActiveMarkAtBottom: Boolean read FActiveMarkAtBottom write SetActiveMarkAtBottom default False;
+    { 色の指定。clDefault（既定値）なら、システムの色（clWindow・clBtnText など）で決まる }
+    property ActiveTabColor: TColor index 0 read GetStripColor write SetStripColor default clDefault;
+    property ActiveTextColor: TColor index 1 read GetStripColor write SetStripColor default clDefault;
+    property TabTextColor: TColor index 2 read GetStripColor write SetStripColor default clDefault;
+    property ModifiedTextColor: TColor index 3 read GetStripColor write SetStripColor default clDefault;
+    property HotTabColor: TColor index 4 read GetStripColor write SetStripColor default clDefault;
+    property ButtonColor: TColor index 5 read GetStripColor write SetStripColor default clDefault;
+    { タブとタブの間の区切り線の色。clNone（既定値）なら出さない }
+    property SeparatorColor: TColor index 6 read GetStripColor write SetStripColor default clNone;
     property Color default clBtnFace;
     property Align;
     property Anchors;
@@ -404,6 +457,54 @@ type
     property OnStartDrag;
   end;
 
+  { TCTabBar
+    ページを持たない、タブ列だけの部品。エディタのタブのように、画面の切り替えはアプリが行うときに使う。
+    TCPageControl を継ぎ、ページの場所を持たない高さ（＝タブ列の高さ）にして使う。
+    ・タブ 1 つ = TCTabSheet 1 枚（Caption・ImageIndex・Hint・Modified・Tag（アプリの値）・TabColorActive・TabColorOver）
+    ・［×］・［＋］は自動では何もしない。OnPageClose（CanClose）・OnTabPlusClick で知らせるので、アプリが決める
+    ・タブの並べ替えは自動。OnPageMoved で知らせる
+    ・タブ列の外へドラッグして離すと、OnTabDragOut で知らせる }
+
+  TCTabBar = class(TCPageControl)
+  private
+    FOnTabClick: TCTabIndexEvent;
+    FOnTabPlusClick: TNotifyEvent;
+    FOnTabMouseUp: TMouseEvent;
+    FOnTabDragOut: TCTabDragOutEvent;
+    function GetTabCount: Integer;
+    function GetTab(AIndex: Integer): TCTabSheet;
+    procedure FitHeight;
+  protected
+    procedure DoTabClick(APage: TCTabSheet); override;
+    procedure DoAddButtonClick; override;
+    procedure DoMenuNewClick; override;
+    procedure DoTabDragOut(APage: TCTabSheet; const AScreenPos: TPoint; ATarget: TControl); override;
+    procedure DoStripMouseUp(AButton: TMouseButton; AShift: TShiftState; X, Y: Integer); override;
+    procedure DoStripLayouted; override;
+    procedure Loaded; override;
+  public
+    constructor Create(TheOwner: TComponent); override;
+    { 末尾にタブを足して返す（表示中のタブは変えない。イベントは出さない） }
+    function AddTab(const ACaption: string; AData: PtrInt = 0; AModified: Boolean = False): TCTabSheet;
+    { すべてのタブを消す（OnPageClose は出ない） }
+    procedure ClearTabs;
+    property TabCount: Integer read GetTabCount;
+    property Tabs[AIndex: Integer]: TCTabSheet read GetTab;
+  published
+    property Align default alTop;
+    property Options default [nboShowCloseButtons, nboShowAddTabButton];
+    property ShowTabListButton default False;
+    property TabStop default False;
+    { タブを押した（同じタブを押したときも来る。ボタンを離す前）。AIndex は押したタブの番号 }
+    property OnTabClick: TCTabIndexEvent read FOnTabClick write FOnTabClick;
+    { ［＋］（右クリックの「新しいタブ」）を押した。タブはアプリが足す }
+    property OnTabPlusClick: TNotifyEvent read FOnTabPlusClick write FOnTabPlusClick;
+    { タブ列の上でマウスの左ボタンを離した（タブ・［×］・［＋］の処理のあと） }
+    property OnTabMouseUp: TMouseEvent read FOnTabMouseUp write FOnTabMouseUp;
+    { タブをドラッグして、タブ列の外で離した（Esc で取り消したときは来ない） }
+    property OnTabDragOut: TCTabDragOutEvent read FOnTabDragOut write FOnTabDragOut;
+  end;
+
 implementation
 
 uses
@@ -425,6 +526,7 @@ const
   CPC_TITLE_GAP  = 6;    // タイトルバー内でのタブの高さ＝タイトルバーの高さ−6
   CPC_SYMBOL     = 10;   // 記号の字の高さ
   CPC_SYMBOL_S   = 8;    // ［×］の記号の字の高さ
+  CPC_DOT_R      = 4;    // 変更ありの「●」の半径
   CPC_LIST_W     = 300;  // タブ一覧の幅
   CPC_LIST_ROW   = 28;   // タブ一覧の 1 行の高さ
   CPC_AUTOSCROLL = 20;   // ドラッグ中の自動スクロールが始まる端からの距離
@@ -496,6 +598,8 @@ begin
   ControlStyle := ControlStyle + [csAcceptsControls, csDesignFixedBounds, csNoDesignVisible, csNoFocus];
   FImageIndex := -1;
   FTabVisible := True;
+  FTabColorActive := clDefault;
+  FTabColorOver := clDefault;
   Color := clWindow;
   ParentColor := False;
   Align := alClient;
@@ -558,6 +662,34 @@ begin
       Inc(Result);
   end;
   Result := -1;
+end;
+
+{ タブを描き直すだけ（幅は変わらない） }
+procedure TCTabSheet.SetModified(AValue: Boolean);
+begin
+  if FModified = AValue then
+    Exit;
+  FModified := AValue;
+  if PageControl <> nil then
+    PageControl.PageChanged;
+end;
+
+procedure TCTabSheet.SetTabColorActive(AValue: TColor);
+begin
+  if FTabColorActive = AValue then
+    Exit;
+  FTabColorActive := AValue;
+  if PageControl <> nil then
+    PageControl.PageChanged;
+end;
+
+procedure TCTabSheet.SetTabColorOver(AValue: TColor);
+begin
+  if FTabColorOver = AValue then
+    Exit;
+  FTabColorOver := AValue;
+  if PageControl <> nil then
+    PageControl.PageChanged;
 end;
 
 procedure TCTabSheet.SetImageIndex(AValue: TImageIndex);
@@ -679,6 +811,8 @@ begin
   FPageControl := AOwner;
   ControlStyle := ControlStyle - [csAcceptsControls, csSetCaption] + [csNoDesignSelectable];
   DoubleBuffered := True;
+  ParentShowHint := False;
+  ShowHint := True;   // タブのヒント（TCTabSheet.Hint）を出すため。Hint が空なら何も出ない
   FScrollPos := 0;
   FDropIndex := -1;
   FRepeatTimer := TTimer.Create(Self);
@@ -1138,11 +1272,12 @@ var
   PC: TCPageControl;
   Pg: TCTabSheet;
   R, TR, CR, CloseBg: TRect;
-  Active, Hot, Down: Boolean;
-  Bg, Fg: TColor;
+  Active, Hot, Down, HotClose: Boolean;
+  Bg, Fg, HotC, SymCol: TColor;
   X, Img, IW, IH: Integer;
   TS: TTextStyle;
   Res: TScaledImageListResolution;
+  MarkR: TRect;
 begin
   PC := FPageControl;
   Pg := FTabs[AIndex].Page;
@@ -1150,17 +1285,44 @@ begin
   Active := Pg = PC.ActivePage;
   Hot := (FHot.Kind = shTab) and (FHot.Page = Pg);
   Down := (FDown.Kind = shTab) and (FDown.Page = Pg);
+  HotClose := (FHot.Kind = shTabClose) and (FHot.Page = Pg);
   // 背景
   if Active then
-    Bg := clWindow
+  begin
+    Bg := clWindow;
+    if PC.FStripColors[sckActive] <> clDefault then
+      Bg := PC.FStripColors[sckActive];
+    if Pg.TabColorActive <> clDefault then
+      Bg := Pg.TabColorActive;  // このタブだけの色
+  end
   else if Down then
     Bg := CXBlendColor(BackColor, clBtnText, 20)
-  else if Hot or ((FHot.Kind = shTabClose) and (FHot.Page = Pg)) then
+  else if Hot or HotClose then
     Bg := CXBlendColor(BackColor, clBtnText, 10)
   else
     Bg := clNone;
+  // マウスを乗せた（押した）タブの色の指定
+  if (not Active) and (Bg <> clNone) then
+  begin
+    HotC := Pg.TabColorOver;
+    if HotC = clDefault then
+      HotC := PC.FStripColors[sckHot];
+    if HotC <> clDefault then
+      Bg := HotC;
+  end;
   if Bg <> clNone then
     DrawShape(R, Bg);
+  // 表示中のタブの線（太さが 0 なら出さない）
+  if Active and (PC.ActiveMarkSize > 0) then
+  begin
+    if PC.ActiveMarkAtBottom then
+      MarkR := Rect(R.Left, R.Bottom - S96(PC.ActiveMarkSize), R.Right, R.Bottom)
+    else
+      MarkR := Rect(R.Left, R.Top, R.Right, R.Top + S96(PC.ActiveMarkSize));
+    Canvas.Brush.Style := bsSolid;
+    Canvas.Brush.Color := PC.ActiveMarkColor;
+    Canvas.FillRect(MarkR);
+  end;
   if Active then
     Fg := clWindowText
   else
@@ -1169,6 +1331,16 @@ begin
     Fg := clGrayText;  // 設計時の隠れたタブ
   if (PC.Font.Color <> clDefault) and (PC.Font.Color <> clWindowText) then
     Fg := PC.Font.Color;
+  // 文字の色の指定（変更ありのタブ、表示中のタブ、それ以外の順に強い）
+  if Pg.TabVisible then
+  begin
+    if Active and (PC.FStripColors[sckActiveText] <> clDefault) then
+      Fg := PC.FStripColors[sckActiveText]
+    else if (not Active) and (PC.FStripColors[sckText] <> clDefault) then
+      Fg := PC.FStripColors[sckText];
+    if Pg.Modified and (PC.FStripColors[sckModifiedText] <> clDefault) then
+      Fg := PC.FStripColors[sckModifiedText];
+  end;
 
   X := R.Left + S96(CPC_PAD);
   // アイコン
@@ -1204,7 +1376,7 @@ begin
   if nboShowCloseButtons in PC.Options then
   begin
     CR := TabCloseRect(R);
-    if (FHot.Kind = shTabClose) and (FHot.Page = Pg) then
+    if HotClose then
     begin
       CloseBg := Rect(0, 0, S96(CPC_CLOSE_SIZE), S96(CPC_CLOSE_SIZE));
       Types.OffsetRect(CloseBg, (CR.Left + CR.Right - S96(CPC_CLOSE_SIZE)) div 2,
@@ -1214,7 +1386,23 @@ begin
       else
         DrawShape(CloseBg, CXBlendColor(Bg, clBtnText, 20));
     end;
-    DrawSymbol(CR, SYM_CLOSE, Fg, S96(CPC_SYMBOL_S));
+    if PC.FStripColors[sckButton] <> clDefault then
+      SymCol := PC.FStripColors[sckButton]
+    else
+      SymCol := Fg;
+    if Pg.Modified and not HotClose then
+    begin
+      // 変更あり：［×］の場所に「●」（マウスを乗せると［×］になる）
+      Canvas.Brush.Style := bsSolid;
+      Canvas.Brush.Color := SymCol;
+      Canvas.Pen.Style := psClear;
+      X := S96(CPC_DOT_R);
+      Canvas.Ellipse((CR.Left + CR.Right) div 2 - X, (CR.Top + CR.Bottom) div 2 - X,
+        (CR.Left + CR.Right) div 2 + X + 1, (CR.Top + CR.Bottom) div 2 + X + 1);
+      Canvas.Pen.Style := psSolid;
+    end
+    else
+      DrawSymbol(CR, SYM_CLOSE, SymCol, S96(CPC_SYMBOL_S));
   end;
 end;
 
@@ -1233,7 +1421,12 @@ begin
       DrawShape(R, CXBlendColor(BackColor, clBtnText, 10));
   end;
   if AEnabled then
-    Fg := clBtnText
+  begin
+    if FPageControl.FStripColors[sckButton] <> clDefault then
+      Fg := FPageControl.FStripColors[sckButton]
+    else
+      Fg := clBtnText;
+  end
   else
     Fg := clGrayText;
   DrawSymbol(R, ACode, Fg, S96(CPC_SYMBOL));
@@ -1258,6 +1451,15 @@ begin
     if (R.Right <= FViewRect.Left) or (R.Left >= FViewRect.Right) then
       Continue;
     PaintTab(I);
+    // タブとタブの間の区切り線（表示中のタブの両側には出さない）
+    if (FPageControl.FStripColors[sckSeparator] <> clNone) and (I < High(FTabs)) and
+       (FTabs[I].Page <> FPageControl.ActivePage) and (FTabs[I + 1].Page <> FPageControl.ActivePage) then
+    begin
+      X := R.Right + S96(CPC_TAB_GAP) div 2;
+      Canvas.Pen.Style := psSolid;
+      Canvas.Pen.Color := FPageControl.FStripColors[sckSeparator];
+      Canvas.Line(X, R.Top + S96(6), X, R.Bottom - S96(6));
+    end;
   end;
   Canvas.Clipping := False;
   // ボタン
@@ -1364,6 +1566,11 @@ begin
   if not SameHit(H, FHot) then
   begin
     FHot := H;
+    // タブのヒント（TCTabSheet.Hint）
+    if (H.Kind in [shTab, shTabClose]) and (H.Page <> nil) then
+      Hint := H.Page.Hint
+    else
+      Hint := '';
     Invalidate;
   end;
 end;
@@ -1376,11 +1583,20 @@ begin
   if csDesigning in FPageControl.ComponentState then
     Exit;
   FRepeatTimer.Enabled := False;
+  // 中ボタンでタブを閉じる（［×］を出しているとき）
+  if (Button = mbMiddle) and (nboShowCloseButtons in FPageControl.Options) then
+  begin
+    H := HitTest(Point(X, Y));
+    if (H.Kind in [shTab, shTabClose]) and (H.Page <> nil) then
+      FPageControl.DoCloseButtonClick(H.Page);
+    Exit;
+  end;
   if Button <> mbLeft then
     Exit;
   if FDragging then
   begin
     FinishDrag(Point(X, Y));
+    FPageControl.DoStripMouseUp(Button, Shift, X, Y);
     Exit;
   end;
   FDragPage := nil;
@@ -1395,6 +1611,7 @@ begin
       shAdd: FPageControl.DoAddButtonClick;
     end;
   Invalidate;
+  FPageControl.DoStripMouseUp(Button, Shift, X, Y);
 end;
 
 procedure TCTabStrip.MouseLeave;
@@ -1514,10 +1731,18 @@ procedure TCTabStrip.FinishDrag(const P: TPoint);
 var
   Pg: TCTabSheet;
   OldIdx, NewIdx, Drop: Integer;
+  SP: TPoint;
 begin
   Pg := FDragPage;
   Drop := FDropIndex;
   CancelDrag;
+  // タブ列の外で離した：並べ替えはしない。離した位置とその位置の部品を知らせる（別の場所へ移す部品が使う）
+  if (Pg <> nil) and not PtInRect(ClientRect, P) then
+  begin
+    SP := ClientToScreen(P);
+    FPageControl.DoTabDragOut(Pg, SP, FindDragTarget(SP, True));
+    Exit;
+  end;
   // タブ列の外では落とせない
   if (Pg = nil) or not PtInRect(ClientRect, P) or (Drop < 0) then
     Exit;
@@ -1683,6 +1908,13 @@ function TCTabListView.CloseRect(ARow: Integer): TRect;
 var
   S: Integer;
 begin
+  if not (nboShowCloseButtons in FPopup.FPageControl.Options) then
+  begin
+    // 閉じ禁止：当たり判定なし（右端）
+    Result := Rect(ClientWidth - CXScale96(FPopup.FPageControl, 4), ARow * RowHeight,
+      ClientWidth - CXScale96(FPopup.FPageControl, 4), (ARow + 1) * RowHeight);
+    Exit;
+  end;
   S := CXScale96(FPopup.FPageControl, CPC_CLOSE_HIT);
   Result := Rect(ClientWidth - S - CXScale96(FPopup.FPageControl, 4), ARow * RowHeight,
     ClientWidth - CXScale96(FPopup.FPageControl, 4), (ARow + 1) * RowHeight);
@@ -1772,7 +2004,9 @@ begin
       Canvas.FillRect(CR);
     end;
     FontName := CXSymbolFontName;
-    if FontName <> '' then
+    if not (nboShowCloseButtons in PC.Options) then
+      // 閉じ禁止：［×］を描かない
+    else if FontName <> '' then
     begin
       CXSetSymbolFont(Canvas, FontName, CXScale96(PC, CPC_SYMBOL_S), Fg);
       TS.Alignment := taCenter;
@@ -2085,8 +2319,17 @@ begin
   FTabPosition := tpTop;
   FTabMaxWidth := 240;
   FTabShape := tsRectangle;
-  FOptions := [nboShowCloseButtons, nboShowAddTabButton, nboKeyboardTabSwitch];
+  FOptions := [nboKeyboardTabSwitch];
   FShowTabListButton := True;
+  FShowTabs := True;
+  FStripColors[sckActive] := clDefault;
+  FStripColors[sckActiveText] := clDefault;
+  FStripColors[sckText] := clDefault;
+  FStripColors[sckModifiedText] := clDefault;
+  FStripColors[sckHot] := clDefault;
+  FStripColors[sckButton] := clDefault;
+  FStripColors[sckSeparator] := clNone;
+  FActiveMarkColor := clHighlight;
   FNewPageCaption := CXT(sPcNewPage);
   FTabMenuItems := [tmiNew, tmiClose, tmiRename];
   FImageChangeLink := TChangeLink.Create;
@@ -2362,7 +2605,7 @@ begin
   end;
   if (OldParent is TCTitleBar) and (OldParent <> FStrip.Parent) then
     OldParent.ReAlign;
-  FStrip.Visible := True;
+  FStrip.Visible := FShowTabs;
   FStrip.LayoutTabs;
   FStrip.Invalidate;
   // タブ列の置き場所が変わったら、自分を並べ直し、描き直し、ページの表示を確かめ直す（D-19）
@@ -2620,6 +2863,7 @@ begin
   FStrip.LayoutTabs;
   if FListPopup <> nil then
     FListPopup.Invalidate;
+  DoStripLayouted;
 end;
 
 function TCPageControl.GetImageIndex(APageIndex: Integer): Integer;
@@ -2746,6 +2990,81 @@ end;
 procedure TCPageControl.DoTabListCloseClick(APage: TCTabSheet);
 begin
   ClosePageByUser(APage);
+end;
+
+procedure TCPageControl.DoTabMenuRequested(APage: TCTabSheet);
+begin
+  // 何もしない（継いだ部品が、右クリックしたタブを知るために上書きする）
+end;
+
+procedure TCPageControl.DoTabDragOut(APage: TCTabSheet; const AScreenPos: TPoint; ATarget: TControl);
+begin
+  // 何もしない（継いだ部品が、タブをほかの場所へ移すために上書きする）
+end;
+
+procedure TCPageControl.DoStripMouseUp(AButton: TMouseButton; AShift: TShiftState; X, Y: Integer);
+begin
+  // 何もしない（継いだ部品が上書きする）
+end;
+
+procedure TCPageControl.DoStripLayouted;
+begin
+  // 何もしない（継いだ部品が上書きする）
+end;
+
+{ 色の指定（TCStripColorKind の番号） }
+function TCPageControl.GetStripColor(AIndex: Integer): TColor;
+begin
+  Result := FStripColors[TCStripColorKind(AIndex)];
+end;
+
+procedure TCPageControl.SetStripColor(AIndex: Integer; AValue: TColor);
+begin
+  if FStripColors[TCStripColorKind(AIndex)] = AValue then
+    Exit;
+  FStripColors[TCStripColorKind(AIndex)] := AValue;
+  if FStrip <> nil then
+    FStrip.Invalidate;
+end;
+
+procedure TCPageControl.SetActiveMarkSize(AValue: Integer);
+begin
+  if AValue < 0 then
+    AValue := 0;
+  if FActiveMarkSize = AValue then
+    Exit;
+  FActiveMarkSize := AValue;
+  if FStrip <> nil then
+    FStrip.Invalidate;
+end;
+
+procedure TCPageControl.SetActiveMarkColor(AValue: TColor);
+begin
+  if FActiveMarkColor = AValue then
+    Exit;
+  FActiveMarkColor := AValue;
+  if FStrip <> nil then
+    FStrip.Invalidate;
+end;
+
+procedure TCPageControl.SetActiveMarkAtBottom(AValue: Boolean);
+begin
+  if FActiveMarkAtBottom = AValue then
+    Exit;
+  FActiveMarkAtBottom := AValue;
+  if FStrip <> nil then
+    FStrip.Invalidate;
+end;
+
+{ タブ列を出す・隠す。置き場所の更新（UpdateStripPlace）で Visible を合わせ、ページの場所を並べ直す }
+procedure TCPageControl.SetShowTabs(AValue: Boolean);
+begin
+  if FShowTabs = AValue then
+    Exit;
+  FShowTabs := AValue;
+  UpdateStripPlace;
+  ReAlign;
+  Invalidate;
 end;
 
 { その場編集の確定。空文字は取りやめと同じ。 }
@@ -2913,6 +3232,7 @@ var
   HasStd: Boolean;
 begin
   FPopupPage := APage;
+  DoTabMenuRequested(APage);
   if FMenu = nil then
     FMenu := TPopupMenu.Create(Self);
   FMenu.Items.Clear;
@@ -2927,7 +3247,7 @@ begin
   end;
   if APage <> nil then
   begin
-    if tmiClose in FTabMenuItems then
+    if (tmiClose in FTabMenuItems) and (nboShowCloseButtons in FOptions) then
     begin
       Item := TMenuItem.Create(FMenu);
       Item.Caption := CXT(sPcClose);
@@ -3155,6 +3475,97 @@ begin
       FTabWidth := Round(FTabWidth * AXProportion);
     PageChanged;
   end;
+end;
+
+{ ---- TCTabBar ---- }
+
+constructor TCTabBar.Create(TheOwner: TComponent);
+begin
+  inherited Create(TheOwner);
+  Options := [nboShowCloseButtons, nboShowAddTabButton];
+  ShowTabListButton := False;
+  TabStop := False;
+  Align := alTop;
+end;
+
+{ 高さをタブ列の高さに合わせる（ページの場所は持たない）。タイトルバーに載せているときは何もしない }
+procedure TCTabBar.FitHeight;
+var
+  H: Integer;
+begin
+  if (TabStrip = nil) or (TitleBar <> nil) or (csDestroying in ComponentState) then
+    Exit;
+  H := TabStrip.Height;
+  if (H > 0) and (Height <> H) then
+    Height := H;
+end;
+
+procedure TCTabBar.Loaded;
+begin
+  inherited Loaded;
+  FitHeight;
+end;
+
+procedure TCTabBar.DoStripLayouted;
+begin
+  inherited DoStripLayouted;
+  FitHeight;
+end;
+
+function TCTabBar.GetTabCount: Integer;
+begin
+  Result := PageCount;
+end;
+
+function TCTabBar.GetTab(AIndex: Integer): TCTabSheet;
+begin
+  Result := Pages[AIndex];
+end;
+
+function TCTabBar.AddTab(const ACaption: string; AData: PtrInt; AModified: Boolean): TCTabSheet;
+begin
+  Result := AddTabSheet;
+  Result.Caption := ACaption;
+  Result.Tag := AData;
+  Result.Modified := AModified;
+end;
+
+procedure TCTabBar.ClearTabs;
+begin
+  Clear;
+end;
+
+procedure TCTabBar.DoTabClick(APage: TCTabSheet);
+begin
+  inherited DoTabClick(APage);
+  if Assigned(FOnTabClick) then
+    FOnTabClick(Self, IndexOf(APage));
+end;
+
+{ ［＋］・右クリックの「新しいタブ」：空のページは作らず、アプリに知らせるだけ }
+procedure TCTabBar.DoAddButtonClick;
+begin
+  if Assigned(FOnTabPlusClick) then
+    FOnTabPlusClick(Self);
+end;
+
+procedure TCTabBar.DoMenuNewClick;
+begin
+  DoAddButtonClick;
+end;
+
+procedure TCTabBar.DoTabDragOut(APage: TCTabSheet; const AScreenPos: TPoint; ATarget: TControl);
+begin
+  inherited DoTabDragOut(APage, AScreenPos, ATarget);
+  if Assigned(FOnTabDragOut) then
+    FOnTabDragOut(Self, IndexOf(APage), AScreenPos, ATarget);
+end;
+
+procedure TCTabBar.DoStripMouseUp(AButton: TMouseButton; AShift: TShiftState; X, Y: Integer);
+begin
+  inherited DoStripMouseUp(AButton, AShift, X, Y);
+  if Assigned(FOnTabMouseUp) then
+    FOnTabMouseUp(Self, AButton, AShift, X, Y);
 end;
 
 initialization
